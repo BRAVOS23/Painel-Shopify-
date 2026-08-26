@@ -250,9 +250,6 @@
     box-shadow:var(--shadow-popover); width:560px; max-width:calc(100vw - 40px);
   }
   .daterange-panel.open{ display:flex; gap:16px; }
-  /* quando o gatilho fica perto da borda direita da página (ex: o seletor da "Visão geral", que fica
-     encostado à direita do h2), abrir pra direita (left:0) faz o painel de 560px vazar pra fora da tela */
-  .daterange-panel.align-right{ left:auto; right:0; }
   .daterange-presets{ display:flex; flex-direction:column; gap:2px; width:158px; flex-shrink:0; border-right:1px solid var(--panel-line); padding-right:14px; }
   .daterange-preset-btn{
     text-align:left; border:none; background:transparent; color:var(--sand-dim); padding:8px 10px; border-radius:8px;
@@ -265,11 +262,11 @@
   .daterange-cal-month{ font-family:var(--font-display); font-size:13px; font-weight:600; }
   .daterange-nav{ border:1px solid var(--panel-line); background:var(--ink-2); color:var(--sand-dim); width:26px; height:26px; border-radius:7px; cursor:pointer; font-size:13px; transition:.12s; }
   .daterange-nav:hover{ color:var(--sand); border-color:var(--sand-dimmer); }
-  .daterange-cal-weekdays{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:4px; }
+  .daterange-cal-weekdays{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:2px; margin-bottom:4px; }
   .daterange-cal-weekdays span{ text-align:center; font-size:10.5px; color:var(--sand-dimmer); font-weight:600; }
-  .daterange-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .daterange-cal-grid{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:2px; }
   .daterange-day{
-    border:none; background:transparent; color:var(--sand); aspect-ratio:1; border-radius:8px; font-size:12.5px;
+    border:none; background:transparent; color:var(--sand); aspect-ratio:1; min-width:0; width:100%; border-radius:8px; font-size:12.5px;
     cursor:pointer; transition:.12s; font-family:var(--font-mono);
   }
   .daterange-day.empty{ cursor:default; }
@@ -1914,12 +1911,18 @@ function createDateRangePicker(container, opts){
     pickStart = null;
     renderPresets();
     renderCalendar();
-    panel.classList.remove('align-right');
+    panel.style.transform = '';
     panel.classList.add('open');
     container.classList.add('open');
-    // abre pra esquerda por padrão (left:0); se isso vazar a tela, vira pra abrir encostado na direita do gatilho
-    if(panel.getBoundingClientRect().right > window.innerWidth - 8){
-      panel.classList.add('align-right');
+    // abaixo de 641px o CSS já centra o painel na tela (position:fixed) e não usa left/right — só
+    // reposiciona por JS acima disso, onde o painel segue o gatilho e pode vazar de qualquer lado
+    if(window.innerWidth > 640){
+      const margin = 10;
+      const rect = panel.getBoundingClientRect();
+      let shift = 0;
+      if(rect.right > window.innerWidth - margin) shift = (window.innerWidth - margin) - rect.right;
+      if(rect.left + shift < margin) shift = margin - rect.left;
+      if(shift) panel.style.transform = `translateX(${shift}px)`;
     }
   }
   function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
