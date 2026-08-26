@@ -245,12 +245,22 @@
   .daterange-trigger:hover{ border-color:var(--sand-dimmer); }
   .daterange.open .daterange-trigger{ border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
   .daterange-trigger-chev{ font-size:10px; color:var(--sand-dim); }
+  /* variante embutida num <div class="field"> — troca o input type=date nativo por este calendário */
+  .daterange-field{ display:block; }
+  .daterange-field .daterange-trigger{
+    width:100%; justify-content:space-between; padding:10px 11px; border-radius:9px; font-size:14px; font-weight:500;
+  }
+  .daterange-field .daterange-trigger-label.placeholder{ color:var(--sand-dimmer); font-weight:400; }
+  .daterange-trigger-icon{ color:var(--sand-dim); flex-shrink:0; }
   .daterange-panel{
     display:none; position:absolute; z-index:40; top:calc(100% + 8px); left:0;
     background:var(--panel); border:1px solid var(--panel-line); border-radius:14px; padding:14px;
     box-shadow:var(--shadow-popover); width:560px; max-width:calc(100vw - 40px);
   }
   .daterange-panel.open{ display:flex; gap:16px; }
+  /* precisa vir depois de .daterange-panel — mesma especificidade, quem vier por último no CSS ganha */
+  .daterange-panel-single{ width:300px; }
+  .daterange-panel-single .daterange-cal{ width:100%; }
   .daterange-presets{ display:flex; flex-direction:column; gap:2px; width:158px; flex-shrink:0; border-right:1px solid var(--panel-line); padding-right:14px; }
   .daterange-preset-btn{
     text-align:left; border:none; background:transparent; color:var(--sand-dim); padding:8px 10px; border-radius:8px;
@@ -405,6 +415,7 @@
     .icon-btn{ width:34px; height:34px; font-size:14px; }
     .btn-primary, .btn-ghost{ padding:12px 16px; font-size:14px; }
     .field input, .field select{ padding:12px 12px; font-size:15px; }
+    .daterange-field .daterange-trigger{ padding:12px 12px; font-size:15px; }
     .pedido-card-actions button{ flex:1 1 46%; text-align:center; padding:10px 8px; }
     .mover-semana-select{ flex:1 1 100%; padding:10px 8px; }
     .cards4{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
@@ -460,7 +471,7 @@
         </div>
         <div class="field">
           <label for="fData">Data</label>
-          <input type="date" id="fData" required>
+          <div id="dpFData"></div>
         </div>
         <div class="field span3">
           <label for="fObservacao">Observação (opcional)</label>
@@ -532,7 +543,7 @@
         <form id="vendaForm">
           <div class="field">
             <label for="vData">Data</label>
-            <input type="date" id="vData" required>
+            <div id="dpVData"></div>
           </div>
           <div class="field">
             <label for="vHorario">Horário da entrega</label>
@@ -824,7 +835,7 @@
       <form id="adForm">
         <div class="field">
           <label for="adData">Data</label>
-          <input type="date" id="adData" required>
+          <div id="dpAdData"></div>
         </div>
         <div class="field span2">
           <label for="adTipo">Tipo de gasto</label>
@@ -873,7 +884,7 @@
         </div>
         <div class="field">
           <label id="opDataLabel" for="opData">Data</label>
-          <input type="date" id="opData" required>
+          <div id="dpOpData"></div>
         </div>
         <div class="field span2">
           <label>Recorrência</label>
@@ -1026,7 +1037,7 @@ document.getElementById('fluxoForm').addEventListener('submit', function(e){
   e.preventDefault();
   const valor = parseFloat(document.getElementById('fValor').value)||0;
   const descricao = document.getElementById('fDescricao').value.trim();
-  const data = document.getElementById('fData').value;
+  const data = dpFData.getValue();
   const observacao = document.getElementById('fObservacao').value.trim();
   if(!descricao || !data || valor<=0){ showFluxoMsg('Preencha o valor, a descrição e a data.'); return; }
 
@@ -1044,7 +1055,7 @@ document.getElementById('fluxoForm').addEventListener('submit', function(e){
   saveFluxo();
   mesAtivo = monthKeyOf(data);
   document.getElementById('fluxoForm').reset();
-  document.getElementById('fData').valueAsDate = new Date();
+  dpFData.setValue(drISO(new Date()));
   setTipo('entrada');
   renderFluxoAll();
 });
@@ -1109,7 +1120,7 @@ function editFluxo(id){
   setTipo(f.tipo);
   document.getElementById('fValor').value = f.valor;
   document.getElementById('fDescricao').value = f.descricao;
-  document.getElementById('fData').value = f.data;
+  dpFData.setValue(f.data);
   document.getElementById('fObservacao').value = f.observacao||'';
   fluxoEditId = id;
   document.getElementById('fluxoSubmitBtn').textContent = 'Atualizar lançamento';
@@ -1119,7 +1130,7 @@ function editFluxo(id){
 function cancelFluxoEdit(){
   fluxoEditId = null;
   document.getElementById('fluxoForm').reset();
-  document.getElementById('fData').valueAsDate = new Date();
+  dpFData.setValue(drISO(new Date()));
   setTipo('entrada');
   document.getElementById('fluxoSubmitBtn').textContent = 'Adicionar lançamento';
   document.getElementById('fluxoCancelEdit').style.display = 'none';
@@ -1448,7 +1459,7 @@ async function refletirNaShopify(v, novoStatus){
 
 document.getElementById('vendaForm').addEventListener('submit', function(e){
   e.preventDefault();
-  const data = document.getElementById('vData').value;
+  const data = dpVData.getValue();
   const horario = document.getElementById('vHorario').value;
   const fonte = document.getElementById('vFonte').value;
   const contacto = document.getElementById('vContacto').value.trim();
@@ -1476,7 +1487,7 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
   }
   saveVendas();
   document.getElementById('vendaForm').reset();
-  document.getElementById('vData').valueAsDate = new Date();
+  dpVData.setValue(drISO(new Date()));
   document.getElementById('vQuantidade').value = 1;
   renderVendasAll();
 });
@@ -1760,7 +1771,7 @@ function renderEntregas(){
 function editVenda(id){
   const v = vendasData.find(x=>x.id===id);
   if(!v) return;
-  document.getElementById('vData').value = v.data;
+  dpVData.setValue(v.data);
   document.getElementById('vHorario').value = v.horario||'';
   document.getElementById('vFonte').value = v.fonte;
   document.getElementById('vContacto').value = v.contacto;
@@ -1780,7 +1791,7 @@ function editVenda(id){
 function cancelVendaEdit(){
   vendaEditId = null;
   document.getElementById('vendaForm').reset();
-  document.getElementById('vData').valueAsDate = new Date();
+  dpVData.setValue(drISO(new Date()));
   document.getElementById('vQuantidade').value = 1;
   document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
   document.getElementById('vendaCancelEdit').style.display = 'none';
@@ -1959,9 +1970,110 @@ function createDateRangePicker(container, opts){
   return { getRange: () => range };
 }
 
+/* versão de dia único do seletor acima — mesmo visual, sem atalhos, escolhe e fecha num clique.
+   Substitui um <input type="date"> nativo; getValue()/setValue() usam o mesmo formato ISO (aaaa-mm-dd). */
+function createSingleDatePicker(container, opts){
+  opts = opts || {};
+  let value = opts.initialValue || '';
+  let viewMonth = value ? drParseISO(value) : new Date();
+
+  container.classList.add('daterange', 'daterange-field');
+  container.innerHTML =
+    '<button type="button" class="daterange-trigger"' + (opts.id ? ' id="'+opts.id+'"' : '') + '>' +
+      '<span class="daterange-trigger-label"></span>' +
+      '<svg class="daterange-trigger-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>' +
+    '</button>' +
+    '<div class="daterange-panel daterange-panel-single">' +
+      '<div class="daterange-cal">' +
+        '<div class="daterange-cal-header"><button type="button" class="daterange-nav" data-nav="-1">‹</button><span class="daterange-cal-month"></span><button type="button" class="daterange-nav" data-nav="1">›</button></div>' +
+        '<div class="daterange-cal-weekdays"><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span></div>' +
+        '<div class="daterange-cal-grid"></div>' +
+      '</div>' +
+    '</div>';
+
+  const trigger = container.querySelector('.daterange-trigger');
+  const label = container.querySelector('.daterange-trigger-label');
+  const panel = container.querySelector('.daterange-panel');
+  const monthEl = container.querySelector('.daterange-cal-month');
+  const gridEl = container.querySelector('.daterange-cal-grid');
+
+  function updateLabel(){
+    if(value){
+      const d = drParseISO(value);
+      label.textContent = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+      label.classList.remove('placeholder');
+    } else {
+      label.textContent = opts.placeholder || 'Escolher data';
+      label.classList.add('placeholder');
+    }
+  }
+
+  function renderCalendar(){
+    const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+    monthEl.textContent = MESES_PT[m] + ' ' + y;
+    const primeiroDia = new Date(y, m, 1);
+    const offset = (primeiroDia.getDay()===0) ? 6 : primeiroDia.getDay()-1;
+    const totalDias = new Date(y, m+1, 0).getDate();
+    const hojeISO = drISO(new Date());
+
+    let html = '';
+    for(let i=0;i<offset;i++) html += '<span class="daterange-day empty"></span>';
+    for(let dia=1; dia<=totalDias; dia++){
+      const iso = drISO(new Date(y,m,dia));
+      let cls = 'daterange-day';
+      if(iso===hojeISO) cls += ' today';
+      if(iso===value) cls += ' range-start range-end';
+      html += '<button type="button" class="' + cls + '" data-iso="' + iso + '">' + dia + '</button>';
+    }
+    gridEl.innerHTML = html;
+  }
+
+  function open(){
+    viewMonth = value ? drParseISO(value) : new Date();
+    renderCalendar();
+    panel.style.transform = '';
+    panel.classList.add('open');
+    container.classList.add('open');
+    if(window.innerWidth > 640){
+      const margin = 10;
+      const rect = panel.getBoundingClientRect();
+      let shift = 0;
+      if(rect.right > window.innerWidth - margin) shift = (window.innerWidth - margin) - rect.right;
+      if(rect.left + shift < margin) shift = margin - rect.left;
+      if(shift) panel.style.transform = `translateX(${shift}px)`;
+    }
+  }
+  function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
+  function toggle(){ panel.classList.contains('open') ? close() : open(); }
+
+  trigger.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+  container.querySelector('.daterange-cal-header').addEventListener('click', (e)=>{
+    const nav = e.target.closest('.daterange-nav');
+    if(!nav) return;
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + Number(nav.dataset.nav), 1);
+    renderCalendar();
+  });
+  gridEl.addEventListener('click', (e)=>{
+    const day = e.target.closest('.daterange-day');
+    if(!day || !day.dataset.iso) return;
+    value = day.dataset.iso;
+    updateLabel();
+    close();
+    if(opts.onChange) opts.onChange(value);
+  });
+  document.addEventListener('click', (e)=>{ if(!e.composedPath().includes(container)) close(); });
+
+  updateLabel();
+  return {
+    getValue: () => value,
+    setValue: (iso) => { value = iso || ''; updateLabel(); }
+  };
+}
+
 let drOverview = null;
 let drMetricas = null;
 let drFluxo = null;
+let dpFData = null, dpVData = null, dpAdData = null, dpOpData = null;
 function initDateRangePickers(){
   drOverview = createDateRangePicker(document.getElementById('drOverview'), {
     initialPresetKey: 'tudo',
@@ -1976,6 +2088,11 @@ function initDateRangePickers(){
     initialPresetKey: 'este_mes',
     onApply: renderFluxoAll
   });
+  const hojeISO = drISO(new Date());
+  dpFData = createSingleDatePicker(document.getElementById('dpFData'), { id:'fData', initialValue: hojeISO });
+  dpVData = createSingleDatePicker(document.getElementById('dpVData'), { id:'vData', initialValue: hojeISO });
+  dpAdData = createSingleDatePicker(document.getElementById('dpAdData'), { id:'adData', initialValue: hojeISO });
+  dpOpData = createSingleDatePicker(document.getElementById('dpOpData'), { id:'opData', initialValue: hojeISO });
 }
 
 function renderOverview(){
@@ -2398,7 +2515,7 @@ document.getElementById('opForm').addEventListener('submit', function(e){
   e.preventDefault();
   const nome = document.getElementById('opNome').value.trim();
   const valor = parseFloat(document.getElementById('opValor').value)||0;
-  const data = document.getElementById('opData').value;
+  const data = dpOpData.getValue();
   const recorrente = opRecorrenteAtivo;
   if(!nome || !data || valor<=0){ showOpMsg('Preencha o nome, a data e o valor.'); return; }
 
@@ -2415,7 +2532,7 @@ document.getElementById('opForm').addEventListener('submit', function(e){
   }
   saveOperacional();
   document.getElementById('opForm').reset();
-  document.getElementById('opData').valueAsDate = new Date();
+  dpOpData.setValue(drISO(new Date()));
   setOpRecorrente(false);
   renderOpAll();
 });
@@ -2459,7 +2576,7 @@ function editOp(id){
   if(!o) return;
   document.getElementById('opNome').value = o.nome;
   document.getElementById('opValor').value = o.valor;
-  document.getElementById('opData').value = o.data;
+  dpOpData.setValue(o.data);
   setOpRecorrente(!!o.recorrente);
   opEditId = id;
   document.getElementById('opSubmitBtn').textContent = 'Atualizar';
@@ -2469,7 +2586,7 @@ function editOp(id){
 function cancelOpEdit(){
   opEditId = null;
   document.getElementById('opForm').reset();
-  document.getElementById('opData').valueAsDate = new Date();
+  dpOpData.setValue(drISO(new Date()));
   setOpRecorrente(false);
   document.getElementById('opSubmitBtn').textContent = 'Adicionar';
   document.getElementById('opCancelEdit').style.display = 'none';
@@ -2487,7 +2604,7 @@ function renderOpAll(){
 
 document.getElementById('adForm').addEventListener('submit', function(e){
   e.preventDefault();
-  const data = document.getElementById('adData').value;
+  const data = dpAdData.getValue();
   const tipo = document.getElementById('adTipo').value;
   const produto = document.getElementById('adProduto').value.trim();
   const valor = parseFloat(document.getElementById('adValor').value)||0;
@@ -2506,7 +2623,7 @@ document.getElementById('adForm').addEventListener('submit', function(e){
   }
   saveAdSpend();
   document.getElementById('adForm').reset();
-  document.getElementById('adData').valueAsDate = new Date();
+  dpAdData.setValue(drISO(new Date()));
   renderAdAll();
 });
 
@@ -2549,7 +2666,7 @@ function renderAdTable(){
 function editAd(id){
   const a = adSpendData.find(x=>x.id===id);
   if(!a) return;
-  document.getElementById('adData').value = a.data;
+  dpAdData.setValue(a.data);
   document.getElementById('adTipo').value = a.tipo||'outros';
   document.getElementById('adProduto').value = a.produto||'';
   document.getElementById('adValor').value = a.valor;
@@ -2561,7 +2678,7 @@ function editAd(id){
 function cancelAdEdit(){
   adEditId = null;
   document.getElementById('adForm').reset();
-  document.getElementById('adData').valueAsDate = new Date();
+  dpAdData.setValue(drISO(new Date()));
   document.getElementById('adSubmitBtn').textContent = 'Adicionar gasto';
   document.getElementById('adCancelEdit').style.display = 'none';
 }
@@ -2780,10 +2897,6 @@ function renderAdAll(){
 
 /* ============ INIT ============ */
 initTheme();
-document.getElementById('fData').valueAsDate = new Date();
-document.getElementById('vData').valueAsDate = new Date();
-document.getElementById('adData').valueAsDate = new Date();
-document.getElementById('opData').valueAsDate = new Date();
 initDateRangePickers();
 loadFluxo();
 loadVendas();
