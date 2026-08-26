@@ -259,9 +259,9 @@
   }
   .daterange-panel.open{ display:flex; gap:16px; }
   /* precisa vir depois de .daterange-panel — mesma especificidade, quem vier por último no CSS ganha */
-  .daterange-panel-single{ width:300px; }
-  .daterange-panel-single .daterange-cal{ width:100%; }
+  .daterange-panel-single{ width:430px; }
   .daterange-presets{ display:flex; flex-direction:column; gap:2px; width:158px; flex-shrink:0; border-right:1px solid var(--panel-line); padding-right:14px; }
+  .daterange-presets-compact{ width:108px; }
   .daterange-preset-btn{
     text-align:left; border:none; background:transparent; color:var(--sand-dim); padding:8px 10px; border-radius:8px;
     font-size:12.5px; font-weight:600; cursor:pointer; transition:.12s; font-family:var(--font-body);
@@ -1919,19 +1919,27 @@ function createDateRangePicker(container, opts){
     pickStart = null;
     renderPresets();
     renderCalendar();
-    panel.style.transform = '';
+    // calcula o deslocamento ANTES do painel entrar no layout (display:none -> flex): se
+    // deixássemos o painel abrir na posição natural (left:0) e só depois líssemos getBoundingClientRect
+    // para corrigir, esse próprio "ler o layout" com o painel já largo demais faz o navegador mobile
+    // "dar zoom out" (expandir o viewport de layout) para caber o conteúdo, e isso gruda — o transform
+    // que aplicamos em seguida já não resolve porque o viewport mudou de tamanho debaixo dos nossos pés.
+    // Por isso medimos o container (que nunca é mais largo que o botão-gatilho) e usamos a largura
+    // conhecida do painel (560px, ver CSS .daterange-panel) para decidir o deslocamento SEM nunca
+    // deixar o navegador desenhar o painel na posição não-corrigida.
+    const vw = document.documentElement.clientWidth;
+    let shift = 0;
+    if(vw > 640){
+      const margin = 10;
+      const contRect = container.getBoundingClientRect();
+      const panelWidth = Math.min(560, vw - 40);
+      const naturalLeft = contRect.left, naturalRight = naturalLeft + panelWidth;
+      if(naturalRight > vw - margin) shift = (vw - margin) - naturalRight;
+      if(naturalLeft + shift < margin) shift = margin - naturalLeft;
+    }
+    panel.style.transform = shift ? `translateX(${shift}px)` : '';
     panel.classList.add('open');
     container.classList.add('open');
-    // abaixo de 641px o CSS já centra o painel na tela (position:fixed) e não usa left/right — só
-    // reposiciona por JS acima disso, onde o painel segue o gatilho e pode vazar de qualquer lado
-    if(window.innerWidth > 640){
-      const margin = 10;
-      const rect = panel.getBoundingClientRect();
-      let shift = 0;
-      if(rect.right > window.innerWidth - margin) shift = (window.innerWidth - margin) - rect.right;
-      if(rect.left + shift < margin) shift = margin - rect.left;
-      if(shift) panel.style.transform = `translateX(${shift}px)`;
-    }
   }
   function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
   function toggle(){ panel.classList.contains('open') ? close() : open(); }
@@ -1970,10 +1978,23 @@ function createDateRangePicker(container, opts){
   return { getRange: () => range };
 }
 
-/* versão de dia único do seletor acima — mesmo visual, sem atalhos, escolhe e fecha num clique.
-   Substitui um <input type="date"> nativo; getValue()/setValue() usam o mesmo formato ISO (aaaa-mm-dd). */
+/* atalhos para o seletor de dia único — cada um resolve para UM dia (não um período), pois o
+   registo por trás (venda/gasto/lançamento) guarda só uma data. */
+function drSingleDatePresets(){
+  const hoje = new Date();
+  return [
+    { key:'hoje', label:'Hoje', date:() => drISO(hoje) },
+    { key:'ontem', label:'Ontem', date:() => drISO(drAddDays(hoje,-1)) },
+    { key:'amanha', label:'Amanhã', date:() => drISO(drAddDays(hoje,1)) }
+  ];
+}
+
+/* versão de dia único do seletor acima — mesmo visual (atalhos + calendário), mas resolve sempre
+   para UMA data. Substitui um <input type="date"> nativo; getValue()/setValue() usam o mesmo
+   formato ISO (aaaa-mm-dd). */
 function createSingleDatePicker(container, opts){
   opts = opts || {};
+  const presets = opts.presets || drSingleDatePresets();
   let value = opts.initialValue || '';
   let viewMonth = value ? drParseISO(value) : new Date();
 
@@ -1984,6 +2005,7 @@ function createSingleDatePicker(container, opts){
       '<svg class="daterange-trigger-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>' +
     '</button>' +
     '<div class="daterange-panel daterange-panel-single">' +
+      '<div class="daterange-presets daterange-presets-compact"></div>' +
       '<div class="daterange-cal">' +
         '<div class="daterange-cal-header"><button type="button" class="daterange-nav" data-nav="-1">‹</button><span class="daterange-cal-month"></span><button type="button" class="daterange-nav" data-nav="1">›</button></div>' +
         '<div class="daterange-cal-weekdays"><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span></div>' +
@@ -1994,6 +2016,7 @@ function createSingleDatePicker(container, opts){
   const trigger = container.querySelector('.daterange-trigger');
   const label = container.querySelector('.daterange-trigger-label');
   const panel = container.querySelector('.daterange-panel');
+  const presetsEl = container.querySelector('.daterange-presets');
   const monthEl = container.querySelector('.daterange-cal-month');
   const gridEl = container.querySelector('.daterange-cal-grid');
 
@@ -2006,6 +2029,12 @@ function createSingleDatePicker(container, opts){
       label.textContent = opts.placeholder || 'Escolher data';
       label.classList.add('placeholder');
     }
+  }
+
+  function renderPresets(){
+    presetsEl.innerHTML = presets.map(p=>
+      '<button type="button" class="daterange-preset-btn' + (p.date()===value?' active':'') + '" data-key="' + p.key + '">' + p.label + '</button>'
+    ).join('');
   }
 
   function renderCalendar(){
@@ -2028,25 +2057,43 @@ function createSingleDatePicker(container, opts){
     gridEl.innerHTML = html;
   }
 
+  function selecionar(iso){
+    value = iso;
+    updateLabel();
+    close();
+    if(opts.onChange) opts.onChange(value);
+  }
+
   function open(){
     viewMonth = value ? drParseISO(value) : new Date();
+    renderPresets();
     renderCalendar();
-    panel.style.transform = '';
+    // deslocamento calculado ANTES de abrir o painel — ver nota equivalente em createDateRangePicker
+    // (medir o painel já aberto/largo demais faz o navegador mobile "grudar" um viewport expandido)
+    const vw = document.documentElement.clientWidth;
+    let shift = 0;
+    if(vw > 640){
+      const margin = 10;
+      const contRect = container.getBoundingClientRect();
+      const panelWidth = Math.min(430, vw - 40);
+      const naturalLeft = contRect.left, naturalRight = naturalLeft + panelWidth;
+      if(naturalRight > vw - margin) shift = (vw - margin) - naturalRight;
+      if(naturalLeft + shift < margin) shift = margin - naturalLeft;
+    }
+    panel.style.transform = shift ? `translateX(${shift}px)` : '';
     panel.classList.add('open');
     container.classList.add('open');
-    if(window.innerWidth > 640){
-      const margin = 10;
-      const rect = panel.getBoundingClientRect();
-      let shift = 0;
-      if(rect.right > window.innerWidth - margin) shift = (window.innerWidth - margin) - rect.right;
-      if(rect.left + shift < margin) shift = margin - rect.left;
-      if(shift) panel.style.transform = `translateX(${shift}px)`;
-    }
   }
   function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
   function toggle(){ panel.classList.contains('open') ? close() : open(); }
 
   trigger.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+  presetsEl.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.daterange-preset-btn');
+    if(!btn) return;
+    const p = presets.find(p=>p.key===btn.dataset.key);
+    selecionar(p.date());
+  });
   container.querySelector('.daterange-cal-header').addEventListener('click', (e)=>{
     const nav = e.target.closest('.daterange-nav');
     if(!nav) return;
@@ -2056,10 +2103,7 @@ function createSingleDatePicker(container, opts){
   gridEl.addEventListener('click', (e)=>{
     const day = e.target.closest('.daterange-day');
     if(!day || !day.dataset.iso) return;
-    value = day.dataset.iso;
-    updateLabel();
-    close();
-    if(opts.onChange) opts.onChange(value);
+    selecionar(day.dataset.iso);
   });
   document.addEventListener('click', (e)=>{ if(!e.composedPath().includes(container)) close(); });
 
