@@ -15,8 +15,9 @@
     --violet:#8B5CF6; --violet-soft: rgba(139,92,246,0.18); --violet-deep:#6D28D9;
     --clay:#D946EF; --clay-soft: rgba(217,70,239,0.16);
     --gold:#F0B429; --gold-soft: rgba(240,180,41,0.16);
-    --green:#34D399; --green-soft: rgba(52,211,153,0.15);
+    --green:#34D399; --green-soft: rgba(52,211,153,0.15); --green-chart:#1FAE73;
     --red:#F0506E; --red-soft: rgba(240,80,110,0.15);
+    --cat-1:#3987e5; --cat-2:#d95926; --cat-3:#199e70; --cat-4:#c98500; --cat-5:#d55181; --cat-muted:#5b5468;
     --radius: 14px;
     --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'IBM Plex Mono',monospace;
   }
@@ -140,7 +141,6 @@
 
   .cards3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
   .cards4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
-  .cards5{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px; }
 
   .roi-hero{
     background:linear-gradient(160deg, var(--violet-soft), var(--ink-2) 75%);
@@ -202,6 +202,17 @@
   .ov-card .v{ font-family:var(--font-mono); font-weight:600; font-size:20px; letter-spacing:-0.01em; }
   .ov-card .k{ font-size:10.5px; color:var(--sand-dim); text-transform:uppercase; letter-spacing:.06em; margin-top:4px; display:block; }
 
+  /* cartões de gráfico — usados no Fluxo, Vendas > Relatórios e CPA/ROI/ROAS */
+  .chart-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .chart-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:16px; }
+  .chart-card-title{ font-family:var(--font-display); font-size:13px; font-weight:600; color:var(--sand-dim); margin-bottom:12px; }
+  .chart-card-title .tag{ font-family:var(--font-mono); font-size:10.5px; font-weight:500; color:var(--sand-dimmer); text-transform:none; margin-left:6px; }
+  .chart-canvas-wrap{ position:relative; height:230px; }
+  .chart-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--sand-dimmer); font-size:12.5px; padding:0 20px; }
+  .cards6{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:16px; }
+  .metricas-nota{ font-size:11.5px; color:var(--sand-dimmer); margin:-8px 0 16px; line-height:1.5; }
+  .metricas-aviso{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--gold); background:var(--gold-soft); border:1px solid rgba(240,180,41,0.3); border-radius:9px; padding:9px 13px; margin-bottom:14px; line-height:1.4; }
+
   .side-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
   .side-panel{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:16px; }
   .side-panel h3{ font-family:var(--font-display); font-size:13.5px; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
@@ -257,9 +268,10 @@
     .field.span2, .field.span3{ grid-column:span 2; }
     .cards3{ grid-template-columns:1fr; }
     .cards4{ grid-template-columns:repeat(2,1fr); }
-    .cards5{ grid-template-columns:repeat(3,1fr); }
+    .cards6{ grid-template-columns:repeat(3,1fr); }
     .overview{ grid-template-columns:repeat(2,1fr); }
     .side-grid{ grid-template-columns:1fr; }
+    .chart-grid{ grid-template-columns:1fr; }
 
     /* tabelas viram cartões no celular — nada de rolagem horizontal */
     table.responsive-table thead{ display:none; }
@@ -297,7 +309,8 @@
     .pedido-card-actions button{ flex:1 1 46%; text-align:center; padding:10px 8px; }
     .mover-semana-select{ flex:1 1 100%; padding:10px 8px; }
     .cards4{ grid-template-columns:1fr 1fr; }
-    .cards5{ grid-template-columns:1fr 1fr; }
+    .cards6{ grid-template-columns:1fr 1fr; }
+    .chart-canvas-wrap{ height:210px; }
     .toolbar{ flex-direction:column; align-items:stretch; }
     .toolbar .filters{ flex-direction:column; align-items:stretch; }
     .toolbar select, .toolbar input{ width:100%; }
@@ -365,6 +378,12 @@
           <div class="card entrada"><span class="k">Entrada</span><span class="v mono" id="cardEntrada">0 MT</span></div>
           <div class="card saida"><span class="k">Saída</span><span class="v mono" id="cardSaida">0 MT</span></div>
           <div class="card saldo"><span class="k">Saldo</span><span class="v mono" id="cardSaldo">0 MT</span></div>
+        </div>
+        <div class="chart-card" style="margin-bottom:16px;">
+          <div class="chart-card-title">Entrada, saída e saldo acumulado no mês</div>
+          <div class="chart-canvas-wrap"><canvas id="fluxoChart"></canvas>
+            <div id="fluxoChartEmpty" class="chart-empty" style="display:none;">Sem lançamentos neste mês.</div>
+          </div>
         </div>
         <div class="toolbar">
           <div class="filters">
@@ -498,7 +517,25 @@
           <div class="ov-card"><span class="v" style="color:var(--green)" id="ovConcluido">0</span><span class="k">Concluídas</span></div>
           <div class="ov-card"><span class="v" style="color:var(--red)" id="ovCancelado">0</span><span class="k">Canceladas</span></div>
           <div class="ov-card"><span class="v" style="color:var(--clay)" id="ovRemarcado">0</span><span class="k">Remarcadas</span></div>
-          <div class="ov-card"><span class="v" style="color:var(--gold)" id="ovConversao">0%</span><span class="k">Taxa de conversão</span></div>
+          <div class="ov-card"><span class="v" style="color:var(--gold)" id="ovConversao">0%</span><span class="k">Conversão <span style="opacity:.7;">(resolvidos)</span></span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Análise <span class="tag">mesmo período do filtro acima</span></h2>
+        <div class="chart-grid">
+          <div class="chart-card">
+            <div class="chart-card-title">Pedidos por fonte de aquisição</div>
+            <div class="chart-canvas-wrap"><canvas id="fonteChart"></canvas>
+              <div id="fonteChartEmpty" class="chart-empty" style="display:none;">Sem pedidos neste período.</div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-title">Unidades vendidas por produto</div>
+            <div class="chart-canvas-wrap"><canvas id="produtoChart"></canvas>
+              <div id="produtoChartEmpty" class="chart-empty" style="display:none;">Sem vendas concluídas neste período.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -613,27 +650,40 @@
       <div class="roi-hero">
         <div class="roi-hero-label">ROI no período <span id="metVendasSub" style="opacity:.75; font-weight:500;"></span></div>
         <div class="roi-hero-value" id="metROI">—</div>
-        <div class="roi-hero-sub">retorno sobre o gasto total (aquisição + ads + outros + operacional)</div>
+        <div class="roi-hero-sub">retorno sobre o gasto total (custo do produto + ads + outros + operacional + entrega)</div>
       </div>
 
-      <div class="cards3" style="grid-template-columns:repeat(3,1fr);">
+      <div class="cards3">
         <div class="card"><span class="k">Receita</span><span class="v mono" id="metReceita">0 MT</span></div>
-        <div class="card"><span class="k">CPA (ads)</span><span class="v mono" id="metCPA">—</span></div>
-        <div class="card"><span class="k">ROAS (ads)</span><span class="v mono" id="metROAS">—</span></div>
+        <div class="card"><span class="k">CPA <span style="opacity:.6;">(blended)</span></span><span class="v mono" id="metCPA">—</span></div>
+        <div class="card"><span class="k">ROAS <span style="opacity:.6;">(blended)</span></span><span class="v mono" id="metROAS">—</span></div>
       </div>
+      <div class="metricas-nota">CPA e ROAS somados sobre todas as vendas concluídas no período — não só as vindas de Ads. O painel ainda não liga cada venda a uma campanha específica, então trate os dois como uma leitura "blended", não como o retorno exclusivo dos anúncios.</div>
 
       <div class="metricas-subhead">Custos no período</div>
-      <div class="cards5">
-        <div class="card"><span class="k">Aquisição <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoAquisicao">0 MT</span></div>
+      <div id="metAvisoProduto" class="metricas-aviso" style="display:none;"></div>
+      <div class="cards6">
+        <div class="card"><span class="k">Produto <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoAquisicao">0 MT</span></div>
         <div class="card"><span class="k">Ads</span><span class="v mono" id="metGastoAds">0 MT</span></div>
         <div class="card"><span class="k">Outros</span><span class="v mono" id="metGastoOutros">0 MT</span></div>
         <div class="card"><span class="k">Operacional</span><span class="v mono" id="metGastoOperacional">0 MT</span></div>
+        <div class="card"><span class="k">Entrega <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoEntrega">0 MT</span></div>
         <div class="card destaque"><span class="k">Total</span><span class="v mono" id="metGastoTotal">0 MT</span></div>
       </div>
 
-      <div style="margin-top:18px; height:280px; position:relative;">
-        <canvas id="metChart"></canvas>
-        <div id="metChartEmpty" style="display:none; text-align:center; color:var(--sand-dimmer); font-size:13px; padding:30px 0;">Sem dados neste período.</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-card-title">Gasto vs. receita por dia</div>
+          <div class="chart-canvas-wrap"><canvas id="metChart"></canvas>
+            <div id="metChartEmpty" class="chart-empty" style="display:none;">Sem dados neste período.</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Para onde foi o gasto</div>
+          <div class="chart-canvas-wrap"><canvas id="metCostChart"></canvas>
+            <div id="metCostChartEmpty" class="chart-empty" style="display:none;">Sem gastos neste período.</div>
+          </div>
+        </div>
       </div>
     </div>
     </div>
@@ -821,6 +871,7 @@ function switchVendasView(which){
   document.getElementById('subnavVendasPedidos').classList.toggle('active', which==='pedidos');
   document.getElementById('subnavVendasRelatorios').classList.toggle('active', which==='relatorios');
   document.getElementById('subnavVendasConfig').classList.toggle('active', which==='config');
+  if(which==='relatorios') renderOverview();
 }
 
 function switchMetricasView(which){
@@ -989,6 +1040,63 @@ function renderFluxoAll(){
   renderMesTabs();
   renderFluxoCards();
   renderFluxoTable();
+  if(historicoAberto) renderFluxoChart();
+}
+
+function renderFluxoChart(){
+  const canvas = document.getElementById('fluxoChart');
+  const emptyEl = document.getElementById('fluxoChartEmpty');
+  const doMes = fluxoData.filter(f=>monthKeyOf(f.data)===mesAtivo);
+
+  if(fluxoChart){ fluxoChart.destroy(); fluxoChart=null; }
+  if(doMes.length===0){
+    canvas.style.display='none'; emptyEl.style.display='block';
+    return;
+  }
+  canvas.style.display='block'; emptyEl.style.display='none';
+
+  const [y,m] = mesAtivo.split('-').map(Number);
+  const totalDias = new Date(y, m, 0).getDate();
+  const labels = [], entradaPorDia = [], saidaPorDia = [], saldoAcumulado = [];
+  let acumulado = 0;
+  for(let dia=1; dia<=totalDias; dia++){
+    const diaStr = mesAtivo + '-' + String(dia).padStart(2,'0');
+    const doDia = doMes.filter(f=>f.data===diaStr);
+    const entrada = doDia.filter(f=>f.tipo==='entrada').reduce((s,f)=>s+f.valor,0);
+    const saida = doDia.filter(f=>f.tipo==='saida').reduce((s,f)=>s+f.valor,0);
+    acumulado += entrada - saida;
+    labels.push(String(dia).padStart(2,'0'));
+    entradaPorDia.push(entrada);
+    saidaPorDia.push(saida);
+    saldoAcumulado.push(acumulado);
+  }
+
+  requestAnimationFrame(()=>{
+    fluxoChart = new Chart(canvas, {
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          { label:'Entrada', data:entradaPorDia, borderColor: cssVar('--green-chart'), backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:.25 },
+          { label:'Saída', data:saidaPorDia, borderColor: cssVar('--red'), backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:.25 },
+          { label:'Saldo acumulado', data:saldoAcumulado, borderColor: cssVar('--violet'), backgroundColor:'transparent', borderWidth:2, borderDash:[4,3], pointRadius:0, tension:.25 }
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{
+          legend:{ labels:{ color:'rgba(245,242,250,0.7)', boxWidth:11, font:{size:11.5} } },
+          tooltip:{ callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
+        },
+        scales:{
+          y:{ ticks:{ color:'rgba(245,242,250,0.55)', callback:v=>v+' MT' }, grid:{ color:'rgba(245,242,250,0.07)' } },
+          x:{ ticks:{ color:'rgba(245,242,250,0.55)', maxTicksLimit:15 }, grid:{ display:false } }
+        }
+      }
+    });
+  });
 }
 
 /* ============ CONTROLE DE VENDAS ============ */
@@ -1626,12 +1734,98 @@ function renderOverview(){
   const concluido = dados.filter(v=>v.status==='concluido').length;
   const cancelado = dados.filter(v=>v.status==='cancelado').length;
   const remarcado = dados.filter(v=>v.status==='remarcado').length;
-  const conversao = total>0 ? Math.round(concluido/total*100) : 0;
+  // conversão sobre contactos já resolvidos (concluído + cancelado) — pendentes ainda podem virar venda,
+  // então contá-los contra a taxa só porque ainda não foram decididos deprecia o número sem motivo
+  const resolvidos = concluido + cancelado;
+  const conversao = resolvidos>0 ? Math.round(concluido/resolvidos*100) : 0;
   document.getElementById('ovTotal').textContent = total;
   document.getElementById('ovConcluido').textContent = concluido;
   document.getElementById('ovCancelado').textContent = cancelado;
   document.getElementById('ovRemarcado').textContent = remarcado;
   document.getElementById('ovConversao').textContent = conversao + '%';
+
+  renderFonteChart(dados);
+  renderProdutoChart(dados);
+}
+
+function renderFonteChart(dados){
+  const canvas = document.getElementById('fonteChart');
+  const emptyEl = document.getElementById('fonteChartEmpty');
+  const grupos = {};
+  dados.forEach(v=>{ const f = v.fonte || '05.OUTRO'; grupos[f] = (grupos[f]||0) + 1; });
+  const fontes = Object.keys(grupos);
+
+  if(fonteChart){ fonteChart.destroy(); fonteChart=null; }
+  if(fontes.length===0){
+    canvas.style.display='none'; emptyEl.style.display='block';
+    return;
+  }
+  canvas.style.display='block'; emptyEl.style.display='none';
+  const total = fontes.reduce((s,f)=>s+grupos[f],0);
+  requestAnimationFrame(()=>{
+    fonteChart = new Chart(canvas, {
+      type:'doughnut',
+      data:{
+        labels: fontes,
+        datasets:[{ data: fontes.map(f=>grupos[f]), backgroundColor: fontes.map(f=>cssVar(FONTE_COLOR[f]||'--cat-muted')), borderColor: cssVar('--ink-2'), borderWidth:2, hoverOffset:6 }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        cutout:'62%',
+        plugins:{
+          legend:{ position:'right', labels:{ color:'rgba(245,242,250,0.7)', boxWidth:11, padding:12, font:{size:11} } },
+          tooltip:{ callbacks:{ label: ctx => ' ' + ctx.label + ': ' + ctx.raw + ' (' + (ctx.raw/total*100).toFixed(0) + '%)' } }
+        }
+      }
+    });
+  });
+}
+
+function renderProdutoChart(dados){
+  const canvas = document.getElementById('produtoChart');
+  const emptyEl = document.getElementById('produtoChartEmpty');
+  const grupos = {};
+  dados.filter(v=>v.status==='concluido' && v.produto).forEach(v=>{ grupos[v.produto] = (grupos[v.produto]||0) + (v.quantidade||0); });
+  let produtos = Object.keys(grupos).map(p=>({produto:p, unidades:grupos[p]})).sort((a,b)=>b.unidades-a.unidades);
+
+  if(produtoChart){ produtoChart.destroy(); produtoChart=null; }
+  if(produtos.length===0){
+    canvas.style.display='none'; emptyEl.style.display='block';
+    return;
+  }
+  canvas.style.display='block'; emptyEl.style.display='none';
+
+  const TOP_N = 8;
+  let cores = produtos.slice(0,TOP_N).map(()=>cssVar('--cat-1'));
+  if(produtos.length>TOP_N){
+    const outros = produtos.slice(TOP_N).reduce((s,p)=>s+p.unidades,0);
+    produtos = produtos.slice(0,TOP_N).concat([{produto:'Outros', unidades:outros}]);
+    cores.push(cssVar('--cat-muted'));
+  }
+
+  requestAnimationFrame(()=>{
+    produtoChart = new Chart(canvas, {
+      type:'bar',
+      data:{
+        labels: produtos.map(p=>p.produto),
+        datasets:[{ data: produtos.map(p=>p.unidades), backgroundColor: cores, borderRadius:5, maxBarThickness:22 }]
+      },
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{ display:false },
+          tooltip:{ callbacks:{ label: ctx => ctx.raw + ' unidade' + (ctx.raw===1?'':'s') } }
+        },
+        scales:{
+          x:{ ticks:{ color:'rgba(245,242,250,0.55)', precision:0 }, grid:{ color:'rgba(245,242,250,0.07)' } },
+          y:{ ticks:{ color:'rgba(245,242,250,0.7)', font:{size:11.5} }, grid:{ display:false } }
+        }
+      }
+    });
+  });
 }
 
 function renderVendasAll(){
@@ -1668,6 +1862,17 @@ let produtoHistAberto = false;
 let opHistAberto = false;
 let periodoMetricas = 'dia';
 let metChart = null;
+let metCostChart = null;
+let fluxoChart = null;
+let fonteChart = null;
+let produtoChart = null;
+
+/* mapa fixo de cores por fonte — mesma cor sempre pra mesma fonte, mesmo se filtrar/mudar período */
+const FONTE_COLOR = {
+  '01.WHATSAPP':'var(--cat-1)', '02.SITE':'var(--cat-2)', '03.WARM CALLING':'var(--cat-3)',
+  '04.SHOPIFY':'var(--cat-4)', '05.OUTRO':'var(--cat-5)'
+};
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name.replace('var(','').replace(')','')).trim(); }
 
 function loadAdSpend(){
   try{ adSpendData = JSON.parse(localStorage.getItem(ADSPEND_KEY)) || []; }catch(e){ adSpendData = []; }
@@ -2176,11 +2381,12 @@ function renderMetricas(){
   const produtoFiltro = document.getElementById('metProduto').value.trim();
 
   if(!range){
-    ['metGastoAquisicao','metGastoAds','metGastoOutros','metGastoOperacional','metGastoTotal','metReceita'].forEach(id=>document.getElementById(id).textContent='0 MT');
+    ['metGastoAquisicao','metGastoAds','metGastoOutros','metGastoOperacional','metGastoEntrega','metGastoTotal','metReceita'].forEach(id=>document.getElementById(id).textContent='0 MT');
     document.getElementById('metVendasSub').textContent = '';
     document.getElementById('metCPA').textContent = '—';
     document.getElementById('metROAS').textContent = '—';
     document.getElementById('metROI').textContent = '—';
+    document.getElementById('metAvisoProduto').style.display = 'none';
     return;
   }
   const [inicio, fim] = range;
@@ -2194,14 +2400,18 @@ function renderMetricas(){
     const custo = custoPorProduto[normalizarNomeProduto(v.produto)] || 0;
     return s + custo * (v.quantidade||1);
   }, 0);
+  // vendas concluídas cujo produto não bate com nenhum cadastro entram com custo 0 no ROI — avisar em vez de deixar passar em silêncio
+  const vendasSemProdutoCadastrado = vendasConcluidas.filter(v=> v.produto && !(normalizarNomeProduto(v.produto) in custoPorProduto)).length;
 
   const somaTipo = (tipo) => gastos.filter(a=>a.tipo===tipo).reduce((s,a)=>s+a.valor,0);
   const gastoAds = somaTipo('ads');
   const gastoOutros = somaTipo('outros');
   // gastos operacionais (domínio, mensalidade, apps…) são da loja toda, não de um produto — só entram na visão "Todos os produtos"
   const gastoOperacional = produtoFiltro ? 0 : calcularGastoOperacional(inicio, fim);
+  // valor pago aos entregadores nas vendas concluídas do período — custo real do modelo COD, entra no ROI
+  const gastoEntrega = vendasConcluidas.reduce((s,v)=>s+(v.comissao||0), 0);
 
-  const totalGasto = gastoAquisicao + gastoAds + gastoOutros + gastoOperacional;
+  const totalGasto = gastoAquisicao + gastoAds + gastoOutros + gastoOperacional + gastoEntrega;
   const totalReceita = vendasConcluidas.reduce((s,v)=>s+(v.valor||0),0);
   const nVendas = vendasConcluidas.length;
 
@@ -2209,11 +2419,20 @@ function renderMetricas(){
   document.getElementById('metGastoAds').textContent = fmtMT(gastoAds);
   document.getElementById('metGastoOutros').textContent = fmtMT(gastoOutros);
   document.getElementById('metGastoOperacional').textContent = fmtMT(gastoOperacional);
+  document.getElementById('metGastoEntrega').textContent = fmtMT(gastoEntrega);
   document.getElementById('metGastoTotal').textContent = fmtMT(totalGasto);
   document.getElementById('metReceita').textContent = fmtMT(totalReceita);
   document.getElementById('metVendasSub').textContent = '(' + nVendas + (nVendas===1 ? ' venda)' : ' vendas)');
   document.getElementById('metCPA').textContent = nVendas>0 ? fmtMT(gastoAds/nVendas) : '—';
   document.getElementById('metROAS').textContent = gastoAds>0 ? (totalReceita/gastoAds).toFixed(2) + 'x' : '—';
+
+  const avisoEl = document.getElementById('metAvisoProduto');
+  if(vendasSemProdutoCadastrado>0){
+    avisoEl.style.display = 'flex';
+    avisoEl.textContent = '⚠ ' + vendasSemProdutoCadastrado + (vendasSemProdutoCadastrado===1 ? ' venda concluída tem' : ' vendas concluídas têm') + ' um produto sem custo cadastrado — o custo do produto dessa(s) venda(s) entrou como 0 MT no ROI. Cadastre o produto em "Cadastros" para corrigir.';
+  } else {
+    avisoEl.style.display = 'none';
+  }
 
   const roiEl = document.getElementById('metROI');
   if(totalGasto>0){
@@ -2226,6 +2445,7 @@ function renderMetricas(){
   }
 
   renderMetChart(inicio, fim, produtoFiltro);
+  renderMetCostChart(gastoAquisicao, gastoAds, gastoOutros, gastoOperacional, gastoEntrega);
 }
 
 
@@ -2241,10 +2461,11 @@ function renderMetChart(inicio, fim, produtoFiltro){
   const custoPorProduto = custoAquisicaoPorProduto();
   const gastoPorDia = dias.map(d=>{
     const adsOutros = adSpendData.filter(a=> a.data===d && matchProduto(a.produto)).reduce((s,a)=>s+a.valor,0);
-    const aquisicao = vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto))
-      .reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
+    const vendasDoDia = vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto));
+    const aquisicao = vendasDoDia.reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
+    const entrega = vendasDoDia.reduce((s,v)=> s + (v.comissao||0), 0);
     const operacional = produtoFiltro ? 0 : calcularGastoOperacional(d, d);
-    return adsOutros + aquisicao + operacional;
+    return adsOutros + aquisicao + entrega + operacional;
   });
   const receitaPorDia = dias.map(d=>
     vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
@@ -2282,6 +2503,44 @@ function renderMetChart(inicio, fim, produtoFiltro){
         scales:{
           y:{ ticks:{ color:'rgba(245,242,250,0.55)', callback:v=>v+' MT' }, grid:{ color:'rgba(245,242,250,0.07)' } },
           x:{ ticks:{ color:'rgba(245,242,250,0.55)' }, grid:{ display:false } }
+        }
+      }
+    });
+  });
+}
+
+function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
+  const canvas = document.getElementById('metCostChart');
+  const emptyEl = document.getElementById('metCostChartEmpty');
+  const partes = [
+    {label:'Produto (COGS)', valor:aquisicao, cor: cssVar('--cat-1')},
+    {label:'Ads', valor:ads, cor: cssVar('--cat-2')},
+    {label:'Outros', valor:outros, cor: cssVar('--cat-3')},
+    {label:'Operacional', valor:operacional, cor: cssVar('--cat-4')},
+    {label:'Entrega', valor:entrega, cor: cssVar('--cat-5')}
+  ].filter(p=>p.valor>0);
+
+  if(metCostChart){ metCostChart.destroy(); metCostChart=null; }
+  if(partes.length===0){
+    canvas.style.display='none'; emptyEl.style.display='block';
+    return;
+  }
+  canvas.style.display='block'; emptyEl.style.display='none';
+  const total = partes.reduce((s,p)=>s+p.valor,0);
+  requestAnimationFrame(()=>{
+    metCostChart = new Chart(canvas, {
+      type:'doughnut',
+      data:{
+        labels: partes.map(p=>p.label),
+        datasets:[{ data: partes.map(p=>p.valor), backgroundColor: partes.map(p=>p.cor), borderColor: cssVar('--ink-2'), borderWidth:2, hoverOffset:6 }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        cutout:'62%',
+        plugins:{
+          legend:{ position:'right', labels:{ color:'rgba(245,242,250,0.7)', boxWidth:11, padding:12, font:{size:11.5} } },
+          tooltip:{ callbacks:{ label: ctx => ' ' + ctx.label + ': ' + fmtMT(ctx.raw) + ' (' + (ctx.raw/total*100).toFixed(1) + '%)' } }
         }
       }
     });
