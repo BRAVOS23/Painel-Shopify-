@@ -834,7 +834,7 @@
       <h2>Gastos com Ads e Marketing <span class="tag">a receita já vem das vendas concluídas</span></h2>
       <form id="adForm">
         <div class="field">
-          <label for="adData">Data</label>
+          <label for="adData">Período do gasto</label>
           <div id="dpAdData"></div>
         </div>
         <div class="field span2">
@@ -864,7 +864,7 @@
       </div>
       <div id="adHistBody" style="display:none; margin-top:16px;">
         <table class="responsive-table">
-          <thead><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Valor gasto</th><th></th></tr></thead>
+          <thead><tr><th>Período</th><th>Tipo</th><th>Produto</th><th>Valor gasto</th><th></th></tr></thead>
           <tbody id="adTableBody"></tbody>
         </table>
         <div class="empty" id="adEmpty" style="display:none;">Nenhum gasto registado ainda.</div>
@@ -1835,6 +1835,12 @@ function drDefaultPresets(){
   ];
 }
 
+/* mesmos atalhos do seletor de relatórios, mas sem "Tudo" — um gasto de ads precisa de um
+   período real (um dia só ou vários), nunca "sem data". */
+function adSpendPresets(){
+  return drDefaultPresets().filter(p=>p.key!=='tudo');
+}
+
 /* container: div vazio. opts: {presets, initialPresetKey, onApply(range)}. range é [inicio,fim] em ISO ou null ("Tudo"). */
 function createDateRangePicker(container, opts){
   const presets = opts.presets || drDefaultPresets();
@@ -1844,8 +1850,9 @@ function createDateRangePicker(container, opts){
   let pickStart = null;
 
   container.classList.add('daterange');
+  if(opts.fieldStyle) container.classList.add('daterange-field');
   container.innerHTML =
-    '<button type="button" class="daterange-trigger"><span class="daterange-trigger-label"></span><span class="daterange-trigger-chev">▾</span></button>' +
+    '<button type="button" class="daterange-trigger"' + (opts.id ? ' id="'+opts.id+'"' : '') + '><span class="daterange-trigger-label"></span><span class="daterange-trigger-chev">▾</span></button>' +
     '<div class="daterange-panel">' +
       '<div class="daterange-presets"></div>' +
       '<div class="daterange-cal">' +
@@ -1975,7 +1982,11 @@ function createDateRangePicker(container, opts){
   document.addEventListener('click', (e)=>{ if(!e.composedPath().includes(container)) close(); });
 
   updateLabel();
-  return { getRange: () => range };
+  return {
+    getRange: () => range,
+    // usado para repor o seletor num valor existente (ex: editar um gasto já guardado)
+    setRange: (newRange, presetKey) => { range = newRange; activePresetKey = presetKey || null; pickStart = null; updateLabel(); }
+  };
 }
 
 /* atalhos para o seletor de dia único — cada um resolve para UM dia (não um período), pois o
@@ -2135,7 +2146,11 @@ function initDateRangePickers(){
   const hojeISO = drISO(new Date());
   dpFData = createSingleDatePicker(document.getElementById('dpFData'), { id:'fData', initialValue: hojeISO });
   dpVData = createSingleDatePicker(document.getElementById('dpVData'), { id:'vData', initialValue: hojeISO });
-  dpAdData = createSingleDatePicker(document.getElementById('dpAdData'), { id:'adData', initialValue: hojeISO });
+  // gasto de ads pode cobrir um dia só ou um período (ex: "gastei X numa semana") — por isso usa
+  // o seletor de período (com atalhos + seleção manual de intervalo), não o de dia único
+  dpAdData = createDateRangePicker(document.getElementById('dpAdData'), {
+    id:'adData', fieldStyle:true, presets: adSpendPresets(), initialPresetKey:'hoje'
+  });
   dpOpData = createSingleDatePicker(document.getElementById('dpOpData'), { id:'opData', initialValue: hojeISO });
 }
 
@@ -2648,26 +2663,27 @@ function renderOpAll(){
 
 document.getElementById('adForm').addEventListener('submit', function(e){
   e.preventDefault();
-  const data = dpAdData.getValue();
+  const range = dpAdData.getRange();
   const tipo = document.getElementById('adTipo').value;
   const produto = document.getElementById('adProduto').value.trim();
   const valor = parseFloat(document.getElementById('adValor').value)||0;
-  if(!data || valor<=0){ showAdMsg('Preencha a data e o valor.'); return; }
+  if(!range || valor<=0){ showAdMsg('Preencha o período e o valor.'); return; }
+  const [data, dataFim] = range;
 
   if(adEditId){
     const idx = adSpendData.findIndex(a=>a.id===adEditId);
-    if(idx>-1) adSpendData[idx] = {...adSpendData[idx], data, tipo, produto, valor};
+    if(idx>-1) adSpendData[idx] = {...adSpendData[idx], data, dataFim, tipo, produto, valor};
     showAdMsg('Gasto atualizado.');
     adEditId = null;
     document.getElementById('adSubmitBtn').textContent = 'Adicionar gasto';
     document.getElementById('adCancelEdit').style.display = 'none';
   } else {
-    adSpendData.push({id:uid(), data, tipo, produto, valor});
+    adSpendData.push({id:uid(), data, dataFim, tipo, produto, valor});
     showAdMsg('Gasto adicionado.');
   }
   saveAdSpend();
   document.getElementById('adForm').reset();
-  dpAdData.setValue(drISO(new Date()));
+  dpAdData.setRange([drISO(new Date()), drISO(new Date())], 'hoje');
   renderAdAll();
 });
 
@@ -2688,6 +2704,24 @@ function toggleAdHist(){
 
 const TIPO_GASTO_LABEL = {aquisicao:'Aquisição', ads:'Ads', outros:'Outros'};
 
+/* um gasto de ads pode cobrir vários dias (ex: "gastei 1000MT nesta semana") — as três funções
+   abaixo distribuem o valor igualmente pelos dias do período, tanto para os totais de um período
+   de relatório quanto para o gráfico diário. Um registo antigo, de dia único, sem dataFim, cai no
+   caso normal (1 dia só) e o valor continua a contar por inteiro nesse dia, como sempre contou. */
+function adSpendFim(a){ return a.dataFim || a.data; }
+function adSpendDiasTotal(a){ return drDiasEntre(a.data, adSpendFim(a)); }
+function adSpendValorNoPeriodo(a, inicio, fim){
+  const fimA = adSpendFim(a);
+  const ovIni = a.data > inicio ? a.data : inicio;
+  const ovFim = fimA < fim ? fimA : fim;
+  if(ovIni > ovFim) return 0;
+  return a.valor * drDiasEntre(ovIni, ovFim) / adSpendDiasTotal(a);
+}
+function fmtAdPeriodo(a){
+  const fim = adSpendFim(a);
+  return a.data===fim ? fmtData(a.data) : fmtData(a.data) + ' – ' + fmtData(fim);
+}
+
 function renderAdTable(){
   const list = adSpendData.slice().sort((a,b)=> b.data.localeCompare(a.data));
   const tbody = document.getElementById('adTableBody');
@@ -2696,7 +2730,7 @@ function renderAdTable(){
   empty.style.display='none';
   tbody.innerHTML = list.map(a=>`
     <tr>
-      <td class="mono" data-label="Data">${fmtData(a.data)}</td>
+      <td class="mono" data-label="Período">${fmtAdPeriodo(a)}</td>
       <td data-label="Tipo"><span class="pill tipo-${a.tipo||'outros'}">${TIPO_GASTO_LABEL[a.tipo]||'Outros'}</span></td>
       <td data-label="Produto">${escapeHtml(a.produto||'Geral')}</td>
       <td class="mono" data-label="Valor">${fmtMT(a.valor)}</td>
@@ -2710,7 +2744,7 @@ function renderAdTable(){
 function editAd(id){
   const a = adSpendData.find(x=>x.id===id);
   if(!a) return;
-  dpAdData.setValue(a.data);
+  dpAdData.setRange([a.data, adSpendFim(a)], null);
   document.getElementById('adTipo').value = a.tipo||'outros';
   document.getElementById('adProduto').value = a.produto||'';
   document.getElementById('adValor').value = a.valor;
@@ -2722,7 +2756,7 @@ function editAd(id){
 function cancelAdEdit(){
   adEditId = null;
   document.getElementById('adForm').reset();
-  dpAdData.setValue(drISO(new Date()));
+  dpAdData.setRange([drISO(new Date()), drISO(new Date())], 'hoje');
   document.getElementById('adSubmitBtn').textContent = 'Adicionar gasto';
   document.getElementById('adCancelEdit').style.display = 'none';
 }
@@ -2778,7 +2812,9 @@ function renderMetricas(){
   const [inicio, fim] = range;
   const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(p)===normalizarNomeProduto(produtoFiltro);
 
-  const gastos = adSpendData.filter(a=> a.data>=inicio && a.data<=fim && matchProduto(a.produto));
+  // um gasto de ads pode cobrir vários dias — entra aqui se o período dele SE CRUZA com o período
+  // do relatório; o valor exato que conta é rateado (ver adSpendValorNoPeriodo)
+  const gastos = adSpendData.filter(a=> adSpendFim(a)>=inicio && a.data<=fim && matchProduto(a.produto));
   const vendasConcluidas = vendasData.filter(v=> v.status==='concluido' && v.data>=inicio && v.data<=fim && matchProduto(v.produto));
 
   const custoPorProduto = custoAquisicaoPorProduto();
@@ -2789,7 +2825,7 @@ function renderMetricas(){
   // vendas concluídas cujo produto não bate com nenhum cadastro entram com custo 0 no ROI — avisar em vez de deixar passar em silêncio
   const vendasSemProdutoCadastrado = vendasConcluidas.filter(v=> v.produto && !(normalizarNomeProduto(v.produto) in custoPorProduto)).length;
 
-  const somaTipo = (tipo) => gastos.filter(a=>a.tipo===tipo).reduce((s,a)=>s+a.valor,0);
+  const somaTipo = (tipo) => gastos.filter(a=>a.tipo===tipo).reduce((s,a)=>s+adSpendValorNoPeriodo(a, inicio, fim),0);
   const gastoAds = somaTipo('ads');
   const gastoOutros = somaTipo('outros');
   // gastos operacionais (domínio, mensalidade, apps…) são da loja toda, não de um produto — só entram na visão "Todos os produtos"
@@ -2846,7 +2882,8 @@ function renderMetChart(inicio, fim, produtoFiltro){
   }
   const custoPorProduto = custoAquisicaoPorProduto();
   const gastoPorDia = dias.map(d=>{
-    const adsOutros = adSpendData.filter(a=> a.data===d && matchProduto(a.produto)).reduce((s,a)=>s+a.valor,0);
+    // gasto de vários dias entra fatiado por dia (valor total / dias do período), não inteiro num só dia
+    const adsOutros = adSpendData.filter(a=> a.data<=d && adSpendFim(a)>=d && matchProduto(a.produto)).reduce((s,a)=>s+a.valor/adSpendDiasTotal(a),0);
     const vendasDoDia = vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto));
     const aquisicao = vendasDoDia.reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
     const entrega = vendasDoDia.reduce((s,v)=> s + (v.comissao||0), 0);
