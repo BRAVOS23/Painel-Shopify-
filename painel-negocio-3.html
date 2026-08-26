@@ -4,12 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel do Negócio</title>
+<script>
+  // aplica o tema salvo antes da página pintar, pra não piscar o tema errado por uma fração de segundo
+  try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('lobo_theme_v1')==='light' ? 'light' : 'dark'); }catch(e){}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
+    color-scheme: dark;
     --ink:#0D0A14; --ink-2:#1E1729; --panel:#171020; --panel-line: rgba(255,255,255,0.08);
     --sand:#F5F2FA; --sand-dim: rgba(245,242,250,0.55); --sand-dimmer: rgba(245,242,250,0.32);
     --violet:#8B5CF6; --violet-soft: rgba(139,92,246,0.18); --violet-deep:#6D28D9;
@@ -18,19 +23,47 @@
     --green:#34D399; --green-soft: rgba(52,211,153,0.15); --green-chart:#1FAE73;
     --red:#F0506E; --red-soft: rgba(240,80,110,0.15);
     --cat-1:#3987e5; --cat-2:#d95926; --cat-3:#199e70; --cat-4:#c98500; --cat-5:#d55181; --cat-muted:#5b5468;
+    --overlay-1: rgba(245,242,250,0.02); --overlay-2: rgba(245,242,250,0.045);
+    --overlay-3: rgba(245,242,250,0.07); --overlay-4: rgba(245,242,250,0.14);
+    --shadow-panel: 0 1px 0 rgba(255,255,255,0.02) inset, 0 14px 34px -22px rgba(0,0,0,0.75);
+    --shadow-tabs: 0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7);
+    --shadow-card-hover: 0 10px 24px -14px rgba(0,0,0,0.6);
+    --shadow-popover: 0 20px 44px -18px rgba(0,0,0,0.85);
+    --body-glow: radial-gradient(1100px 480px at 88% -8%, rgba(139,92,246,0.13), transparent 60%),
+                 radial-gradient(900px 480px at -8% 8%, rgba(217,70,239,0.08), transparent 55%),
+                 radial-gradient(1400px 700px at 50% 110%, rgba(52,211,153,0.04), transparent 60%);
     --radius: 14px;
     --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'IBM Plex Mono',monospace;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --ink:#F5F3FA; --ink-2:#EFEBF7; --panel:#FFFFFF; --panel-line: rgba(20,10,45,0.12);
+    --sand:#1C1626; --sand-dim: rgba(28,22,38,0.64); --sand-dimmer: rgba(28,22,38,0.40);
+    --violet:#6D28D9; --violet-soft: rgba(109,40,217,0.12); --violet-deep:#4C1D95;
+    --clay:#A21CAF; --clay-soft: rgba(162,28,175,0.12);
+    --gold:#B45309; --gold-soft: rgba(180,83,9,0.14);
+    --green:#047857; --green-soft: rgba(4,120,87,0.12); --green-chart:#047857;
+    --red:#BE123C; --red-soft: rgba(190,18,60,0.12);
+    --cat-1:#2a78d6; --cat-2:#eb6834; --cat-3:#1baf7a; --cat-4:#eda100; --cat-5:#e87ba4; --cat-muted:#8B8499;
+    --overlay-1: rgba(20,10,45,0.035); --overlay-2: rgba(20,10,45,0.05);
+    --overlay-3: rgba(20,10,45,0.07); --overlay-4: rgba(20,10,45,0.10);
+    --shadow-panel: 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 26px -18px rgba(30,15,60,0.18);
+    --shadow-tabs: 0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 20px -14px rgba(30,15,60,0.16);
+    --shadow-popover: 0 20px 44px -18px rgba(30,15,60,0.28);
+    --body-glow: radial-gradient(1100px 480px at 88% -8%, rgba(109,40,217,0.055), transparent 60%),
+                 radial-gradient(900px 480px at -8% 8%, rgba(162,28,175,0.04), transparent 55%),
+                 radial-gradient(1400px 700px at 50% 110%, rgba(4,120,87,0.035), transparent 60%);
+    --shadow-card-hover: 0 8px 18px -12px rgba(30,15,60,0.18);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   ::-webkit-scrollbar{ width:10px; height:10px; }
   ::-webkit-scrollbar-track{ background:var(--ink); }
   ::-webkit-scrollbar-thumb{ background:var(--panel); border-radius:8px; border:2px solid var(--ink); }
-  ::-webkit-scrollbar-thumb:hover{ background:#234049; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--violet); }
   body{
-    background: radial-gradient(1100px 480px at 88% -8%, rgba(139,92,246,0.13), transparent 60%),
-                radial-gradient(900px 480px at -8% 8%, rgba(217,70,239,0.08), transparent 55%),
-                radial-gradient(1400px 700px at 50% 110%, rgba(52,211,153,0.04), transparent 60%), var(--ink);
+    background: var(--body-glow), var(--ink);
     color:var(--sand); font-family:var(--font-body); min-height:100vh; padding:26px 18px 70px;
+    transition: background-color .2s ease, color .2s ease;
   }
   .wrap{ max-width:1180px; margin:0 auto; }
   a, button{ font-family: var(--font-body); }
@@ -44,13 +77,20 @@
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
 
-  .maintabs{ display:flex; gap:6px; background:var(--panel); border:1px solid var(--panel-line); padding:5px; border-radius:13px; box-shadow:0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7); }
+  .maintabs{ display:flex; gap:6px; background:var(--panel); border:1px solid var(--panel-line); padding:5px; border-radius:13px; box-shadow:var(--shadow-tabs); }
   .maintabs button{
     border:none; background:transparent; color:var(--sand-dim); padding:9px 16px; border-radius:9px;
     font-size:13.5px; font-weight:600; cursor:pointer; transition:.15s;
   }
-  .maintabs button:hover:not(.active){ color:var(--sand); background:rgba(245,242,250,0.04); }
+  .maintabs button:hover:not(.active){ color:var(--sand); background:var(--overlay-2); }
   .maintabs button.active{ background:linear-gradient(90deg,var(--violet),var(--violet-deep)); color:var(--sand); box-shadow:0 6px 16px -6px rgba(139,92,246,0.6); }
+
+  .theme-toggle{
+    display:flex; align-items:center; justify-content:center; width:38px; height:38px; flex-shrink:0;
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:11px; color:var(--sand-dim);
+    cursor:pointer; transition:.15s; box-shadow:var(--shadow-tabs);
+  }
+  .theme-toggle:hover{ color:var(--gold); border-color:var(--sand-dimmer); }
 
   .section{ display:none; }
   .section.active{ display:block; animation:fadein .25s ease; }
@@ -62,13 +102,13 @@
     font-size:13px; font-weight:600; cursor:pointer; transition:.15s;
   }
   .subnav button:hover:not(.active){ color:var(--sand); }
-  .subnav button.active{ background:var(--panel); color:var(--sand); box-shadow:0 1px 0 rgba(255,255,255,0.03) inset, 0 4px 12px -6px rgba(0,0,0,0.6); }
+  .subnav button.active{ background:var(--panel); color:var(--sand); box-shadow:var(--shadow-card-hover); }
   .subview{ display:none; }
   .subview.active{ display:block; animation:fadein .2s ease; }
 
   .panel{
     background:var(--panel); border:1px solid var(--panel-line); border-radius:var(--radius); padding:22px;
-    margin-bottom:18px; box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 14px 34px -22px rgba(0,0,0,0.75);
+    margin-bottom:18px; box-shadow:var(--shadow-panel);
   }
   .panel h2{
     font-family:var(--font-display); font-weight:600; font-size:16.5px; margin-bottom:16px; letter-spacing:-0.005em;
@@ -126,7 +166,7 @@
     background:transparent; border:1px solid var(--panel-line); color:var(--sand-dim); padding:10px 14px;
     border-radius:9px; font-size:13px; cursor:pointer; transition:.15s;
   }
-  .btn-ghost:hover{ color:var(--sand); border-color:var(--sand-dimmer); background:rgba(245,242,250,0.04); }
+  .btn-ghost:hover{ color:var(--sand); border-color:var(--sand-dimmer); background:var(--overlay-2); }
   #fluxoMsg, #vendaMsg{ font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1; }
 
   /* histórico toggle */
@@ -155,7 +195,7 @@
     position:relative; overflow:hidden; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
   }
   .card::before{ content:""; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, var(--gold), var(--violet)); opacity:.4; }
-  .card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px -14px rgba(0,0,0,0.6); border-color:rgba(245,242,250,0.18); }
+  .card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card-hover); border-color:var(--overlay-4); }
   .card.destaque{ background:linear-gradient(160deg, rgba(139,92,246,0.12), var(--ink-2) 65%); border-color:rgba(139,92,246,0.35); }
   .card.destaque::before{ opacity:1; }
   .card .k{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--sand-dim); display:block; margin-bottom:7px; }
@@ -166,10 +206,10 @@
   .card.saldo .v.pos{ color:var(--green); }
 
   table{ width:100%; border-collapse:collapse; }
-  thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--sand-dim); padding:9px; border-bottom:1px solid var(--panel-line); white-space:nowrap; background:rgba(245,242,250,0.015); }
+  thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--sand-dim); padding:9px; border-bottom:1px solid var(--panel-line); white-space:nowrap; background:var(--overlay-1); }
   tbody td{ padding:11px 9px; font-size:13px; border-bottom:1px solid var(--panel-line); vertical-align:middle; }
   tbody tr{ transition:background .12s; }
-  tbody tr:hover{ background:rgba(245,242,250,0.035); }
+  tbody tr:hover{ background:var(--overlay-1); }
   .mono{ font-family:var(--font-mono); }
   .pos{ color:var(--green); } .neg{ color:var(--red); }
   .pill{ font-family:var(--font-mono); font-size:10.5px; padding:4px 9px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
@@ -182,10 +222,10 @@
   .pill.st-remarcado{ background:var(--clay-soft); color:var(--clay); } .pill.st-remarcado::before{ background:var(--clay); }
   .pill.tipo-aquisicao{ background:var(--clay-soft); color:var(--clay); } .pill.tipo-aquisicao::before{ background:var(--clay); }
   .pill.tipo-ads{ background:var(--gold-soft); color:var(--gold); } .pill.tipo-ads::before{ background:var(--gold); }
-  .pill.tipo-outros{ background:rgba(245,242,250,0.10); color:var(--sand-dim); } .pill.tipo-outros::before{ background:var(--sand-dim); }
+  .pill.tipo-outros{ background:var(--overlay-3); color:var(--sand-dim); } .pill.tipo-outros::before{ background:var(--sand-dim); }
   .row-actions{ display:flex; gap:6px; }
   .icon-btn{ background:transparent; border:1px solid var(--panel-line); color:var(--sand-dim); width:27px; height:27px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:12.5px; cursor:pointer; transition:.15s; }
-  .icon-btn:hover{ color:var(--sand); border-color:var(--sand-dimmer); background:rgba(245,242,250,0.05); }
+  .icon-btn:hover{ color:var(--sand); border-color:var(--sand-dimmer); background:var(--overlay-2); }
   .empty{ text-align:center; padding:34px 10px; color:var(--sand-dimmer); font-size:13px; }
 
   .toolbar{ display:flex; gap:8px; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:14px; }
@@ -207,7 +247,7 @@
   .daterange-panel{
     display:none; position:absolute; z-index:40; top:calc(100% + 8px); left:0;
     background:var(--panel); border:1px solid var(--panel-line); border-radius:14px; padding:14px;
-    box-shadow:0 20px 44px -18px rgba(0,0,0,0.85); width:560px; max-width:calc(100vw - 40px);
+    box-shadow:var(--shadow-popover); width:560px; max-width:calc(100vw - 40px);
   }
   .daterange-panel.open{ display:flex; gap:16px; }
   .daterange-presets{ display:flex; flex-direction:column; gap:2px; width:158px; flex-shrink:0; border-right:1px solid var(--panel-line); padding-right:14px; }
@@ -215,7 +255,7 @@
     text-align:left; border:none; background:transparent; color:var(--sand-dim); padding:8px 10px; border-radius:8px;
     font-size:12.5px; font-weight:600; cursor:pointer; transition:.12s; font-family:var(--font-body);
   }
-  .daterange-preset-btn:hover{ background:rgba(245,242,250,0.05); color:var(--sand); }
+  .daterange-preset-btn:hover{ background:var(--overlay-2); color:var(--sand); }
   .daterange-preset-btn.active{ background:var(--violet-soft); color:var(--sand); }
   .daterange-cal{ flex:1; min-width:0; }
   .daterange-cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
@@ -230,7 +270,7 @@
     cursor:pointer; transition:.12s; font-family:var(--font-mono);
   }
   .daterange-day.empty{ cursor:default; }
-  .daterange-day:not(.empty):hover{ background:rgba(245,242,250,0.08); }
+  .daterange-day:not(.empty):hover{ background:var(--overlay-3); }
   .daterange-day.today{ color:var(--gold); font-weight:700; }
   .daterange-day.in-range{ background:var(--violet-soft); border-radius:0; }
   .daterange-day.range-start{ background:var(--violet); color:var(--sand); border-radius:8px 0 0 8px; }
@@ -254,7 +294,7 @@
   /* controle de vendas: overview + side panels */
   .overview{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px; }
   .ov-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:14px; text-align:center; transition:transform .15s ease, box-shadow .15s ease; }
-  .ov-card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px -14px rgba(0,0,0,0.6); }
+  .ov-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card-hover); }
   .ov-card .v{ font-family:var(--font-mono); font-weight:600; font-size:20px; letter-spacing:-0.01em; }
   .ov-card .k{ font-size:10.5px; color:var(--sand-dim); text-transform:uppercase; letter-spacing:.06em; margin-top:4px; display:block; }
 
@@ -291,7 +331,7 @@
     background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px;
     padding:14px 16px; margin-bottom:10px; transition:border-color .15s ease;
   }
-  .pedido-card:hover{ border-color:rgba(245,242,250,0.18); }
+  .pedido-card:hover{ border-color:var(--overlay-4); }
   .pedido-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; gap:8px; }
   .pedido-hora{ font-family:var(--font-mono); font-size:12.5px; color:var(--gold); font-weight:600; }
   .pedido-card-main{ margin-bottom:13px; }
@@ -315,7 +355,7 @@
   /* painéis com peso visual diferente conforme importância no dia a dia */
   .panel-slim{ padding:16px 22px; }
   .panel-slim h2{ margin-bottom:10px; font-size:14.5px; }
-  .panel-highlight{ border-color:rgba(139,92,246,0.32); box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 16px 38px -22px rgba(0,0,0,0.8), 0 0 0 1px rgba(139,92,246,0.06); }
+  .panel-highlight{ border-color:var(--violet-soft); box-shadow:var(--shadow-panel), 0 0 0 1px var(--violet-soft); }
 
   footer{ text-align:center; color:var(--sand-dimmer); font-size:12px; margin-top:36px; }
 
@@ -381,10 +421,16 @@
       <span class="eyebrow">Painel do Negócio</span>
       <h1>Fluxo de Caixa &amp; Controle de Vendas</h1>
     </div>
-    <div class="maintabs">
-      <button id="tabBtnFluxo" class="active" onclick="switchMain('fluxo')">Fluxo de Caixa</button>
-      <button id="tabBtnVendas" onclick="switchMain('vendas')">Controle de Vendas</button>
-      <button id="tabBtnMetricas" onclick="switchMain('metricas')">CPA / ROI / ROAS</button>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div class="maintabs">
+        <button id="tabBtnFluxo" class="active" onclick="switchMain('fluxo')">Fluxo de Caixa</button>
+        <button id="tabBtnVendas" onclick="switchMain('vendas')">Controle de Vendas</button>
+        <button id="tabBtnMetricas" onclick="switchMain('metricas')">CPA / ROI / ROAS</button>
+      </div>
+      <button type="button" class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
+        <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+        <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
     </div>
   </header>
 
@@ -893,6 +939,31 @@ function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFraction
 function fmtData(d){ return d ? d.split('-').reverse().join('/') : ''; }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
 
+/* ============ TEMA CLARO / ESCURO ============ */
+const THEME_KEY = 'lobo_theme_v1';
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeIconSun').style.display = theme==='light' ? 'none' : '';
+  document.getElementById('themeIconMoon').style.display = theme==='light' ? '' : 'none';
+}
+function initTheme(){
+  // o <script> no <head> já aplicou o data-theme salvo antes da página pintar; aqui só sincroniza os ícones
+  applyTheme(document.documentElement.getAttribute('data-theme')==='light' ? 'light' : 'dark');
+}
+function toggleTheme(){
+  const next = document.documentElement.getAttribute('data-theme')==='light' ? 'dark' : 'light';
+  applyTheme(next);
+  localStorage.setItem(THEME_KEY, next);
+  refreshChartsForTheme();
+}
+// Chart.js grava as cores no momento da criação — trocar o tema não muda os gráficos já desenhados
+// sozinho, então redesenha só os que estão visíveis agora.
+function refreshChartsForTheme(){
+  if(document.getElementById('secFluxo').classList.contains('active') && historicoAberto) renderFluxoChart();
+  if(document.getElementById('secVendas').classList.contains('active') && document.getElementById('vendasViewRelatorios').classList.contains('active')) renderOverview();
+  if(document.getElementById('secMetricas').classList.contains('active') && document.getElementById('metricasViewResultados').classList.contains('active')) renderMetricas();
+}
+
 function switchMain(which){
   document.getElementById('secFluxo').classList.toggle('active', which==='fluxo');
   document.getElementById('secVendas').classList.toggle('active', which==='vendas');
@@ -1130,12 +1201,12 @@ function renderFluxoChart(){
         maintainAspectRatio:false,
         interaction:{ mode:'index', intersect:false },
         plugins:{
-          legend:{ labels:{ color:'rgba(245,242,250,0.7)', boxWidth:11, font:{size:11.5} } },
+          legend:{ labels:{ color:chartInk(0.7), boxWidth:11, font:{size:11.5} } },
           tooltip:{ callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
         },
         scales:{
-          y:{ ticks:{ color:'rgba(245,242,250,0.55)', callback:v=>v+' MT' }, grid:{ color:'rgba(245,242,250,0.07)' } },
-          x:{ ticks:{ color:'rgba(245,242,250,0.55)', maxTicksLimit:15 }, grid:{ display:false } }
+          y:{ ticks:{ color:chartInk(0.55), callback:v=>v+' MT' }, grid:{ color:chartInk(0.07) } },
+          x:{ ticks:{ color:chartInk(0.55), maxTicksLimit:15 }, grid:{ display:false } }
         }
       }
     });
@@ -1942,7 +2013,7 @@ function renderFonteChart(dados){
         maintainAspectRatio:false,
         cutout:'62%',
         plugins:{
-          legend:{ position:'right', labels:{ color:'rgba(245,242,250,0.7)', boxWidth:11, padding:12, font:{size:11} } },
+          legend:{ position:'right', labels:{ color:chartInk(0.7), boxWidth:11, padding:12, font:{size:11} } },
           tooltip:{ callbacks:{ label: ctx => ' ' + ctx.label + ': ' + ctx.raw + ' (' + (ctx.raw/total*100).toFixed(0) + '%)' } }
         }
       }
@@ -1988,8 +2059,8 @@ function renderProdutoChart(dados){
           tooltip:{ callbacks:{ label: ctx => ctx.raw + ' unidade' + (ctx.raw===1?'':'s') } }
         },
         scales:{
-          x:{ ticks:{ color:'rgba(245,242,250,0.55)', precision:0 }, grid:{ color:'rgba(245,242,250,0.07)' } },
-          y:{ ticks:{ color:'rgba(245,242,250,0.7)', font:{size:11.5} }, grid:{ display:false } }
+          x:{ ticks:{ color:chartInk(0.55), precision:0 }, grid:{ color:chartInk(0.07) } },
+          y:{ ticks:{ color:chartInk(0.7), font:{size:11.5} }, grid:{ display:false } }
         }
       }
     });
@@ -2040,6 +2111,12 @@ const FONTE_COLOR = {
   '04.SHOPIFY':'var(--cat-4)', '05.OUTRO':'var(--cat-5)'
 };
 function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name.replace('var(','').replace(')','')).trim(); }
+// cor de texto/grade dos gráficos Chart.js — não dá pra usar var(--sand) direto num rgba(), então
+// segue a mesma base de cor do tema atual (texto claro no escuro, escuro no claro) na opacidade pedida
+function chartInk(opacity){
+  const light = document.documentElement.getAttribute('data-theme')==='light';
+  return light ? `rgba(28,22,38,${opacity})` : `rgba(245,242,250,${opacity})`;
+}
 
 function loadAdSpend(){
   try{ adSpendData = JSON.parse(localStorage.getItem(ADSPEND_KEY)) || []; }catch(e){ adSpendData = []; }
@@ -2624,20 +2701,20 @@ function renderMetChart(inicio, fim, produtoFiltro){
       data:{
         labels,
         datasets:[
-          { label:'Gasto total', data: gastoPorDia, backgroundColor:'#F0506E', borderRadius:5, maxBarThickness:34 },
-          { label:'Receita', data: receitaPorDia, backgroundColor:'#34D399', borderRadius:5, maxBarThickness:34 }
+          { label:'Gasto total', data: gastoPorDia, backgroundColor:cssVar('--red'), borderRadius:5, maxBarThickness:34 },
+          { label:'Receita', data: receitaPorDia, backgroundColor:cssVar('--green-chart'), borderRadius:5, maxBarThickness:34 }
         ]
       },
       options:{
         responsive:true,
         maintainAspectRatio:false,
         plugins:{
-          legend:{ labels:{ color:'rgba(245,242,250,0.7)' } },
+          legend:{ labels:{ color:chartInk(0.7) } },
           tooltip:{ callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
         },
         scales:{
-          y:{ ticks:{ color:'rgba(245,242,250,0.55)', callback:v=>v+' MT' }, grid:{ color:'rgba(245,242,250,0.07)' } },
-          x:{ ticks:{ color:'rgba(245,242,250,0.55)' }, grid:{ display:false } }
+          y:{ ticks:{ color:chartInk(0.55), callback:v=>v+' MT' }, grid:{ color:chartInk(0.07) } },
+          x:{ ticks:{ color:chartInk(0.55) }, grid:{ display:false } }
         }
       }
     });
@@ -2674,7 +2751,7 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
         maintainAspectRatio:false,
         cutout:'62%',
         plugins:{
-          legend:{ position:'right', labels:{ color:'rgba(245,242,250,0.7)', boxWidth:11, padding:12, font:{size:11.5} } },
+          legend:{ position:'right', labels:{ color:chartInk(0.7), boxWidth:11, padding:12, font:{size:11.5} } },
           tooltip:{ callbacks:{ label: ctx => ' ' + ctx.label + ': ' + fmtMT(ctx.raw) + ' (' + (ctx.raw/total*100).toFixed(1) + '%)' } }
         }
       }
@@ -2689,6 +2766,7 @@ function renderAdAll(){
 }
 
 /* ============ INIT ============ */
+initTheme();
 document.getElementById('fData').valueAsDate = new Date();
 document.getElementById('vData').valueAsDate = new Date();
 document.getElementById('adData').valueAsDate = new Date();
