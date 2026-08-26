@@ -195,6 +195,62 @@
   }
   .toolbar select:focus, .toolbar input:focus{ border-color:var(--violet); }
 
+  /* seletor de período (calendário + atalhos, estilo Meta Ads) */
+  .daterange{ position:relative; display:inline-block; }
+  .daterange-trigger{
+    display:flex; align-items:center; gap:8px; background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand);
+    padding:8px 12px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; transition:border-color .15s; font-family:var(--font-body);
+  }
+  .daterange-trigger:hover{ border-color:var(--sand-dimmer); }
+  .daterange.open .daterange-trigger{ border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
+  .daterange-trigger-chev{ font-size:10px; color:var(--sand-dim); }
+  .daterange-panel{
+    display:none; position:absolute; z-index:40; top:calc(100% + 8px); left:0;
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:14px; padding:14px;
+    box-shadow:0 20px 44px -18px rgba(0,0,0,0.85); width:560px; max-width:calc(100vw - 40px);
+  }
+  .daterange-panel.open{ display:flex; gap:16px; }
+  .daterange-presets{ display:flex; flex-direction:column; gap:2px; width:158px; flex-shrink:0; border-right:1px solid var(--panel-line); padding-right:14px; }
+  .daterange-preset-btn{
+    text-align:left; border:none; background:transparent; color:var(--sand-dim); padding:8px 10px; border-radius:8px;
+    font-size:12.5px; font-weight:600; cursor:pointer; transition:.12s; font-family:var(--font-body);
+  }
+  .daterange-preset-btn:hover{ background:rgba(245,242,250,0.05); color:var(--sand); }
+  .daterange-preset-btn.active{ background:var(--violet-soft); color:var(--sand); }
+  .daterange-cal{ flex:1; min-width:0; }
+  .daterange-cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .daterange-cal-month{ font-family:var(--font-display); font-size:13px; font-weight:600; }
+  .daterange-nav{ border:1px solid var(--panel-line); background:var(--ink-2); color:var(--sand-dim); width:26px; height:26px; border-radius:7px; cursor:pointer; font-size:13px; transition:.12s; }
+  .daterange-nav:hover{ color:var(--sand); border-color:var(--sand-dimmer); }
+  .daterange-cal-weekdays{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:4px; }
+  .daterange-cal-weekdays span{ text-align:center; font-size:10.5px; color:var(--sand-dimmer); font-weight:600; }
+  .daterange-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .daterange-day{
+    border:none; background:transparent; color:var(--sand); aspect-ratio:1; border-radius:8px; font-size:12.5px;
+    cursor:pointer; transition:.12s; font-family:var(--font-mono);
+  }
+  .daterange-day.empty{ cursor:default; }
+  .daterange-day:not(.empty):hover{ background:rgba(245,242,250,0.08); }
+  .daterange-day.today{ color:var(--gold); font-weight:700; }
+  .daterange-day.in-range{ background:var(--violet-soft); border-radius:0; }
+  .daterange-day.range-start{ background:var(--violet); color:var(--sand); border-radius:8px 0 0 8px; }
+  .daterange-day.range-end{ background:var(--violet); color:var(--sand); border-radius:0 8px 8px 0; }
+  .daterange-day.range-start.range-end{ border-radius:8px; }
+  .daterange-cal-hint{ margin-top:10px; font-size:11.5px; color:var(--sand-dimmer); text-align:center; }
+  @media (max-width:640px){
+    /* position:fixed + vw units — the trigger sits inside a flex row (h2) so its own box is only
+       as wide as the button, and an absolute panel sized off that ends up sliced to a sliver */
+    .daterange-panel.open{
+      position:fixed; flex-direction:column; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:calc(100vw - 32px); max-width:380px; max-height:80vh; overflow-y:auto;
+    }
+    .daterange-presets{
+      flex-direction:row; flex-wrap:nowrap; overflow-x:auto; width:auto; gap:6px;
+      border-right:none; border-bottom:1px solid var(--panel-line); padding-right:0; padding-bottom:10px; margin-bottom:10px;
+    }
+    .daterange-preset-btn{ flex:0 0 auto; white-space:nowrap; }
+  }
+
   /* controle de vendas: overview + side panels */
   .overview{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px; }
   .ov-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:14px; text-align:center; transition:transform .15s ease, box-shadow .15s ease; }
@@ -502,15 +558,7 @@
     <div id="vendasViewRelatorios" class="subview">
       <div class="panel">
         <h2>Visão geral
-          <select id="overviewFiltro" onchange="onOverviewFiltroChange()" style="background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:7px 10px; border-radius:8px; font-size:12.5px; outline:none;">
-            <option value="tudo">Tudo</option>
-            <option value="esta_semana">Esta semana</option>
-            <option value="semana_passada">Semana passada</option>
-            <option value="este_mes">Este mês</option>
-            <option value="mes_passado">Mês passado</option>
-            <option value="este_ano">Este ano</option>
-            <option value="ano_passado">Ano passado</option>
-          </select>
+          <div id="drOverview"></div>
         </h2>
         <div class="overview">
           <div class="ov-card"><span class="v" id="ovTotal">0</span><span class="k">Contactos</span></div>
@@ -635,12 +683,7 @@
       <h2>Calcular CPA / ROI / ROAS</h2>
       <div class="toolbar">
         <div class="filters">
-          <div class="toggle-group" style="width:180px;">
-            <button type="button" id="metPeriodoDia" class="on" onclick="setPeriodoMetricas('dia')">Dia</button>
-            <button type="button" id="metPeriodoSemana" onclick="setPeriodoMetricas('semana')">Semana</button>
-          </div>
-          <input type="date" id="metData" onchange="renderMetricas()">
-          <input type="week" id="metSemana" style="display:none;" onchange="renderMetricas()">
+          <div id="drMetricas"></div>
           <select id="metProduto" onchange="renderMetricas()">
             <option value="">Todos os produtos</option>
           </select>
@@ -1688,46 +1731,171 @@ function exportVendasCSV(){
   downloadCSV(header, rows, 'controle-vendas-'+semanaAtiva+'.csv');
 }
 
-let overviewFiltro = 'tudo';
+/* ============ SELETOR DE PERÍODO (calendário + atalhos, estilo Meta Ads) ============ */
+function drISO(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function drParseISO(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function drAddDays(d, n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function drFmtShort(s){ const d = drParseISO(s); return String(d.getDate()).padStart(2,'0') + '/' + MESES_PT[d.getMonth()].slice(0,3); }
+function drDiasEntre(a,b){ return Math.round((drParseISO(b)-drParseISO(a))/86400000)+1; }
 
-function getDateRangeFor(filtro){
+function drDefaultPresets(){
   const hoje = new Date();
-  const toISO = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-
-  if(filtro==='tudo') return null;
-
-  if(filtro==='esta_semana' || filtro==='semana_passada'){
-    const dia = hoje.getDay();
-    const diffSegunda = (dia===0 ? -6 : 1-dia);
-    const inicio = new Date(hoje);
-    inicio.setDate(inicio.getDate() + diffSegunda);
-    if(filtro==='semana_passada') inicio.setDate(inicio.getDate()-7);
-    const fim = new Date(inicio);
-    fim.setDate(fim.getDate()+6);
-    return [toISO(inicio), toISO(fim)];
-  }
-  if(filtro==='este_mes' || filtro==='mes_passado'){
-    let y = hoje.getFullYear(), m = hoje.getMonth();
-    if(filtro==='mes_passado'){ m -= 1; if(m<0){ m=11; y-=1; } }
-    const inicio = new Date(y, m, 1);
-    const fim = new Date(y, m+1, 0);
-    return [toISO(inicio), toISO(fim)];
-  }
-  if(filtro==='este_ano' || filtro==='ano_passado'){
-    let y = hoje.getFullYear();
-    if(filtro==='ano_passado') y -= 1;
-    return [y+'-01-01', y+'-12-31'];
-  }
-  return null;
+  const segundaDe = (base) => { const dia = base.getDay(); return drAddDays(base, dia===0?-6:1-dia); };
+  return [
+    { key:'tudo', label:'Tudo', range:() => null },
+    { key:'hoje', label:'Hoje', range:() => [drISO(hoje), drISO(hoje)] },
+    { key:'ontem', label:'Ontem', range:() => { const d = drAddDays(hoje,-1); return [drISO(d), drISO(d)]; } },
+    { key:'ultimos_7', label:'Últimos 7 dias', range:() => [drISO(drAddDays(hoje,-6)), drISO(hoje)] },
+    { key:'ultimos_30', label:'Últimos 30 dias', range:() => [drISO(drAddDays(hoje,-29)), drISO(hoje)] },
+    { key:'esta_semana', label:'Esta semana', range:() => { const i = segundaDe(hoje); return [drISO(i), drISO(drAddDays(i,6))]; } },
+    { key:'semana_passada', label:'Semana passada', range:() => { const i = drAddDays(segundaDe(hoje),-7); return [drISO(i), drISO(drAddDays(i,6))]; } },
+    { key:'este_mes', label:'Este mês', range:() => { const i = new Date(hoje.getFullYear(), hoje.getMonth(), 1); const f = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0); return [drISO(i), drISO(f)]; } },
+    { key:'mes_passado', label:'Mês passado', range:() => { const i = new Date(hoje.getFullYear(), hoje.getMonth()-1, 1); const f = new Date(hoje.getFullYear(), hoje.getMonth(), 0); return [drISO(i), drISO(f)]; } },
+    { key:'este_ano', label:'Este ano', range:() => [hoje.getFullYear()+'-01-01', hoje.getFullYear()+'-12-31'] },
+    { key:'ano_passado', label:'Ano passado', range:() => [(hoje.getFullYear()-1)+'-01-01', (hoje.getFullYear()-1)+'-12-31'] }
+  ];
 }
 
-function onOverviewFiltroChange(){
-  overviewFiltro = document.getElementById('overviewFiltro').value;
-  renderOverview();
+/* container: div vazio. opts: {presets, initialPresetKey, onApply(range)}. range é [inicio,fim] em ISO ou null ("Tudo"). */
+function createDateRangePicker(container, opts){
+  const presets = opts.presets || drDefaultPresets();
+  let activePresetKey = opts.initialPresetKey || null;
+  let range = activePresetKey ? (presets.find(p=>p.key===activePresetKey)||{range:()=>null}).range() : (opts.initialRange || null);
+  let viewMonth = new Date();
+  let pickStart = null;
+
+  container.classList.add('daterange');
+  container.innerHTML =
+    '<button type="button" class="daterange-trigger"><span class="daterange-trigger-label"></span><span class="daterange-trigger-chev">▾</span></button>' +
+    '<div class="daterange-panel">' +
+      '<div class="daterange-presets"></div>' +
+      '<div class="daterange-cal">' +
+        '<div class="daterange-cal-header"><button type="button" class="daterange-nav" data-nav="-1">‹</button><span class="daterange-cal-month"></span><button type="button" class="daterange-nav" data-nav="1">›</button></div>' +
+        '<div class="daterange-cal-weekdays"><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span></div>' +
+        '<div class="daterange-cal-grid"></div>' +
+        '<div class="daterange-cal-hint"></div>' +
+      '</div>' +
+    '</div>';
+
+  const trigger = container.querySelector('.daterange-trigger');
+  const label = container.querySelector('.daterange-trigger-label');
+  const panel = container.querySelector('.daterange-panel');
+  const presetsEl = container.querySelector('.daterange-presets');
+  const monthEl = container.querySelector('.daterange-cal-month');
+  const gridEl = container.querySelector('.daterange-cal-grid');
+  const hintEl = container.querySelector('.daterange-cal-hint');
+
+  function updateLabel(){
+    if(activePresetKey){
+      label.textContent = (presets.find(p=>p.key===activePresetKey)||{}).label || 'Personalizado';
+    } else if(range){
+      label.textContent = range[0]===range[1] ? drFmtShort(range[0]) : drFmtShort(range[0]) + ' – ' + drFmtShort(range[1]);
+    } else {
+      label.textContent = 'Tudo';
+    }
+  }
+
+  function renderPresets(){
+    presetsEl.innerHTML = presets.map(p=>
+      '<button type="button" class="daterange-preset-btn' + (p.key===activePresetKey?' active':'') + '" data-key="' + p.key + '">' + p.label + '</button>'
+    ).join('');
+  }
+
+  function renderCalendar(){
+    const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+    monthEl.textContent = MESES_PT[m] + ' ' + y;
+    const primeiroDia = new Date(y, m, 1);
+    const offset = (primeiroDia.getDay()===0) ? 6 : primeiroDia.getDay()-1;
+    const totalDias = new Date(y, m+1, 0).getDate();
+    const hojeISO = drISO(new Date());
+    const selInicio = pickStart ? drISO(pickStart) : (range ? range[0] : null);
+    const selFim = pickStart ? null : (range ? range[1] : null);
+
+    let html = '';
+    for(let i=0;i<offset;i++) html += '<span class="daterange-day empty"></span>';
+    for(let dia=1; dia<=totalDias; dia++){
+      const iso = drISO(new Date(y,m,dia));
+      let cls = 'daterange-day';
+      if(iso===hojeISO) cls += ' today';
+      if(selInicio && selFim && iso>=selInicio && iso<=selFim) cls += ' in-range';
+      if(iso===selInicio) cls += ' range-start';
+      if(iso===selFim) cls += ' range-end';
+      html += '<button type="button" class="' + cls + '" data-iso="' + iso + '">' + dia + '</button>';
+    }
+    gridEl.innerHTML = html;
+    hintEl.textContent = pickStart ? 'Escolha a data final' : (range ? drDiasEntre(range[0],range[1]) + ' dia(s) selecionado(s)' : 'Escolha a data inicial');
+  }
+
+  function apply(newRange, presetKey){
+    range = newRange;
+    activePresetKey = presetKey || null;
+    pickStart = null;
+    updateLabel();
+    close();
+    if(opts.onApply) opts.onApply(range);
+  }
+
+  function open(){
+    viewMonth = range ? drParseISO(range[1]||range[0]) : new Date();
+    pickStart = null;
+    renderPresets();
+    renderCalendar();
+    panel.classList.add('open');
+    container.classList.add('open');
+  }
+  function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
+  function toggle(){ panel.classList.contains('open') ? close() : open(); }
+
+  trigger.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+  presetsEl.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.daterange-preset-btn');
+    if(!btn) return;
+    const p = presets.find(p=>p.key===btn.dataset.key);
+    apply(p.range(), p.key);
+  });
+  container.querySelector('.daterange-cal-header').addEventListener('click', (e)=>{
+    const nav = e.target.closest('.daterange-nav');
+    if(!nav) return;
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + Number(nav.dataset.nav), 1);
+    renderCalendar();
+  });
+  gridEl.addEventListener('click', (e)=>{
+    const day = e.target.closest('.daterange-day');
+    if(!day || !day.dataset.iso) return;
+    const iso = day.dataset.iso;
+    if(!pickStart){
+      pickStart = drParseISO(iso);
+      renderCalendar();
+    } else {
+      let a = drISO(pickStart), b = iso;
+      if(b<a){ const t=a; a=b; b=t; }
+      apply([a,b], null);
+    }
+  });
+  // composedPath() (not e.target) — picking the first day of a range re-renders the grid and
+  // detaches the clicked button from the DOM, so container.contains(e.target) would wrongly say "outside"
+  document.addEventListener('click', (e)=>{ if(!e.composedPath().includes(container)) close(); });
+
+  updateLabel();
+  return { getRange: () => range };
+}
+
+let drOverview = null;
+let drMetricas = null;
+function initDateRangePickers(){
+  drOverview = createDateRangePicker(document.getElementById('drOverview'), {
+    initialPresetKey: 'tudo',
+    onApply: renderOverview
+  });
+  drMetricas = createDateRangePicker(document.getElementById('drMetricas'), {
+    presets: drMetricasPresets(),
+    initialPresetKey: 'hoje',
+    onApply: renderMetricas
+  });
 }
 
 function renderOverview(){
-  const range = getDateRangeFor(overviewFiltro);
+  const range = drOverview ? drOverview.getRange() : null;
   const dados = range ? vendasData.filter(v=> v.data >= range[0] && v.data <= range[1]) : vendasData;
 
   const total = dados.length;
@@ -1860,7 +2028,6 @@ let opEditId = null;
 let adHistAberto = false;
 let produtoHistAberto = false;
 let opHistAberto = false;
-let periodoMetricas = 'dia';
 let metChart = null;
 let metCostChart = null;
 let fluxoChart = null;
@@ -2330,50 +2497,18 @@ function populateProdutosMetricas(){
   if(produtos.includes(atual)) sel.value = atual;
 }
 
-function setPeriodoMetricas(p){
-  periodoMetricas = p;
-  document.getElementById('metPeriodoDia').classList.toggle('on', p==='dia');
-  document.getElementById('metPeriodoSemana').classList.toggle('on', p==='semana');
-  document.getElementById('metData').style.display = p==='dia' ? '' : 'none';
-  document.getElementById('metSemana').style.display = p==='semana' ? '' : 'none';
-  renderMetricas();
-}
-
 function toISODate(d){
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
-function getDateOfISOWeek(week, year){
-  const simple = new Date(year, 0, 1 + (week-1)*7);
-  const dow = simple.getDay();
-  const isoStart = new Date(simple);
-  if(dow<=4) isoStart.setDate(simple.getDate() - dow + 1);
-  else isoStart.setDate(simple.getDate() + 8 - dow);
-  return isoStart;
-}
-function currentISOWeekString(){
-  const hoje = new Date();
-  const d = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-  return d.getUTCFullYear() + '-W' + String(weekNo).padStart(2,'0');
+
+/* o gráfico diário desenha uma barra por dia do período — sem "Tudo"/ano aqui pra não virar
+   um gráfico de centenas de barras ilegível; esses dois ficam só no seletor da Visão Geral */
+function drMetricasPresets(){
+  return drDefaultPresets().filter(p => !['tudo','este_ano','ano_passado'].includes(p.key));
 }
 
 function getMetricasRange(){
-  if(periodoMetricas==='dia'){
-    const v = document.getElementById('metData').value;
-    if(!v) return null;
-    return [v, v];
-  } else {
-    const v = document.getElementById('metSemana').value;
-    if(!v) return null;
-    const [y,w] = v.split('-W').map(Number);
-    const start = getDateOfISOWeek(w,y);
-    const end = new Date(start);
-    end.setDate(start.getDate()+6);
-    return [toISODate(start), toISODate(end)];
-  }
+  return drMetricas ? drMetricas.getRange() : null;
 }
 
 function renderMetricas(){
@@ -2558,8 +2693,7 @@ document.getElementById('fData').valueAsDate = new Date();
 document.getElementById('vData').valueAsDate = new Date();
 document.getElementById('adData').valueAsDate = new Date();
 document.getElementById('opData').valueAsDate = new Date();
-document.getElementById('metData').valueAsDate = new Date();
-document.getElementById('metSemana').value = currentISOWeekString();
+initDateRangePickers();
 loadFluxo();
 loadVendas();
 loadAdSpend();
