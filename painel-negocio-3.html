@@ -1,0 +1,2324 @@
+<!DOCTYPE html>
+<html lang="pt-MZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel do Negócio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#0D0A14; --ink-2:#1E1729; --panel:#171020; --panel-line: rgba(255,255,255,0.08);
+    --sand:#F5F2FA; --sand-dim: rgba(245,242,250,0.55); --sand-dimmer: rgba(245,242,250,0.32);
+    --violet:#8B5CF6; --violet-soft: rgba(139,92,246,0.18); --violet-deep:#6D28D9;
+    --clay:#D946EF; --clay-soft: rgba(217,70,239,0.16);
+    --gold:#F0B429; --gold-soft: rgba(240,180,41,0.16);
+    --green:#34D399; --green-soft: rgba(52,211,153,0.15);
+    --red:#F0506E; --red-soft: rgba(240,80,110,0.15);
+    --radius: 14px;
+    --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:var(--ink); }
+  ::-webkit-scrollbar-thumb{ background:var(--panel); border-radius:8px; border:2px solid var(--ink); }
+  ::-webkit-scrollbar-thumb:hover{ background:#234049; }
+  body{
+    background: radial-gradient(1100px 480px at 88% -8%, rgba(139,92,246,0.13), transparent 60%),
+                radial-gradient(900px 480px at -8% 8%, rgba(217,70,239,0.08), transparent 55%),
+                radial-gradient(1400px 700px at 50% 110%, rgba(52,211,153,0.04), transparent 60%), var(--ink);
+    color:var(--sand); font-family:var(--font-body); min-height:100vh; padding:26px 18px 70px;
+  }
+  .wrap{ max-width:1180px; margin:0 auto; }
+  a, button{ font-family: var(--font-body); }
+
+  header.top{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; margin-bottom:26px; }
+  .brand .eyebrow{ font-family:var(--font-mono); font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:var(--gold); display:flex; gap:8px; align-items:center; }
+  .brand .eyebrow::before{ content:""; width:16px; height:1px; background:var(--gold); }
+  .brand h1{
+    font-family:var(--font-display); font-weight:700; font-size:29px; margin-top:5px; letter-spacing:-0.015em;
+    background:linear-gradient(90deg, var(--sand) 40%, var(--violet) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+
+  .maintabs{ display:flex; gap:6px; background:var(--panel); border:1px solid var(--panel-line); padding:5px; border-radius:13px; box-shadow:0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7); }
+  .maintabs button{
+    border:none; background:transparent; color:var(--sand-dim); padding:9px 16px; border-radius:9px;
+    font-size:13.5px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  .maintabs button:hover:not(.active){ color:var(--sand); background:rgba(245,242,250,0.04); }
+  .maintabs button.active{ background:linear-gradient(90deg,var(--violet),var(--violet-deep)); color:var(--sand); box-shadow:0 6px 16px -6px rgba(139,92,246,0.6); }
+
+  .section{ display:none; }
+  .section.active{ display:block; animation:fadein .25s ease; }
+  @keyframes fadein{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
+
+  .subnav{ display:flex; gap:5px; background:var(--ink-2); border:1px solid var(--panel-line); padding:4px; border-radius:11px; margin-bottom:18px; width:fit-content; }
+  .subnav button{
+    border:none; background:transparent; color:var(--sand-dim); padding:8px 16px; border-radius:8px;
+    font-size:13px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  .subnav button:hover:not(.active){ color:var(--sand); }
+  .subnav button.active{ background:var(--panel); color:var(--sand); box-shadow:0 1px 0 rgba(255,255,255,0.03) inset, 0 4px 12px -6px rgba(0,0,0,0.6); }
+  .subview{ display:none; }
+  .subview.active{ display:block; animation:fadein .2s ease; }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:var(--radius); padding:22px;
+    margin-bottom:18px; box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 14px 34px -22px rgba(0,0,0,0.75);
+  }
+  .panel h2{
+    font-family:var(--font-display); font-weight:600; font-size:16.5px; margin-bottom:16px; letter-spacing:-0.005em;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; position:relative; padding-left:13px;
+  }
+  .panel h2::before{
+    content:""; position:absolute; left:0; top:2px; bottom:2px; width:3px; border-radius:3px;
+    background:linear-gradient(180deg, var(--gold), var(--violet));
+  }
+  .panel h2 .tag{ font-family:var(--font-mono); font-size:11px; color:var(--sand-dim); font-weight:500; }
+
+  /* subtabs (meses / semanas) */
+  .subtabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px; }
+  .subtabs button{
+    border:1px solid var(--panel-line); background:var(--ink-2); color:var(--sand-dim);
+    padding:7px 13px; border-radius:20px; font-size:12.5px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  .subtabs button.active{ background:var(--gold-soft); color:var(--gold); border-color:transparent; }
+  .tab-badge{
+    display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px;
+    padding:0 4px; margin-left:6px; background:var(--violet); color:var(--sand);
+    font-size:10px; font-weight:700; border-radius:999px; vertical-align:middle;
+  }
+  .subtabs button:hover:not(.active){ color:var(--sand); }
+
+  /* form */
+  form{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px; align-items:end; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field.span2{ grid-column:span 2; }
+  .field.span3{ grid-column:span 3; }
+  .field label{ font-size:12.5px; font-weight:600; color:var(--sand-dim); }
+  .field input, .field select{
+    background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:10px 11px;
+    border-radius:9px; font-size:14px; outline:none; transition:border-color .15s; font-family:var(--font-body);
+  }
+  .field input:focus, .field select:focus{ border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
+  .field input::placeholder{ color:var(--sand-dimmer); }
+  .toggle-group{ display:flex; gap:6px; }
+  .toggle-group button{
+    flex:1; border:1px solid var(--panel-line); background:var(--ink-2); color:var(--sand-dim);
+    padding:10px; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  .toggle-group button.on{ background:var(--gold-soft); color:var(--gold); border-color:transparent; }
+  .toggle-group button.on.entrada{ background:var(--green-soft); color:var(--green); border-color:transparent; }
+  .toggle-group button.on.saida{ background:var(--red-soft); color:var(--red); border-color:transparent; }
+
+  .btn-primary{
+    background:linear-gradient(90deg,var(--violet),var(--violet-deep)); color:var(--sand); border:none;
+    padding:11px 18px; border-radius:9px; font-weight:600; font-size:14px; cursor:pointer;
+    transition:filter .15s, transform .12s, box-shadow .15s; box-shadow:0 6px 16px -8px rgba(139,92,246,0.7);
+  }
+  .btn-primary:hover{ filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 10px 20px -8px rgba(139,92,246,0.85); }
+  .btn-primary:active{ transform:scale(.98); }
+  .btn-ghost{
+    background:transparent; border:1px solid var(--panel-line); color:var(--sand-dim); padding:10px 14px;
+    border-radius:9px; font-size:13px; cursor:pointer; transition:.15s;
+  }
+  .btn-ghost:hover{ color:var(--sand); border-color:var(--sand-dimmer); background:rgba(245,242,250,0.04); }
+  #fluxoMsg, #vendaMsg{ font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1; }
+
+  /* histórico toggle */
+  .historico-toggle{
+    display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; margin-top:16px;
+    color:var(--sand-dim); font-size:13.5px; font-weight:600; transition:color .15s; width:fit-content;
+  }
+  .historico-toggle:hover{ color:var(--sand); }
+  .historico-toggle .chev{ transition: transform .2s; font-size:11px; color:var(--gold); }
+  .historico-toggle.open .chev{ transform: rotate(90deg); }
+  #historicoBody{ display:none; margin-top:16px; }
+
+  .cards3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+  .cards4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  .cards5{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px; }
+
+  .roi-hero{
+    background:linear-gradient(160deg, var(--violet-soft), var(--ink-2) 75%);
+    border:1px solid rgba(139,92,246,0.35); border-radius:14px; padding:24px; text-align:center; margin-bottom:18px;
+  }
+  .roi-hero-label{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--sand-dim); margin-bottom:10px; }
+  .roi-hero-value{ font-family:var(--font-mono); font-weight:700; font-size:44px; letter-spacing:-0.02em; color:var(--sand); line-height:1; }
+  .roi-hero-sub{ font-size:12px; color:var(--sand-dimmer); margin-top:8px; }
+  .metricas-subhead{ font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--sand-dim); margin:4px 0 10px; font-weight:600; }
+  .card{
+    background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:15px 16px;
+    position:relative; overflow:hidden; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .card::before{ content:""; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, var(--gold), var(--violet)); opacity:.4; }
+  .card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px -14px rgba(0,0,0,0.6); border-color:rgba(245,242,250,0.18); }
+  .card.destaque{ background:linear-gradient(160deg, rgba(139,92,246,0.12), var(--ink-2) 65%); border-color:rgba(139,92,246,0.35); }
+  .card.destaque::before{ opacity:1; }
+  .card .k{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--sand-dim); display:block; margin-bottom:7px; }
+  .card .v{ font-family:var(--font-mono); font-weight:600; font-size:21px; letter-spacing:-0.01em; }
+  .card.entrada .v{ color:var(--green); }
+  .card.saida .v{ color:var(--red); }
+  .card.saldo .v.neg{ color:var(--red); }
+  .card.saldo .v.pos{ color:var(--green); }
+
+  table{ width:100%; border-collapse:collapse; }
+  thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--sand-dim); padding:9px; border-bottom:1px solid var(--panel-line); white-space:nowrap; background:rgba(245,242,250,0.015); }
+  tbody td{ padding:11px 9px; font-size:13px; border-bottom:1px solid var(--panel-line); vertical-align:middle; }
+  tbody tr{ transition:background .12s; }
+  tbody tr:hover{ background:rgba(245,242,250,0.035); }
+  .mono{ font-family:var(--font-mono); }
+  .pos{ color:var(--green); } .neg{ color:var(--red); }
+  .pill{ font-family:var(--font-mono); font-size:10.5px; padding:4px 9px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .pill::before{ content:""; width:6px; height:6px; border-radius:50%; }
+  .pill.entrada{ background:var(--green-soft); color:var(--green); } .pill.entrada::before{ background:var(--green); }
+  .pill.saida{ background:var(--red-soft); color:var(--red); } .pill.saida::before{ background:var(--red); }
+  .pill.st-pendente{ background:var(--gold-soft); color:var(--gold); } .pill.st-pendente::before{ background:var(--gold); }
+  .pill.st-concluido{ background:var(--green-soft); color:var(--green); } .pill.st-concluido::before{ background:var(--green); }
+  .pill.st-cancelado{ background:var(--red-soft); color:var(--red); } .pill.st-cancelado::before{ background:var(--red); }
+  .pill.st-remarcado{ background:var(--clay-soft); color:var(--clay); } .pill.st-remarcado::before{ background:var(--clay); }
+  .pill.tipo-aquisicao{ background:var(--clay-soft); color:var(--clay); } .pill.tipo-aquisicao::before{ background:var(--clay); }
+  .pill.tipo-ads{ background:var(--gold-soft); color:var(--gold); } .pill.tipo-ads::before{ background:var(--gold); }
+  .pill.tipo-outros{ background:rgba(245,242,250,0.10); color:var(--sand-dim); } .pill.tipo-outros::before{ background:var(--sand-dim); }
+  .row-actions{ display:flex; gap:6px; }
+  .icon-btn{ background:transparent; border:1px solid var(--panel-line); color:var(--sand-dim); width:27px; height:27px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:12.5px; cursor:pointer; transition:.15s; }
+  .icon-btn:hover{ color:var(--sand); border-color:var(--sand-dimmer); background:rgba(245,242,250,0.05); }
+  .empty{ text-align:center; padding:34px 10px; color:var(--sand-dimmer); font-size:13px; }
+
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .toolbar .filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .toolbar select, .toolbar input[type=text], .toolbar input[type=date], .toolbar input[type=week]{
+    background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:8px 10px; border-radius:8px; font-size:12.5px; outline:none; transition:border-color .15s;
+  }
+  .toolbar select:focus, .toolbar input:focus{ border-color:var(--violet); }
+
+  /* controle de vendas: overview + side panels */
+  .overview{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px; }
+  .ov-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:14px; text-align:center; transition:transform .15s ease, box-shadow .15s ease; }
+  .ov-card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px -14px rgba(0,0,0,0.6); }
+  .ov-card .v{ font-family:var(--font-mono); font-weight:600; font-size:20px; letter-spacing:-0.01em; }
+  .ov-card .k{ font-size:10.5px; color:var(--sand-dim); text-transform:uppercase; letter-spacing:.06em; margin-top:4px; display:block; }
+
+  .side-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+  .side-panel{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:16px; }
+  .side-panel h3{ font-family:var(--font-display); font-size:13.5px; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .side-panel table thead th{ padding:6px 6px; background:none; }
+  .side-panel table tbody td{ padding:8px 6px; font-size:12.5px; }
+  .side-panel .total-row td{ font-weight:700; border-top:1px solid var(--panel-line); border-bottom:none; }
+  .pedido-group{ margin-bottom:18px; }
+  .pedido-group:last-child{ margin-bottom:0; }
+  .pedido-date-label{
+    font-family:var(--font-mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--sand-dim); margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--panel-line);
+    display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .pedido-date-label.hoje{ color:var(--gold); }
+  .pedido-date-label.hoje::before{ content:"● "; }
+  .pdf-dia-btn{ text-transform:none; letter-spacing:0; font-size:11.5px; padding:5px 10px; }
+
+  /* cartões de pedido (Pedidos da Semana) */
+  .pedido-card{
+    background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px;
+    padding:14px 16px; margin-bottom:10px; transition:border-color .15s ease;
+  }
+  .pedido-card:hover{ border-color:rgba(245,242,250,0.18); }
+  .pedido-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; gap:8px; }
+  .pedido-hora{ font-family:var(--font-mono); font-size:12.5px; color:var(--gold); font-weight:600; }
+  .pedido-card-main{ margin-bottom:13px; }
+  .pedido-contacto{ font-size:15px; font-weight:600; color:var(--sand); margin-bottom:3px; }
+  .pedido-detalhes{ font-size:12.5px; color:var(--sand-dim); line-height:1.5; }
+  .pedido-card-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+  .pedido-card-actions button{
+    border:1px solid var(--panel-line); background:var(--ink); color:var(--sand-dim);
+    padding:8px 12px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; transition:.15s;
+  }
+  .pedido-card-actions button:hover{ color:var(--sand); border-color:var(--sand-dimmer); }
+  .pedido-card-actions button.acao-concluir:hover{ background:var(--green-soft); color:var(--green); border-color:transparent; }
+  .pedido-card-actions button.acao-cancelar:hover{ background:var(--red-soft); color:var(--red); border-color:transparent; }
+  .pedido-card-actions button.acao-remarcar:hover{ background:var(--clay-soft); color:var(--clay); border-color:transparent; }
+  .mover-semana-select{
+    border:1px solid var(--panel-line); background:var(--ink); color:var(--sand-dim);
+    padding:8px 10px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:var(--font-body);
+  }
+  .mover-semana-select:hover{ color:var(--sand); border-color:var(--sand-dimmer); }
+
+  /* painéis com peso visual diferente conforme importância no dia a dia */
+  .panel-slim{ padding:16px 22px; }
+  .panel-slim h2{ margin-bottom:10px; font-size:14.5px; }
+  .panel-highlight{ border-color:rgba(139,92,246,0.32); box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 16px 38px -22px rgba(0,0,0,0.8), 0 0 0 1px rgba(139,92,246,0.06); }
+
+  footer{ text-align:center; color:var(--sand-dimmer); font-size:12px; margin-top:36px; }
+
+  @media (max-width: 900px){
+    form{ grid-template-columns:repeat(2,1fr); }
+    .field.span2, .field.span3{ grid-column:span 2; }
+    .cards3{ grid-template-columns:1fr; }
+    .cards4{ grid-template-columns:repeat(2,1fr); }
+    .cards5{ grid-template-columns:repeat(3,1fr); }
+    .overview{ grid-template-columns:repeat(2,1fr); }
+    .side-grid{ grid-template-columns:1fr; }
+
+    /* tabelas viram cartões no celular — nada de rolagem horizontal */
+    table.responsive-table thead{ display:none; }
+    table.responsive-table, table.responsive-table tbody, table.responsive-table tr{ display:block; width:100%; }
+    table.responsive-table tr{
+      background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px;
+      margin-bottom:10px; padding:10px 14px;
+    }
+    table.responsive-table td{
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      border:none; padding:7px 0; font-size:13px; text-align:right;
+    }
+    table.responsive-table td[data-label=""]{ justify-content:flex-end; padding-top:10px; }
+    table.responsive-table td::before{
+      content:attr(data-label); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
+      color:var(--sand-dim); font-weight:600; text-align:left;
+    }
+    table.responsive-table td[data-label=""]::before{ content:none; }
+  }
+
+  @media (max-width: 640px){
+    .roi-hero-value{ font-size:34px; }
+    body{ padding:16px 12px 60px; }
+    .panel{ padding:16px; }
+    .brand h1{ font-size:22px; }
+    header.top{ margin-bottom:18px; }
+    .maintabs{ width:100%; overflow-x:auto; }
+    .maintabs button{ white-space:nowrap; }
+    .subnav{ width:100%; overflow-x:auto; }
+    .subnav button{ white-space:nowrap; }
+    /* alvos de toque maiores */
+    .icon-btn{ width:34px; height:34px; font-size:14px; }
+    .btn-primary, .btn-ghost{ padding:12px 16px; font-size:14px; }
+    .field input, .field select{ padding:12px 12px; font-size:15px; }
+    .pedido-card-actions button{ flex:1 1 46%; text-align:center; padding:10px 8px; }
+    .mover-semana-select{ flex:1 1 100%; padding:10px 8px; }
+    .cards4{ grid-template-columns:1fr 1fr; }
+    .cards5{ grid-template-columns:1fr 1fr; }
+    .toolbar{ flex-direction:column; align-items:stretch; }
+    .toolbar .filters{ flex-direction:column; align-items:stretch; }
+    .toolbar select, .toolbar input{ width:100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Painel do Negócio</span>
+      <h1>Fluxo de Caixa &amp; Controle de Vendas</h1>
+    </div>
+    <div class="maintabs">
+      <button id="tabBtnFluxo" class="active" onclick="switchMain('fluxo')">Fluxo de Caixa</button>
+      <button id="tabBtnVendas" onclick="switchMain('vendas')">Controle de Vendas</button>
+      <button id="tabBtnMetricas" onclick="switchMain('metricas')">CPA / ROI / ROAS</button>
+    </div>
+  </header>
+
+  <!-- ================= FLUXO DE CAIXA ================= -->
+  <section id="secFluxo" class="section active">
+
+    <div class="panel">
+      <h2>Novo lançamento <span class="tag" id="fluxoMesAtivoTag"></span></h2>
+      <form id="fluxoForm">
+        <div class="field span2">
+          <label>Tipo</label>
+          <div class="toggle-group">
+            <button type="button" id="btnEntrada" class="on entrada" onclick="setTipo('entrada')">↑ Entrada</button>
+            <button type="button" id="btnSaida" class="saida" onclick="setTipo('saida')">↓ Saída</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="fValor">Valor (MT)</label>
+          <input type="number" id="fValor" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field span2">
+          <label for="fDescricao">De onde veio / para onde foi</label>
+          <input type="text" id="fDescricao" placeholder="Ex: Venda produto, Mensalidade, ADS…" required>
+        </div>
+        <div class="field">
+          <label for="fData">Data</label>
+          <input type="date" id="fData" required>
+        </div>
+        <div class="field span3">
+          <label for="fObservacao">Observação (opcional)</label>
+          <input type="text" id="fObservacao" placeholder="Ex: Via Emola, M-Pesa, BIM…">
+        </div>
+        <div class="field span2" style="flex-direction:row; align-items:center; gap:10px;">
+          <button type="submit" class="btn-primary" id="fluxoSubmitBtn">Adicionar lançamento</button>
+          <button type="button" class="btn-ghost" id="fluxoCancelEdit" style="display:none;" onclick="cancelFluxoEdit()">Cancelar edição</button>
+        </div>
+        <div id="fluxoMsg"></div>
+      </form>
+
+      <div class="historico-toggle" id="historicoToggle" onclick="toggleHistorico()">
+        <span class="chev">▶</span> Ver histórico do mês
+      </div>
+
+      <div id="historicoBody">
+        <div class="subtabs" id="mesTabs"></div>
+        <div class="cards3">
+          <div class="card entrada"><span class="k">Entrada</span><span class="v mono" id="cardEntrada">0 MT</span></div>
+          <div class="card saida"><span class="k">Saída</span><span class="v mono" id="cardSaida">0 MT</span></div>
+          <div class="card saldo"><span class="k">Saldo</span><span class="v mono" id="cardSaldo">0 MT</span></div>
+        </div>
+        <div class="toolbar">
+          <div class="filters">
+            <input type="text" id="fluxoBusca" placeholder="Buscar descrição ou observação…" oninput="renderFluxoTable()">
+          </div>
+          <button class="btn-ghost" onclick="exportFluxoCSV()">Exportar CSV do mês</button>
+        </div>
+        <table class="responsive-table">
+          <thead><tr><th>Data</th><th>Movimentação</th><th>Descrição</th><th>Valor</th><th>Observação</th><th></th></tr></thead>
+          <tbody id="fluxoTableBody"></tbody>
+        </table>
+        <div class="empty" id="fluxoEmpty" style="display:none;">Nenhum lançamento neste mês ainda.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONTROLE DE VENDAS ================= -->
+  <section id="secVendas" class="section">
+
+    <div class="subnav">
+      <button id="subnavVendasPedidos" class="active" onclick="switchVendasView('pedidos')">Pedidos</button>
+      <button id="subnavVendasRelatorios" onclick="switchVendasView('relatorios')">Relatórios</button>
+      <button id="subnavVendasConfig" onclick="switchVendasView('config')">Configurações</button>
+    </div>
+
+    <div id="vendasViewPedidos" class="subview active">
+      <div class="panel panel-slim">
+        <h2>Mês <span class="tag" id="mesVendasAtivoTag"></span></h2>
+        <div class="toolbar">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <input type="month" id="mesVendasEditor" style="background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:8px 10px; border-radius:8px; font-size:13px;">
+            <button class="btn-ghost" onclick="definirMesVendas()">Definir como mês ativo</button>
+            <button class="btn-ghost" onclick="iniciarNovoMesVendas()">Iniciar novo mês →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Registar contacto / venda <span class="tag" id="semanaAtivaTag"></span></h2>
+        <div class="subtabs" id="semanaTabs"></div>
+        <form id="vendaForm">
+          <div class="field">
+            <label for="vData">Data</label>
+            <input type="date" id="vData" required>
+          </div>
+          <div class="field">
+            <label for="vHorario">Horário da entrega</label>
+            <input type="time" id="vHorario">
+          </div>
+          <div class="field span2">
+            <label for="vFonte">Fonte de Aquisição</label>
+            <select id="vFonte">
+              <option value="01.WHATSAPP">01.WHATSAPP</option>
+              <option value="02.SITE">02.SITE</option>
+              <option value="03.WARM CALLING">03.WARM CALLING</option>
+              <option value="04.SHOPIFY">04.SHOPIFY</option>
+              <option value="05.OUTRO">05.OUTRO</option>
+            </select>
+          </div>
+          <div class="field span3">
+            <label for="vContacto">Contacto (nome e número)</label>
+            <input type="text" id="vContacto" placeholder="Ex: Felizarda 865460006">
+          </div>
+          <div class="field span2">
+            <label for="vLocal">Local da Entrega</label>
+            <input type="text" id="vLocal" placeholder="Ex: Belo Horizonte, Matola…">
+          </div>
+          <div class="field span2">
+            <label for="vDescricao">Nota</label>
+            <input type="text" id="vDescricao" placeholder="Ex: Vai ligar quando chegar, sem troco…">
+          </div>
+          <div class="field">
+            <label for="vProduto">Produto</label>
+            <input type="text" id="vProduto" list="produtosExistentes" placeholder="Ex: SNAIL">
+          </div>
+          <div class="field">
+            <label for="vQuantidade">Quantidade</label>
+            <input type="number" id="vQuantidade" min="1" step="1" value="1">
+          </div>
+          <div class="field">
+            <label for="vValor">Valor do pedido (MT)</label>
+            <input type="number" id="vValor" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="field span2">
+            <label for="vDelivery">Nome do Delivery</label>
+            <input type="text" id="vDelivery" placeholder="Ex: Dulcídio">
+          </div>
+          <div class="field span2">
+            <label for="vComissao">Valor pago ao entregador (MT)</label>
+            <input type="number" id="vComissao" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="field span2">
+            <label for="vStatus">Status</label>
+            <select id="vStatus">
+              <option value="pendente" selected>PENDENTE</option>
+              <option value="concluido">CONCLUÍDO</option>
+              <option value="cancelado">CANCELADO</option>
+              <option value="remarcado">REMARCADO</option>
+            </select>
+          </div>
+          <div class="field span2" style="flex-direction:row; align-items:center; gap:10px;">
+            <button type="submit" class="btn-primary" id="vendaSubmitBtn">Adicionar</button>
+            <button type="button" class="btn-ghost" id="vendaCancelEdit" style="display:none;" onclick="cancelVendaEdit()">Cancelar edição</button>
+          </div>
+          <div id="vendaMsg"></div>
+        </form>
+      </div>
+
+      <div class="panel panel-highlight">
+        <h2>Pedidos da Semana <span class="tag" id="pedidosTag"></span></h2>
+        <div id="pedidosBody"></div>
+        <div class="empty" id="pedidosEmpty" style="display:none;">Nenhum pedido em aberto nesta semana.</div>
+      </div>
+    </div>
+
+    <div id="vendasViewRelatorios" class="subview">
+      <div class="panel">
+        <h2>Visão geral
+          <select id="overviewFiltro" onchange="onOverviewFiltroChange()" style="background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:7px 10px; border-radius:8px; font-size:12.5px; outline:none;">
+            <option value="tudo">Tudo</option>
+            <option value="esta_semana">Esta semana</option>
+            <option value="semana_passada">Semana passada</option>
+            <option value="este_mes">Este mês</option>
+            <option value="mes_passado">Mês passado</option>
+            <option value="este_ano">Este ano</option>
+            <option value="ano_passado">Ano passado</option>
+          </select>
+        </h2>
+        <div class="overview">
+          <div class="ov-card"><span class="v" id="ovTotal">0</span><span class="k">Contactos</span></div>
+          <div class="ov-card"><span class="v" style="color:var(--green)" id="ovConcluido">0</span><span class="k">Concluídas</span></div>
+          <div class="ov-card"><span class="v" style="color:var(--red)" id="ovCancelado">0</span><span class="k">Canceladas</span></div>
+          <div class="ov-card"><span class="v" style="color:var(--clay)" id="ovRemarcado">0</span><span class="k">Remarcadas</span></div>
+          <div class="ov-card"><span class="v" style="color:var(--gold)" id="ovConversao">0%</span><span class="k">Taxa de conversão</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Planilha de Controle <span class="tag">histórico · concluídos e cancelados</span></h2>
+        <div class="toolbar">
+          <div class="filters">
+            <select id="filtroStatus" onchange="renderVendaTable()">
+              <option value="todos">Todos</option>
+              <option value="concluido">Concluído</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+            <input type="text" id="vendaBusca" placeholder="Buscar contacto, local ou produto…" oninput="renderVendaTable()">
+          </div>
+          <button class="btn-ghost" onclick="exportVendasCSV()">Exportar CSV da semana</button>
+        </div>
+        <table class="responsive-table">
+          <thead><tr>
+            <th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody id="vendaTableBody"></tbody>
+        </table>
+        <div class="empty" id="vendaEmpty" style="display:none;">Nenhum registo concluído ou cancelado nesta semana ainda.</div>
+
+        <div class="side-grid">
+          <div class="side-panel">
+            <h3>Saída de Produtos</h3>
+            <table><thead><tr><th>Produto</th><th>Unidades</th></tr></thead><tbody id="saidaProdutosBody"></tbody></table>
+          </div>
+          <div class="side-panel">
+            <h3>Entregas Concluídas</h3>
+            <table><thead><tr><th>Entregador</th><th>Nº</th><th>Pago ao entregador</th></tr></thead><tbody id="entregasBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="vendasViewConfig" class="subview">
+      <div class="panel panel-slim">
+        <h2>Meses anteriores <span class="tag">consultar histórico por mês</span></h2>
+        <div class="toolbar">
+          <div class="historico-toggle" id="historicoMesesToggle" onclick="toggleHistoricoMeses()" style="margin:0;">
+            <span class="chev">▶</span> Ver meses anteriores
+          </div>
+        </div>
+        <div id="historicoMesesBody" style="display:none; margin-top:16px;">
+          <div class="subtabs" id="mesesPassadosTabs"></div>
+          <div class="subtabs" id="semanaHistTabs"></div>
+          <div class="toolbar">
+            <input type="text" id="histBusca" placeholder="Buscar contacto, local ou produto…" oninput="renderHistoricoMesTable()">
+            <button class="btn-ghost" onclick="exportHistoricoMesCSV()">Exportar CSV</button>
+          </div>
+          <table class="responsive-table">
+            <thead><tr><th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th></tr></thead>
+            <tbody id="histTableBody"></tbody>
+          </table>
+          <div class="empty" id="histEmpty" style="display:none;">Nenhum registo neste mês/semana.</div>
+        </div>
+      </div>
+
+      <div class="panel panel-slim">
+        <h2>Sincronizar com a Shopify <span class="tag" id="shopifyStatusTag">não conectado</span></h2>
+        <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
+          Cole aqui o link do seu Apps Script (com <code>?token=...</code>). Isso traz os pedidos reais da Shopify — com produto certinho — e também manda de volta pra Shopify quando você marcar Concluído ou Cancelado no painel.
+        </p>
+        <div class="toolbar">
+          <input type="text" id="shopifyApiUrl" placeholder="https://script.google.com/macros/s/…/exec?token=…" style="flex:1; min-width:260px;">
+          <button class="btn-primary" onclick="syncShopifyAPI()">Sincronizar agora</button>
+        </div>
+        <div id="shopifyMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
+      </div>
+
+      <div class="panel panel-slim">
+        <h2>Importar por CSV <span class="tag">alternativa manual, se a sincronização acima falhar</span></h2>
+        <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
+          Na planilha <strong>ACHAKE PEDIDOS</strong>, na aba <strong>Folha1</strong>: <strong>Ficheiro → Transferir → Valores separados por vírgulas (.csv)</strong>. Depois escolha esse ficheiro aqui embaixo — só os pedidos novos são importados.
+        </p>
+        <div class="toolbar">
+          <input type="file" id="shopifyFile" accept=".csv" style="flex:1; min-width:220px; color:var(--sand); font-size:13px;">
+          <button class="btn-ghost" onclick="importarCSVShopify()">Importar CSV</button>
+        </div>
+        <div id="shopifyCsvMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CPA / ROI / ROAS ================= -->
+  <section id="secMetricas" class="section">
+
+    <div class="subnav">
+      <button id="subnavMetResultados" class="active" onclick="switchMetricasView('resultados')">Resultados</button>
+      <button id="subnavMetCadastros" onclick="switchMetricasView('cadastros')">Cadastros</button>
+    </div>
+
+    <div id="metricasViewResultados" class="subview active">
+    <div class="panel">
+      <h2>Calcular CPA / ROI / ROAS</h2>
+      <div class="toolbar">
+        <div class="filters">
+          <div class="toggle-group" style="width:180px;">
+            <button type="button" id="metPeriodoDia" class="on" onclick="setPeriodoMetricas('dia')">Dia</button>
+            <button type="button" id="metPeriodoSemana" onclick="setPeriodoMetricas('semana')">Semana</button>
+          </div>
+          <input type="date" id="metData" onchange="renderMetricas()">
+          <input type="week" id="metSemana" style="display:none;" onchange="renderMetricas()">
+          <select id="metProduto" onchange="renderMetricas()">
+            <option value="">Todos os produtos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="roi-hero">
+        <div class="roi-hero-label">ROI no período <span id="metVendasSub" style="opacity:.75; font-weight:500;"></span></div>
+        <div class="roi-hero-value" id="metROI">—</div>
+        <div class="roi-hero-sub">retorno sobre o gasto total (aquisição + ads + outros + operacional)</div>
+      </div>
+
+      <div class="cards3" style="grid-template-columns:repeat(3,1fr);">
+        <div class="card"><span class="k">Receita</span><span class="v mono" id="metReceita">0 MT</span></div>
+        <div class="card"><span class="k">CPA (ads)</span><span class="v mono" id="metCPA">—</span></div>
+        <div class="card"><span class="k">ROAS (ads)</span><span class="v mono" id="metROAS">—</span></div>
+      </div>
+
+      <div class="metricas-subhead">Custos no período</div>
+      <div class="cards5">
+        <div class="card"><span class="k">Aquisição <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoAquisicao">0 MT</span></div>
+        <div class="card"><span class="k">Ads</span><span class="v mono" id="metGastoAds">0 MT</span></div>
+        <div class="card"><span class="k">Outros</span><span class="v mono" id="metGastoOutros">0 MT</span></div>
+        <div class="card"><span class="k">Operacional</span><span class="v mono" id="metGastoOperacional">0 MT</span></div>
+        <div class="card destaque"><span class="k">Total</span><span class="v mono" id="metGastoTotal">0 MT</span></div>
+      </div>
+
+      <div style="margin-top:18px; height:280px; position:relative;">
+        <canvas id="metChart"></canvas>
+        <div id="metChartEmpty" style="display:none; text-align:center; color:var(--sand-dimmer); font-size:13px; padding:30px 0;">Sem dados neste período.</div>
+      </div>
+    </div>
+    </div>
+
+    <div id="metricasViewCadastros" class="subview">
+    <div class="panel">
+      <h2>Produtos <span class="tag">custo de aquisição por unidade — entra sozinho no ROI</span></h2>
+      <form id="produtoForm">
+        <div class="field span3">
+          <label for="pNome">Nome do produto</label>
+          <input type="text" id="pNome" list="produtosExistentes" placeholder="Ex: Selante" required>
+          <datalist id="produtosExistentes"></datalist>
+        </div>
+        <div class="field span2">
+          <label for="pCusto">Custo de aquisição (MT/unidade)</label>
+          <input type="number" id="pCusto" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field" style="align-items:flex-start;">
+          <label for="pFoto">Foto</label>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <img id="pFotoPreview" style="display:none; width:38px; height:38px; object-fit:cover; border-radius:8px; border:1px solid var(--panel-line);">
+            <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim);">
+          </div>
+        </div>
+        <div class="field" style="grid-column:1/-1; flex-direction:row; align-items:center; gap:10px;">
+          <button type="submit" class="btn-primary" id="produtoSubmitBtn">Guardar</button>
+          <button type="button" class="btn-ghost" id="produtoCancelEdit" style="display:none;" onclick="cancelProdutoEdit()">Cancelar</button>
+        </div>
+        <div id="produtoMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
+      </form>
+
+      <div class="historico-toggle" id="produtoHistToggle" onclick="toggleProdutoHist()">
+        <span class="chev">▶</span> Ver produtos cadastrados
+      </div>
+      <div id="produtoHistBody" style="display:none; margin-top:16px;">
+        <table class="responsive-table">
+          <thead><tr><th>Foto</th><th>Produto</th><th>Custo de aquisição</th><th></th></tr></thead>
+          <tbody id="produtoTableBody"></tbody>
+        </table>
+        <div class="empty" id="produtoEmpty" style="display:none;">Nenhum produto cadastrado ainda.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Gastos com Ads e Marketing <span class="tag">a receita já vem das vendas concluídas</span></h2>
+      <form id="adForm">
+        <div class="field">
+          <label for="adData">Data</label>
+          <input type="date" id="adData" required>
+        </div>
+        <div class="field span2">
+          <label for="adTipo">Tipo de gasto</label>
+          <select id="adTipo">
+            <option value="ads">Ads</option>
+            <option value="outros">Outros (marketing)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="adValor">Valor gasto (MT)</label>
+          <input type="number" id="adValor" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field span3">
+          <label for="adProduto">Produto <span style="text-transform:none; opacity:.7;">(deixe em branco se for gasto geral)</span></label>
+          <input type="text" id="adProduto" list="produtosExistentes" placeholder="Ex: Selante — ou deixe vazio">
+        </div>
+        <div class="field span3" style="flex-direction:row; align-items:center; gap:10px;">
+          <button type="submit" class="btn-primary" id="adSubmitBtn">Adicionar gasto</button>
+          <button type="button" class="btn-ghost" id="adCancelEdit" style="display:none;" onclick="cancelAdEdit()">Cancelar edição</button>
+        </div>
+        <div id="adMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
+      </form>
+
+      <div class="historico-toggle" id="adHistToggle" onclick="toggleAdHist()">
+        <span class="chev">▶</span> Ver lançamentos de gastos
+      </div>
+      <div id="adHistBody" style="display:none; margin-top:16px;">
+        <table class="responsive-table">
+          <thead><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Valor gasto</th><th></th></tr></thead>
+          <tbody id="adTableBody"></tbody>
+        </table>
+        <div class="empty" id="adEmpty" style="display:none;">Nenhum gasto registado ainda.</div>
+      </div>
+    </div>
+
+    <div class="panel panel-slim">
+      <h2>Gastos Operacionais da Loja <span class="tag">domínio, mensalidade, apps… conta no ROI geral</span></h2>
+      <form id="opForm">
+        <div class="field span3">
+          <label for="opNome">Nome do gasto</label>
+          <input type="text" id="opNome" placeholder="Ex: Mensalidade Shopify, Domínio, App de reviews…" required>
+        </div>
+        <div class="field">
+          <label for="opValor">Valor (MT)</label>
+          <input type="number" id="opValor" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field">
+          <label id="opDataLabel" for="opData">Data</label>
+          <input type="date" id="opData" required>
+        </div>
+        <div class="field span2">
+          <label>Recorrência</label>
+          <div class="toggle-group">
+            <button type="button" id="opBtnUnico" class="on" onclick="setOpRecorrente(false)">Gasto único</button>
+            <button type="button" id="opBtnMensal" onclick="setOpRecorrente(true)">Mensal (assinatura)</button>
+          </div>
+        </div>
+        <div class="field" style="flex-direction:row; align-items:center; gap:10px;">
+          <button type="submit" class="btn-primary" id="opSubmitBtn">Adicionar</button>
+          <button type="button" class="btn-ghost" id="opCancelEdit" style="display:none;" onclick="cancelOpEdit()">Cancelar</button>
+        </div>
+        <div id="opMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
+      </form>
+      <p style="font-size:12px; color:var(--sand-dimmer); margin-top:10px; line-height:1.5;" id="opAjuda">
+        Gasto único conta só na data marcada. Gasto mensal (ex: assinatura da Shopify) é dividido pelos dias do mês — se você olhar um dia, entra só a fatia daquele dia; se olhar a semana toda, entra a fatia dos 7 dias.
+      </p>
+
+      <div class="historico-toggle" id="opHistToggle" onclick="toggleOpHist()">
+        <span class="chev">▶</span> Ver gastos operacionais
+      </div>
+      <div id="opHistBody" style="display:none; margin-top:16px;">
+        <table class="responsive-table">
+          <thead><tr><th>Desde</th><th>Gasto</th><th>Tipo</th><th>Valor</th><th></th></tr></thead>
+          <tbody id="opTableBody"></tbody>
+        </table>
+        <div class="empty" id="opEmpty" style="display:none;">Nenhum gasto operacional registado ainda.</div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <footer>Os dados ficam guardados apenas neste computador, neste navegador.</footer>
+</div>
+
+<script>
+/* ============ ESTADO GERAL ============ */
+const FLUXO_KEY = 'lobo_fluxo_caixa_v2';
+const VENDAS_KEY = 'lobo_controle_vendas_v2';
+
+let fluxoData = [];
+let vendasData = [];
+let fluxoEditId = null;
+let vendaEditId = null;
+let tipoAtivo = 'entrada';
+let mesAtivo = '';
+let semanaAtiva = 'semana1';
+let mesAtivoVendas = '';
+let historicoAberto = false;
+
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const SEMANAS = [
+  {key:'semana1', label:'Semana 1'},
+  {key:'semana2', label:'Semana 2'},
+  {key:'semana3', label:'Semana 3'},
+  {key:'semana4', label:'Semana 4'},
+  {key:'remarketing', label:'Remarketing'},
+  {key:'provincias', label:'Províncias'}
+];
+const STATUS_LABEL = {pendente:'PENDENTE', concluido:'CONCLUÍDO', cancelado:'CANCELADO', remarcado:'REMARCADO'};
+
+function uid(){ return 'x' + Date.now() + Math.floor(Math.random()*1000); }
+// normaliza nome de produto pra comparar (ignora maiúsculas/minúsculas e espaços extras)
+function normalizarNomeProduto(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' MT'; }
+function fmtData(d){ return d ? d.split('-').reverse().join('/') : ''; }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+
+function switchMain(which){
+  document.getElementById('secFluxo').classList.toggle('active', which==='fluxo');
+  document.getElementById('secVendas').classList.toggle('active', which==='vendas');
+  document.getElementById('secMetricas').classList.toggle('active', which==='metricas');
+  document.getElementById('tabBtnFluxo').classList.toggle('active', which==='fluxo');
+  document.getElementById('tabBtnVendas').classList.toggle('active', which==='vendas');
+  document.getElementById('tabBtnMetricas').classList.toggle('active', which==='metricas');
+  if(which==='metricas'){
+    if(produtoHistAberto) renderProdutoTable();
+    if(opHistAberto) renderOpTable();
+    renderAdAll();
+  }
+}
+
+function switchVendasView(which){
+  document.getElementById('vendasViewPedidos').classList.toggle('active', which==='pedidos');
+  document.getElementById('vendasViewRelatorios').classList.toggle('active', which==='relatorios');
+  document.getElementById('vendasViewConfig').classList.toggle('active', which==='config');
+  document.getElementById('subnavVendasPedidos').classList.toggle('active', which==='pedidos');
+  document.getElementById('subnavVendasRelatorios').classList.toggle('active', which==='relatorios');
+  document.getElementById('subnavVendasConfig').classList.toggle('active', which==='config');
+}
+
+function switchMetricasView(which){
+  document.getElementById('metricasViewResultados').classList.toggle('active', which==='resultados');
+  document.getElementById('metricasViewCadastros').classList.toggle('active', which==='cadastros');
+  document.getElementById('subnavMetResultados').classList.toggle('active', which==='resultados');
+  document.getElementById('subnavMetCadastros').classList.toggle('active', which==='cadastros');
+  if(which==='resultados') renderMetricas();
+  if(which==='cadastros'){
+    if(produtoHistAberto) renderProdutoTable();
+    if(opHistAberto) renderOpTable();
+    if(adHistAberto) renderAdTable();
+  }
+}
+
+/* ============ FLUXO DE CAIXA ============ */
+function loadFluxo(){
+  try{ fluxoData = JSON.parse(localStorage.getItem(FLUXO_KEY)) || []; }catch(e){ fluxoData = []; }
+}
+function saveFluxo(){ localStorage.setItem(FLUXO_KEY, JSON.stringify(fluxoData)); }
+
+function setTipo(t){
+  tipoAtivo = t;
+  document.getElementById('btnEntrada').classList.toggle('on', t==='entrada');
+  document.getElementById('btnSaida').classList.toggle('on', t==='saida');
+}
+
+function monthKeyOf(dateStr){ return dateStr.slice(0,7); }
+function monthLabel(key){
+  const [y,m] = key.split('-');
+  return MESES_PT[parseInt(m,10)-1] + ' ' + y;
+}
+function getMonthsList(){
+  const hoje = new Date();
+  const atual = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+  const set = new Set(fluxoData.map(f=>monthKeyOf(f.data)));
+  set.add(atual);
+  return [...set].sort().reverse();
+}
+
+document.getElementById('fluxoForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const valor = parseFloat(document.getElementById('fValor').value)||0;
+  const descricao = document.getElementById('fDescricao').value.trim();
+  const data = document.getElementById('fData').value;
+  const observacao = document.getElementById('fObservacao').value.trim();
+  if(!descricao || !data || valor<=0){ showFluxoMsg('Preencha o valor, a descrição e a data.'); return; }
+
+  if(fluxoEditId){
+    const idx = fluxoData.findIndex(f=>f.id===fluxoEditId);
+    if(idx>-1) fluxoData[idx] = {...fluxoData[idx], tipo:tipoAtivo, valor, descricao, data, observacao};
+    showFluxoMsg('Lançamento atualizado.');
+    fluxoEditId = null;
+    document.getElementById('fluxoSubmitBtn').textContent = 'Adicionar lançamento';
+    document.getElementById('fluxoCancelEdit').style.display = 'none';
+  } else {
+    fluxoData.push({id:uid(), tipo:tipoAtivo, valor, descricao, data, observacao});
+    showFluxoMsg('Lançamento adicionado.');
+  }
+  saveFluxo();
+  mesAtivo = monthKeyOf(data);
+  document.getElementById('fluxoForm').reset();
+  document.getElementById('fData').valueAsDate = new Date();
+  setTipo('entrada');
+  renderFluxoAll();
+});
+
+function showFluxoMsg(t){
+  const el = document.getElementById('fluxoMsg');
+  el.textContent = t;
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+}
+
+function toggleHistorico(){
+  historicoAberto = !historicoAberto;
+  document.getElementById('historicoToggle').classList.toggle('open', historicoAberto);
+  document.getElementById('historicoToggle').innerHTML = (historicoAberto ? '<span class="chev">▶</span> Ocultar histórico do mês' : '<span class="chev">▶</span> Ver histórico do mês');
+  document.getElementById('historicoBody').style.display = historicoAberto ? 'block' : 'none';
+  if(historicoAberto) renderFluxoAll();
+}
+
+function renderMesTabs(){
+  const meses = getMonthsList();
+  if(!meses.includes(mesAtivo)) mesAtivo = meses[0];
+  document.getElementById('mesTabs').innerHTML = meses.map(m=>
+    `<button class="${m===mesAtivo?'active':''}" onclick="selecionarMes('${m}')">${monthLabel(m)}</button>`
+  ).join('');
+  document.getElementById('fluxoMesAtivoTag').textContent = monthLabel(mesAtivo);
+}
+function selecionarMes(m){ mesAtivo = m; renderFluxoAll(); }
+
+function renderFluxoCards(){
+  const doMes = fluxoData.filter(f=>monthKeyOf(f.data)===mesAtivo);
+  const entrada = doMes.filter(f=>f.tipo==='entrada').reduce((s,f)=>s+f.valor,0);
+  const saida = doMes.filter(f=>f.tipo==='saida').reduce((s,f)=>s+f.valor,0);
+  const saldo = entrada - saida;
+  document.getElementById('cardEntrada').textContent = fmtMT(entrada);
+  document.getElementById('cardSaida').textContent = fmtMT(saida);
+  const sc = document.getElementById('cardSaldo');
+  sc.textContent = fmtMT(saldo);
+  sc.classList.toggle('pos', saldo>=0);
+  sc.classList.toggle('neg', saldo<0);
+}
+
+function renderFluxoTable(){
+  const busca = document.getElementById('fluxoBusca').value.trim().toLowerCase();
+  const list = fluxoData
+    .filter(f=>monthKeyOf(f.data)===mesAtivo)
+    .filter(f=> !busca || f.descricao.toLowerCase().includes(busca) || (f.observacao||'').toLowerCase().includes(busca))
+    .sort((a,b)=> b.data.localeCompare(a.data));
+
+  const tbody = document.getElementById('fluxoTableBody');
+  const empty = document.getElementById('fluxoEmpty');
+  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = list.map(f=>`
+    <tr>
+      <td class="mono" data-label="Data">${fmtData(f.data)}</td>
+      <td data-label="Tipo"><span class="pill ${f.tipo}">${f.tipo==='entrada'?'↑ Entrada':'↓ Saída'}</span></td>
+      <td data-label="Descrição">${escapeHtml(f.descricao)}</td>
+      <td class="mono ${f.tipo==='entrada'?'pos':'neg'}" data-label="Valor">${fmtMT(f.valor)}</td>
+      <td data-label="Observação">${escapeHtml(f.observacao||'—')}</td>
+      <td data-label=""><div class="row-actions">
+        <button class="icon-btn" onclick="editFluxo('${f.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteFluxo('${f.id}')" title="Apagar">✕</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function editFluxo(id){
+  const f = fluxoData.find(x=>x.id===id);
+  if(!f) return;
+  setTipo(f.tipo);
+  document.getElementById('fValor').value = f.valor;
+  document.getElementById('fDescricao').value = f.descricao;
+  document.getElementById('fData').value = f.data;
+  document.getElementById('fObservacao').value = f.observacao||'';
+  fluxoEditId = id;
+  document.getElementById('fluxoSubmitBtn').textContent = 'Atualizar lançamento';
+  document.getElementById('fluxoCancelEdit').style.display = 'inline-block';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function cancelFluxoEdit(){
+  fluxoEditId = null;
+  document.getElementById('fluxoForm').reset();
+  document.getElementById('fData').valueAsDate = new Date();
+  setTipo('entrada');
+  document.getElementById('fluxoSubmitBtn').textContent = 'Adicionar lançamento';
+  document.getElementById('fluxoCancelEdit').style.display = 'none';
+}
+function deleteFluxo(id){
+  if(!confirm('Apagar este lançamento?')) return;
+  fluxoData = fluxoData.filter(f=>f.id!==id);
+  saveFluxo();
+  renderFluxoAll();
+}
+function exportFluxoCSV(){
+  const list = fluxoData.filter(f=>monthKeyOf(f.data)===mesAtivo).sort((a,b)=>a.data.localeCompare(b.data));
+  if(list.length===0){ alert('Não há dados para exportar neste mês.'); return; }
+  const header = ['Data','Movimentação','Descrição','Valor','Observação'];
+  const rows = list.map(f=>[f.data, f.tipo==='entrada'?'Entrada':'Saída', f.descricao, f.valor, f.observacao||'']);
+  downloadCSV(header, rows, 'fluxo-caixa-'+mesAtivo+'.csv');
+}
+
+function renderFluxoAll(){
+  renderMesTabs();
+  renderFluxoCards();
+  renderFluxoTable();
+}
+
+/* ============ CONTROLE DE VENDAS ============ */
+function loadVendas(){
+  try{ vendasData = JSON.parse(localStorage.getItem(VENDAS_KEY)) || []; }catch(e){ vendasData = []; }
+  const hoje = new Date();
+  const atual = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+  let precisaSalvar = false;
+  vendasData.forEach(v=>{ if(!v.mes){ v.mes = atual; precisaSalvar = true; } });
+  if(precisaSalvar) saveVendas();
+}
+function saveVendas(){ localStorage.setItem(VENDAS_KEY, JSON.stringify(vendasData)); }
+
+/* ---- Importar pedidos da planilha Shopify (via ficheiro CSV local) ---- */
+const SHOPIFY_COUNT_KEY = 'lobo_shopify_synced_count_v1';
+
+function parseCSV(text){
+  const rows = [];
+  let row = [], cell = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i], next = text[i+1];
+    if(inQuotes){
+      if(c==='"' && next==='"'){ cell+='"'; i++; }
+      else if(c==='"'){ inQuotes=false; }
+      else cell+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(cell); cell=''; }
+      else if(c==='\n' || c==='\r'){
+        if(c==='\r' && next==='\n') i++;
+        row.push(cell); cell='';
+        if(row.length>1 || row[0]!=='') rows.push(row);
+        row = [];
+      } else cell+=c;
+    }
+  }
+  if(cell!=='' || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function showCsvMsg(t, isError){
+  const el = document.getElementById('shopifyCsvMsg');
+  el.textContent = t;
+  el.style.color = isError ? 'var(--red)' : 'var(--gold)';
+}
+
+function showShopifyMsg(t, isError){
+  const el = document.getElementById('shopifyMsg');
+  el.textContent = t;
+  el.style.color = isError ? 'var(--red)' : 'var(--gold)';
+}
+
+function normalizeHorario(raw){
+  const v = (raw||'').trim();
+  if(!v) return '';
+  if(/^\d{1,2}:\d{2}$/.test(v)){
+    const [h,m] = v.split(':');
+    return h.padStart(2,'0') + ':' + m;
+  }
+  if(/^\d{1,2}$/.test(v)) return v.padStart(2,'0') + ':00';
+  return v;
+}
+
+function importarCSVShopify(){
+  const input = document.getElementById('shopifyFile');
+  const file = input.files[0];
+  if(!file){ showCsvMsg('Escolha o ficheiro CSV primeiro.', true); return; }
+  showCsvMsg('A ler o ficheiro…');
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const linhas = parseCSV(e.target.result).filter(r=>r.some(c=>String(c).trim()!==''));
+      const jaImportadas = parseInt(localStorage.getItem(SHOPIFY_COUNT_KEY),10) || 0;
+      const novas = linhas.slice(jaImportadas);
+
+      if(novas.length===0){
+        showCsvMsg('Nenhum pedido novo neste ficheiro — já foram todos importados antes.');
+        return;
+      }
+
+      const hojeStr = new Date().toISOString().slice(0,10);
+      const custoPorProduto = custoAquisicaoPorProduto();
+      const nomeCanonicoPorProduto = {};
+      produtosData.forEach(p=>{ nomeCanonicoPorProduto[normalizarNomeProduto(p.nome)] = p.nome; });
+
+      let importados = 0;
+      const naoReconhecidos = new Set();
+      novas.forEach(cols=>{
+        const nome = String(cols[0]||'').trim();
+        const telefone = String(cols[1]||'').trim();
+        const provincia = String(cols[2]||'').trim();
+        const localBase = String(cols[3]||'').trim();
+        const local = provincia ? (localBase ? localBase+', '+provincia : provincia) : localBase;
+        const horario = normalizeHorario(cols[4]);
+        const quantidade = parseInt(cols[5],10) || 1;
+        const valor = parseFloat(cols[6]) || 0;
+        const produtoCru = String(cols[7]||'').trim();
+        // se o nome bater (ignorando maiúsculas/espaços) com um produto já cadastrado, usa o nome exato cadastrado
+        const chave = normalizarNomeProduto(produtoCru);
+        const produto = produtoCru ? (nomeCanonicoPorProduto[chave] || produtoCru) : '';
+        if(produtoCru && !nomeCanonicoPorProduto[chave]) naoReconhecidos.add(produtoCru);
+        if(!nome && !telefone) return;
+        vendasData.push({
+          id: uid(), semana: semanaAtiva, mes: mesAtivoVendas,
+          data: hojeStr, horario: horario, fonte: '04.SHOPIFY',
+          contacto: (nome + ' ' + telefone).trim(),
+          local, descricao: '', produto, quantidade, valor,
+          delivery: '', comissao: 0, status: 'pendente'
+        });
+        importados++;
+      });
+
+      localStorage.setItem(SHOPIFY_COUNT_KEY, String(linhas.length));
+      saveVendas();
+      let msg = importados + (importados===1 ? ' pedido novo importado para "Pedidos da Semana".' : ' pedidos novos importados para "Pedidos da Semana".');
+      if(naoReconhecidos.size){
+        msg += ' Atenção: produto(s) sem cadastro em "Produtos" — ' + [...naoReconhecidos].join(', ') + '. O custo de aquisição desses não entra no ROI até você cadastrar.';
+      }
+      showCsvMsg(msg, naoReconhecidos.size>0);
+      input.value = '';
+      renderVendasAll();
+    } catch(err){
+      showCsvMsg('Não consegui ler esse ficheiro. Confirme que é o CSV exportado da planilha (Folha1).', true);
+    }
+  };
+  reader.onerror = function(){ showCsvMsg('Erro ao ler o ficheiro.', true); };
+  reader.readAsText(file, 'UTF-8');
+}
+
+/* ---- Sincronização direta com a Shopify (via Apps Script) ---- */
+const SHOPIFY_API_URL_KEY = 'lobo_shopify_api_url_v1';
+const SHOPIFY_IMPORTED_IDS_KEY = 'lobo_shopify_imported_ids_v1';
+
+function jsonpFetch(url){
+  return new Promise((resolve, reject)=>{
+    const cbName = 'shopifyCb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
+    const script = document.createElement('script');
+    let done = false;
+    window[cbName] = function(data){ done = true; resolve(data); cleanup(); };
+    function cleanup(){ delete window[cbName]; if(script.parentNode) script.parentNode.removeChild(script); }
+    script.onerror = function(){ if(!done){ cleanup(); reject(new Error('Falha ao carregar o script.')); } };
+    const sep = url.includes('?') ? '&' : '?';
+    script.src = url + sep + 'callback=' + cbName;
+    document.body.appendChild(script);
+    setTimeout(()=>{ if(!done){ cleanup(); reject(new Error('Tempo esgotado.')); } }, 20000);
+  });
+}
+
+function getImportedShopifyIds(){
+  try{ return JSON.parse(localStorage.getItem(SHOPIFY_IMPORTED_IDS_KEY)) || []; }catch(e){ return []; }
+}
+function saveImportedShopifyIds(ids){ localStorage.setItem(SHOPIFY_IMPORTED_IDS_KEY, JSON.stringify(ids)); }
+
+async function syncShopifyAPI(){
+  const urlInput = document.getElementById('shopifyApiUrl');
+  const url = urlInput.value.trim();
+  if(!url){ showShopifyMsg('Cole o link do Apps Script primeiro.', true); return; }
+  localStorage.setItem(SHOPIFY_API_URL_KEY, url);
+  showShopifyMsg('A buscar pedidos novos na Shopify…');
+
+  try{
+    // 1) buscar pedidos novos (abertos) e importar os que ainda não conhecemos
+    const lista = await jsonpFetch(url);
+    if(lista && lista.error){ showShopifyMsg('Erro: ' + lista.error, true); return; }
+
+    const jaImportados = new Set(getImportedShopifyIds());
+    const custoPorProduto = custoAquisicaoPorProduto();
+    const nomeCanonicoPorProduto = {};
+    produtosData.forEach(p=>{ nomeCanonicoPorProduto[normalizarNomeProduto(p.nome)] = p.nome; });
+    const hojeStr = new Date().toISOString().slice(0,10);
+
+    let importados = 0;
+    (Array.isArray(lista) ? lista : []).forEach(pedido=>{
+      if(jaImportados.has(String(pedido.id))) return;
+      jaImportados.add(String(pedido.id));
+      const itens = (pedido.itens && pedido.itens.length) ? pedido.itens : [{produto:'', quantidade:1, preco: pedido.valor}];
+      itens.forEach(item=>{
+        const produtoCru = String(item.produto||'').trim();
+        const chave = normalizarNomeProduto(produtoCru);
+        const produtoFinal = produtoCru ? (nomeCanonicoPorProduto[chave] || produtoCru) : '';
+        vendasData.push({
+          id: uid(), semana: semanaAtiva, mes: mesAtivoVendas,
+          data: hojeStr, horario: '', fonte: '04.SHOPIFY',
+          contacto: (pedido.nome||'') + ' ' + (pedido.telefone||''),
+          local: pedido.local || '', descricao: '',
+          produto: produtoFinal, quantidade: item.quantidade||1,
+          valor: parseFloat(item.preco||pedido.valor||0) * (item.quantidade||1),
+          delivery: '', comissao: 0, status: 'pendente',
+          shopifyOrderId: String(pedido.id)
+        });
+      });
+      importados++;
+    });
+    saveImportedShopifyIds([...jaImportados]);
+    saveVendas();
+
+    // 2) reconciliar status dos pedidos ainda abertos que vieram da Shopify
+    const abertos = vendasData.filter(v=> v.shopifyOrderId && (v.status==='pendente' || v.status==='remarcado'));
+    let atualizados = 0;
+    if(abertos.length){
+      const ids = [...new Set(abertos.map(v=>v.shopifyOrderId))];
+      const statusResp = await jsonpFetch(url + '&action=status&ids=' + ids.join(','));
+      if(statusResp && !statusResp.error){
+        abertos.forEach(v=>{
+          const st = statusResp[v.shopifyOrderId];
+          if(!st) return;
+          if(st.cancelled_at && v.status!=='cancelado'){ v.status = 'cancelado'; atualizados++; }
+          else if(st.fulfillment_status==='fulfilled' && v.status!=='concluido'){ v.status = 'concluido'; atualizados++; }
+        });
+        saveVendas();
+      }
+    }
+
+    document.getElementById('shopifyStatusTag').textContent = 'última sincronização: ' + new Date().toLocaleTimeString('pt-PT').slice(0,5);
+    showShopifyMsg(importados + ' pedido(s) novo(s) importado(s), ' + atualizados + ' status atualizado(s) a partir da Shopify.');
+    renderVendasAll();
+  } catch(err){
+    showShopifyMsg('Não consegui falar com o Apps Script. Confira o link/token e se o app está implantado.', true);
+  }
+}
+
+// chamado ao marcar Concluído/Cancelado num pedido que veio da Shopify — reflete lá também
+async function refletirNaShopify(v, novoStatus){
+  if(!v.shopifyOrderId) return;
+  const url = localStorage.getItem(SHOPIFY_API_URL_KEY);
+  if(!url) return;
+  const acao = novoStatus==='concluido' ? 'fulfill' : (novoStatus==='cancelado' ? 'cancel' : null);
+  if(!acao) return;
+  try{
+    const resp = await jsonpFetch(url + '&action=' + acao + '&order_id=' + v.shopifyOrderId);
+    if(resp && resp.error){ showShopifyMsg('Aviso: não consegui atualizar esse pedido na Shopify (' + resp.error + ').', true); }
+  } catch(e){
+    showShopifyMsg('Aviso: não consegui contactar a Shopify pra atualizar esse pedido.', true);
+  }
+}
+
+
+document.getElementById('vendaForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const data = document.getElementById('vData').value;
+  const horario = document.getElementById('vHorario').value;
+  const fonte = document.getElementById('vFonte').value;
+  const contacto = document.getElementById('vContacto').value.trim();
+  const local = document.getElementById('vLocal').value.trim();
+  const descricao = document.getElementById('vDescricao').value.trim();
+  const produto = document.getElementById('vProduto').value.trim();
+  const quantidade = parseInt(document.getElementById('vQuantidade').value,10)||1;
+  const valor = parseFloat(document.getElementById('vValor').value)||0;
+  const delivery = document.getElementById('vDelivery').value.trim();
+  const comissao = parseFloat(document.getElementById('vComissao').value)||0;
+  const status = document.getElementById('vStatus').value;
+
+  if(!data || !contacto){ showVendaMsg('Preencha pelo menos a data e o contacto.'); return; }
+
+  if(vendaEditId){
+    const idx = vendasData.findIndex(v=>v.id===vendaEditId);
+    if(idx>-1) vendasData[idx] = {...vendasData[idx], data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: vendasData[idx].mes};
+    showVendaMsg('Registo atualizado.');
+    vendaEditId = null;
+    document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
+    document.getElementById('vendaCancelEdit').style.display = 'none';
+  } else {
+    vendasData.push({id:uid(), semana:semanaAtiva, mes:mesAtivoVendas, data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status});
+    showVendaMsg('Contacto adicionado.');
+  }
+  saveVendas();
+  document.getElementById('vendaForm').reset();
+  document.getElementById('vData').valueAsDate = new Date();
+  document.getElementById('vQuantidade').value = 1;
+  renderVendasAll();
+});
+
+function showVendaMsg(t){
+  const el = document.getElementById('vendaMsg');
+  el.textContent = t;
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+}
+
+function renderMesVendasTag(){
+  document.getElementById('mesVendasAtivoTag').textContent = monthLabel(mesAtivoVendas);
+  document.getElementById('mesVendasEditor').value = mesAtivoVendas;
+}
+
+function definirMesVendas(){
+  const v = document.getElementById('mesVendasEditor').value;
+  if(!v){ return; }
+  mesAtivoVendas = v;
+  renderVendasAll();
+}
+
+let historicoMesesAberto = false;
+let mesHistoricoSelecionado = '';
+let semanaHistoricoSelecionada = 'semana1';
+
+function toggleHistoricoMeses(){
+  historicoMesesAberto = !historicoMesesAberto;
+  const toggle = document.getElementById('historicoMesesToggle');
+  toggle.classList.toggle('open', historicoMesesAberto);
+  toggle.innerHTML = historicoMesesAberto
+    ? '<span class="chev">▶</span> Ocultar meses anteriores'
+    : '<span class="chev">▶</span> Ver meses anteriores';
+  document.getElementById('historicoMesesBody').style.display = historicoMesesAberto ? 'block' : 'none';
+  if(historicoMesesAberto) renderHistoricoMeses();
+}
+
+function getMesesPassados(){
+  const set = new Set(vendasData.map(v=>v.mes));
+  return [...set].filter(m=>m && m < mesAtivoVendas).sort().reverse();
+}
+
+function renderHistoricoMeses(){
+  const meses = getMesesPassados();
+  if(!meses.includes(mesHistoricoSelecionado)) mesHistoricoSelecionado = meses[0] || '';
+  const tabsEl = document.getElementById('mesesPassadosTabs');
+  tabsEl.innerHTML = meses.length
+    ? meses.map(m=>`<button class="${m===mesHistoricoSelecionado?'active':''}" onclick="selecionarMesHistorico('${m}')">${monthLabel(m)}</button>`).join('')
+    : '<span style="color:var(--sand-dimmer); font-size:13px;">Ainda não há meses anteriores.</span>';
+  renderSemanaHistTabs();
+  renderHistoricoMesTable();
+}
+function selecionarMesHistorico(m){ mesHistoricoSelecionado = m; renderHistoricoMeses(); }
+
+function renderSemanaHistTabs(){
+  const el = document.getElementById('semanaHistTabs');
+  if(!mesHistoricoSelecionado){ el.innerHTML=''; return; }
+  el.innerHTML = SEMANAS.map(s=>
+    `<button class="${s.key===semanaHistoricoSelecionada?'active':''}" onclick="selecionarSemanaHistorico('${s.key}')">${s.label}</button>`
+  ).join('');
+}
+function selecionarSemanaHistorico(key){ semanaHistoricoSelecionada = key; renderHistoricoMesTable(); }
+
+function getHistoricoFiltrado(){
+  if(!mesHistoricoSelecionado) return [];
+  const busca = document.getElementById('histBusca').value.trim().toLowerCase();
+  return vendasData.filter(v=>v.mes===mesHistoricoSelecionado && v.semana===semanaHistoricoSelecionada)
+    .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca))
+    .sort((a,b)=> b.data.localeCompare(a.data));
+}
+
+function renderHistoricoMesTable(){
+  const list = getHistoricoFiltrado();
+  const tbody = document.getElementById('histTableBody');
+  const empty = document.getElementById('histEmpty');
+  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = list.map(v=>`
+    <tr>
+      <td class="mono" data-label="Data">${fmtData(v.data)}</td>
+      <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
+      <td data-label="Contacto">${escapeHtml(v.contacto||'—')}</td>
+      <td data-label="Local">${escapeHtml(v.local||'—')}</td>
+      <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
+      <td class="mono" data-label="Qtd">${v.quantidade}</td>
+      <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
+      <td data-label="Delivery">${escapeHtml(v.delivery||'—')}</td>
+      <td data-label="Status"><span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span></td>
+    </tr>`).join('');
+}
+
+function exportHistoricoMesCSV(){
+  const list = getHistoricoFiltrado();
+  if(list.length===0){ alert('Não há dados para exportar.'); return; }
+  const header = ['Data','Fonte de Aquisição','Contacto','Local da Entrega','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
+  const rows = list.map(v=>[v.data, v.fonte, v.contacto, v.local, v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, v.comissao||0, STATUS_LABEL[v.status]]);
+  downloadCSV(header, rows, 'controle-vendas-'+mesHistoricoSelecionado+'-'+semanaHistoricoSelecionada+'.csv');
+}
+
+function iniciarNovoMesVendas(){
+  const atualLbl = monthLabel(mesAtivoVendas);
+  const [y,m] = mesAtivoVendas.split('-').map(Number);
+  let ny = y, nm = m+1;
+  if(nm>12){ nm = 1; ny += 1; }
+  const novoMes = ny + '-' + String(nm).padStart(2,'0');
+  const novoLbl = monthLabel(novoMes);
+  if(!confirm(`Iniciar ${novoLbl}? Os pedidos remarcados de ${atualLbl} passam para ${novoLbl} sem alterações, e ${atualLbl} fica guardado no histórico.`)) return;
+  vendasData.forEach(v=>{
+    if(v.mes===mesAtivoVendas && v.status==='remarcado') v.mes = novoMes;
+  });
+  saveVendas();
+  mesAtivoVendas = novoMes;
+  renderVendasAll();
+}
+
+function renderSemanaTabs(){
+  document.getElementById('semanaTabs').innerHTML = SEMANAS.map(s=>{
+    const pendentes = vendasData.filter(v=> v.semana===s.key && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado')).length;
+    const badge = pendentes>0 ? `<span class="tab-badge">${pendentes}</span>` : '';
+    return `<button class="${s.key===semanaAtiva?'active':''}" onclick="selecionarSemana('${s.key}')">${s.label}${badge}</button>`;
+  }).join('');
+  const lbl = SEMANAS.find(s=>s.key===semanaAtiva).label;
+  document.getElementById('semanaAtivaTag').textContent = lbl;
+}
+function selecionarSemana(key){ semanaAtiva = key; renderVendasAll(); }
+
+function getVendasFiltradas(){
+  const status = document.getElementById('filtroStatus').value;
+  const busca = document.getElementById('vendaBusca').value.trim().toLowerCase();
+  return vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='concluido' || v.status==='cancelado'))
+    .filter(v=> status==='todos' || v.status===status)
+    .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca))
+    .sort((a,b)=> b.data.localeCompare(a.data));
+}
+
+function getPedidosAtivos(){
+  return vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'));
+}
+
+function renderPedidos(){
+  const list = getPedidosAtivos();
+  const cont = document.getElementById('pedidosBody');
+  const empty = document.getElementById('pedidosEmpty');
+  const tag = document.getElementById('pedidosTag');
+
+  if(list.length===0){
+    cont.innerHTML = '';
+    empty.style.display = 'block';
+    tag.textContent = '';
+    return;
+  }
+  empty.style.display = 'none';
+  tag.textContent = list.length + (list.length===1 ? ' pedido em aberto' : ' pedidos em aberto');
+
+  const hojeStr = new Date().toISOString().slice(0,10);
+  const grupos = {};
+  list.forEach(v=>{ (grupos[v.data] = grupos[v.data] || []).push(v); });
+  let datas = Object.keys(grupos).sort();
+  datas = datas.filter(d=>d!==hojeStr);
+  if(grupos[hojeStr]) datas.unshift(hojeStr);
+
+  cont.innerHTML = datas.map(d=>{
+    const rows = grupos[d].slice().sort((a,b)=> (a.horario||'99:99').localeCompare(b.horario||'99:99'));
+    const isHoje = d===hojeStr;
+    const label = (isHoje ? 'HOJE · ' : '') + fmtData(d);
+    const cardsHtml = rows.map(v=>{
+      const detalhes = [v.local, v.produto ? (v.produto + (v.quantidade>1?' ×'+v.quantidade:'')) : null, v.valor?fmtMT(v.valor):null]
+        .filter(Boolean).join(' · ');
+      return `
+      <div class="pedido-card">
+        <div class="pedido-card-top">
+          <span class="pedido-hora">${v.horario ? '🕒 '+v.horario : 'Sem horário'}</span>
+          <span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span>
+        </div>
+        <div class="pedido-card-main">
+          <div class="pedido-contacto">${escapeHtml(v.contacto||'Sem contacto')}</div>
+          <div class="pedido-detalhes">${escapeHtml(detalhes||'—')}</div>
+        </div>
+        <div class="pedido-card-actions">
+          <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
+          <button class="acao-cancelar" onclick="markStatus('${v.id}','cancelado')">✕ Cancelar</button>
+          ${v.status!=='remarcado' ? `<button class="acao-remarcar" onclick="markStatus('${v.id}','remarcado')">↻ Remarcar</button>` : ''}
+          <button onclick="editVenda('${v.id}')">✎ Editar</button>
+          <button onclick="deleteVenda('${v.id}')">🗑</button>
+          <button onclick="gerarPDFPedido('${v.id}')">📄 PDF</button>
+          <select class="mover-semana-select" onchange="moverPedidoSemana('${v.id}', this.value); this.value='';">
+            <option value="">Mover p/…</option>
+            ${SEMANAS.filter(s=>s.key!==v.semana).map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="pedido-group">
+      <div class="pedido-date-label${isHoje?' hoje':''}">
+        <span>${label}</span>
+        <button class="btn-ghost pdf-dia-btn" onclick="gerarPDFPedidosData('${d}')">📄 PDF do dia (${rows.length})</button>
+      </div>
+      ${cardsHtml}
+    </div>`;
+  }).join('');
+}
+
+function moverPedidoSemana(id, novaSemana){
+  if(!novaSemana) return;
+  const idx = vendasData.findIndex(v=>v.id===id);
+  if(idx===-1) return;
+  const semanaAntiga = vendasData[idx].semana;
+  vendasData[idx].semana = novaSemana;
+  saveVendas();
+  renderVendasAll();
+  const nomeNova = SEMANAS.find(s=>s.key===novaSemana)?.label || novaSemana;
+  showVendaMsg('Pedido movido para ' + nomeNova + '.');
+}
+
+function markStatus(id, status){
+  const idx = vendasData.findIndex(v=>v.id===id);
+  if(idx===-1) return;
+  vendasData[idx].status = status;
+  saveVendas();
+  renderVendasAll();
+  if(vendasData[idx].shopifyOrderId) refletirNaShopify(vendasData[idx], status);
+}
+
+function renderVendaTable(){
+  const list = getVendasFiltradas();
+  const tbody = document.getElementById('vendaTableBody');
+  const empty = document.getElementById('vendaEmpty');
+  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; }
+  else {
+    empty.style.display='none';
+    tbody.innerHTML = list.map(v=>`
+      <tr>
+        <td class="mono" data-label="Data">${fmtData(v.data)}</td>
+        <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
+        <td data-label="Contacto">${escapeHtml(v.contacto||'—')}</td>
+        <td data-label="Local">${escapeHtml(v.local||'—')}</td>
+        <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
+        <td class="mono" data-label="Qtd">${v.quantidade}</td>
+        <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
+        <td data-label="Delivery">${escapeHtml(v.delivery||'—')}</td>
+        <td data-label="Status"><span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span></td>
+        <td data-label=""><div class="row-actions">
+          <button class="icon-btn" onclick="editVenda('${v.id}')" title="Editar">✎</button>
+          <button class="icon-btn" onclick="deleteVenda('${v.id}')" title="Apagar">✕</button>
+        </div></td>
+      </tr>`).join('');
+  }
+  renderSaidaProdutos();
+  renderEntregas();
+}
+
+function renderSaidaProdutos(){
+  const doSemana = vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && v.status==='concluido' && v.produto);
+  const grupos = {};
+  doSemana.forEach(v=>{ grupos[v.produto] = (grupos[v.produto]||0) + (v.quantidade||0); });
+  const produtos = Object.keys(grupos);
+  const total = produtos.reduce((s,p)=>s+grupos[p],0);
+  const tbody = document.getElementById('saidaProdutosBody');
+  if(produtos.length===0){ tbody.innerHTML = '<tr><td colspan="2" style="color:var(--sand-dimmer); font-size:12px;">Sem saídas concluídas nesta semana.</td></tr>'; return; }
+  tbody.innerHTML = produtos.map(p=>`<tr><td>${escapeHtml(p)}</td><td class="mono">${grupos[p]}</td></tr>`).join('')
+    + `<tr class="total-row"><td>Total</td><td class="mono">${total}</td></tr>`;
+}
+
+function renderEntregas(){
+  const doSemana = vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && v.status==='concluido' && v.delivery);
+  const grupos = {};
+  doSemana.forEach(v=>{
+    if(!grupos[v.delivery]) grupos[v.delivery] = {count:0, total:0};
+    grupos[v.delivery].count += 1;
+    grupos[v.delivery].total += (v.comissao||0);
+  });
+  const entregadores = Object.keys(grupos);
+  const totalEntregas = entregadores.reduce((s,e)=>s+grupos[e].count,0);
+  const totalPago = entregadores.reduce((s,e)=>s+grupos[e].total,0);
+  const tbody = document.getElementById('entregasBody');
+  if(entregadores.length===0){ tbody.innerHTML = '<tr><td colspan="3" style="color:var(--sand-dimmer); font-size:12px;">Sem entregas concluídas nesta semana.</td></tr>'; return; }
+  tbody.innerHTML = entregadores.map(e=>`<tr><td>${escapeHtml(e)}</td><td class="mono">${grupos[e].count}</td><td class="mono">${fmtMT(grupos[e].total)}</td></tr>`).join('')
+    + `<tr class="total-row"><td>Total</td><td class="mono">${totalEntregas}</td><td class="mono">${fmtMT(totalPago)}</td></tr>`;
+}
+
+function editVenda(id){
+  const v = vendasData.find(x=>x.id===id);
+  if(!v) return;
+  document.getElementById('vData').value = v.data;
+  document.getElementById('vHorario').value = v.horario||'';
+  document.getElementById('vFonte').value = v.fonte;
+  document.getElementById('vContacto').value = v.contacto;
+  document.getElementById('vLocal').value = v.local;
+  document.getElementById('vDescricao').value = v.descricao;
+  document.getElementById('vProduto').value = v.produto;
+  document.getElementById('vQuantidade').value = v.quantidade;
+  document.getElementById('vValor').value = v.valor||'';
+  document.getElementById('vDelivery').value = v.delivery;
+  document.getElementById('vComissao').value = v.comissao||'';
+  document.getElementById('vStatus').value = v.status;
+  vendaEditId = id;
+  document.getElementById('vendaSubmitBtn').textContent = 'Atualizar';
+  document.getElementById('vendaCancelEdit').style.display = 'inline-block';
+  window.scrollTo({top: document.getElementById('vendaForm').offsetTop - 20, behavior:'smooth'});
+}
+function cancelVendaEdit(){
+  vendaEditId = null;
+  document.getElementById('vendaForm').reset();
+  document.getElementById('vData').valueAsDate = new Date();
+  document.getElementById('vQuantidade').value = 1;
+  document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
+  document.getElementById('vendaCancelEdit').style.display = 'none';
+}
+function deleteVenda(id){
+  if(!confirm('Apagar este registo?')) return;
+  vendasData = vendasData.filter(v=>v.id!==id);
+  saveVendas();
+  renderVendasAll();
+}
+function exportVendasCSV(){
+  const list = getVendasFiltradas();
+  if(list.length===0){ alert('Não há dados para exportar nesta semana.'); return; }
+  const header = ['Data','Horário','Fonte de Aquisição','Contacto','Local da Entrega','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
+  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, v.comissao||0, STATUS_LABEL[v.status]]);
+  downloadCSV(header, rows, 'controle-vendas-'+semanaAtiva+'.csv');
+}
+
+let overviewFiltro = 'tudo';
+
+function getDateRangeFor(filtro){
+  const hoje = new Date();
+  const toISO = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+
+  if(filtro==='tudo') return null;
+
+  if(filtro==='esta_semana' || filtro==='semana_passada'){
+    const dia = hoje.getDay();
+    const diffSegunda = (dia===0 ? -6 : 1-dia);
+    const inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() + diffSegunda);
+    if(filtro==='semana_passada') inicio.setDate(inicio.getDate()-7);
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate()+6);
+    return [toISO(inicio), toISO(fim)];
+  }
+  if(filtro==='este_mes' || filtro==='mes_passado'){
+    let y = hoje.getFullYear(), m = hoje.getMonth();
+    if(filtro==='mes_passado'){ m -= 1; if(m<0){ m=11; y-=1; } }
+    const inicio = new Date(y, m, 1);
+    const fim = new Date(y, m+1, 0);
+    return [toISO(inicio), toISO(fim)];
+  }
+  if(filtro==='este_ano' || filtro==='ano_passado'){
+    let y = hoje.getFullYear();
+    if(filtro==='ano_passado') y -= 1;
+    return [y+'-01-01', y+'-12-31'];
+  }
+  return null;
+}
+
+function onOverviewFiltroChange(){
+  overviewFiltro = document.getElementById('overviewFiltro').value;
+  renderOverview();
+}
+
+function renderOverview(){
+  const range = getDateRangeFor(overviewFiltro);
+  const dados = range ? vendasData.filter(v=> v.data >= range[0] && v.data <= range[1]) : vendasData;
+
+  const total = dados.length;
+  const concluido = dados.filter(v=>v.status==='concluido').length;
+  const cancelado = dados.filter(v=>v.status==='cancelado').length;
+  const remarcado = dados.filter(v=>v.status==='remarcado').length;
+  const conversao = total>0 ? Math.round(concluido/total*100) : 0;
+  document.getElementById('ovTotal').textContent = total;
+  document.getElementById('ovConcluido').textContent = concluido;
+  document.getElementById('ovCancelado').textContent = cancelado;
+  document.getElementById('ovRemarcado').textContent = remarcado;
+  document.getElementById('ovConversao').textContent = conversao + '%';
+}
+
+function renderVendasAll(){
+  renderMesVendasTag();
+  renderSemanaTabs();
+  renderPedidos();
+  renderVendaTable();
+  renderOverview();
+  if(historicoMesesAberto) renderHistoricoMeses();
+}
+
+/* ============ CSV HELPER ============ */
+function downloadCSV(header, rows, filename){
+  const csv = [header, ...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============ CPA / ROI / ROAS ============ */
+const ADSPEND_KEY = 'lobo_ad_spend_v1';
+const PRODUTOS_KEY = 'lobo_produtos_v1';
+const OPERACIONAL_KEY = 'lobo_gastos_operacionais_v1';
+let adSpendData = [];
+let produtosData = [];
+let operacionaisData = [];
+let adEditId = null;
+let produtoEditId = null;
+let opEditId = null;
+let adHistAberto = false;
+let produtoHistAberto = false;
+let opHistAberto = false;
+let periodoMetricas = 'dia';
+let metChart = null;
+
+function loadAdSpend(){
+  try{ adSpendData = JSON.parse(localStorage.getItem(ADSPEND_KEY)) || []; }catch(e){ adSpendData = []; }
+}
+function saveAdSpend(){ localStorage.setItem(ADSPEND_KEY, JSON.stringify(adSpendData)); }
+
+function loadProdutos(){
+  try{ produtosData = JSON.parse(localStorage.getItem(PRODUTOS_KEY)) || []; }catch(e){ produtosData = []; }
+}
+function saveProdutos(){ localStorage.setItem(PRODUTOS_KEY, JSON.stringify(produtosData)); }
+
+function loadOperacional(){
+  try{ operacionaisData = JSON.parse(localStorage.getItem(OPERACIONAL_KEY)) || []; }catch(e){ operacionaisData = []; }
+}
+function saveOperacional(){ localStorage.setItem(OPERACIONAL_KEY, JSON.stringify(operacionaisData)); }
+
+/* ---- Produtos ---- */
+let pendingFotoBase64 = null;
+
+// Reduz a foto para no máximo 300px e comprime em JPEG, pra não pesar no localStorage
+function processarFotoProduto(file, callback){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const maxSize = 300;
+      let w = img.width, h = img.height;
+      if(w > h){ if(w>maxSize){ h = Math.round(h*maxSize/w); w = maxSize; } }
+      else { if(h>maxSize){ w = Math.round(w*maxSize/h); h = maxSize; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.72));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('pFoto').addEventListener('change', function(){
+  const file = this.files[0];
+  if(!file){ return; }
+  processarFotoProduto(file, function(base64){
+    pendingFotoBase64 = base64;
+    const preview = document.getElementById('pFotoPreview');
+    preview.src = base64;
+    preview.style.display = 'inline-block';
+  });
+});
+
+document.getElementById('produtoForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const nome = document.getElementById('pNome').value.trim();
+  const custo = parseFloat(document.getElementById('pCusto').value)||0;
+  if(!nome){ showProdutoMsg('Preencha o nome do produto.'); return; }
+  const foto = pendingFotoBase64;
+
+  if(produtoEditId){
+    const idx = produtosData.findIndex(p=>p.id===produtoEditId);
+    if(idx>-1) produtosData[idx] = {...produtosData[idx], nome, custo, foto: foto || produtosData[idx].foto || ''};
+    showProdutoMsg('Produto atualizado.');
+    produtoEditId = null;
+    document.getElementById('produtoSubmitBtn').textContent = 'Guardar';
+    document.getElementById('produtoCancelEdit').style.display = 'none';
+  } else {
+    const existente = produtosData.find(p=>normalizarNomeProduto(p.nome)===normalizarNomeProduto(nome));
+    if(existente){ existente.custo = custo; if(foto) existente.foto = foto; showProdutoMsg('Produto já existia — atualizado.'); }
+    else { produtosData.push({id:uid(), nome, custo, foto: foto||''}); showProdutoMsg('Produto cadastrado.'); }
+  }
+  saveProdutos();
+  document.getElementById('produtoForm').reset();
+  pendingFotoBase64 = null;
+  const preview = document.getElementById('pFotoPreview');
+  preview.style.display = 'none';
+  preview.src = '';
+  renderProdutosAll();
+});
+
+function showProdutoMsg(t){
+  const el = document.getElementById('produtoMsg');
+  el.textContent = t;
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+}
+
+function toggleProdutoHist(){
+  produtoHistAberto = !produtoHistAberto;
+  const t = document.getElementById('produtoHistToggle');
+  t.classList.toggle('open', produtoHistAberto);
+  t.innerHTML = produtoHistAberto ? '<span class="chev">▶</span> Ocultar produtos cadastrados' : '<span class="chev">▶</span> Ver produtos cadastrados';
+  document.getElementById('produtoHistBody').style.display = produtoHistAberto ? 'block' : 'none';
+  if(produtoHistAberto) renderProdutoTable();
+}
+
+function renderProdutoTable(){
+  const list = produtosData.slice().sort((a,b)=> a.nome.localeCompare(b.nome));
+  const tbody = document.getElementById('produtoTableBody');
+  const empty = document.getElementById('produtoEmpty');
+  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = list.map(p=>`
+    <tr>
+      <td data-label="Foto">${p.foto ? `<img src="${p.foto}" style="width:34px;height:34px;object-fit:cover;border-radius:7px;">` : '<span style="opacity:.4;">—</span>'}</td>
+      <td data-label="Produto">${escapeHtml(p.nome)}</td>
+      <td class="mono" data-label="Custo de aquisição">${fmtMT(p.custo)}</td>
+      <td data-label=""><div class="row-actions">
+        <button class="icon-btn" onclick="editProduto('${p.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteProduto('${p.id}')" title="Apagar">✕</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function editProduto(id){
+  const p = produtosData.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('pNome').value = p.nome;
+  document.getElementById('pCusto').value = p.custo;
+  const preview = document.getElementById('pFotoPreview');
+  pendingFotoBase64 = null;
+  if(p.foto){ preview.src = p.foto; preview.style.display = 'inline-block'; }
+  else { preview.style.display = 'none'; preview.src = ''; }
+  produtoEditId = id;
+  document.getElementById('produtoSubmitBtn').textContent = 'Atualizar';
+  document.getElementById('produtoCancelEdit').style.display = 'inline-block';
+  window.scrollTo({top: document.getElementById('produtoForm').offsetTop - 20, behavior:'smooth'});
+}
+function cancelProdutoEdit(){
+  produtoEditId = null;
+  pendingFotoBase64 = null;
+  document.getElementById('produtoForm').reset();
+  const preview = document.getElementById('pFotoPreview');
+  preview.style.display = 'none';
+  preview.src = '';
+  document.getElementById('produtoSubmitBtn').textContent = 'Guardar';
+  document.getElementById('produtoCancelEdit').style.display = 'none';
+}
+function deleteProduto(id){
+  if(!confirm('Apagar este produto? O custo de aquisição dele deixa de contar no ROI.')) return;
+  produtosData = produtosData.filter(p=>p.id!==id);
+  saveProdutos();
+  renderProdutosAll();
+}
+
+function custoAquisicaoPorProduto(){
+  const mapa = {};
+  produtosData.forEach(p=>{ mapa[normalizarNomeProduto(p.nome)] = p.custo; });
+  return mapa;
+}
+
+function diasNoMesDe(dataStr){
+  const [y,m] = dataStr.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+// Gastos únicos contam só no dia certo. Gastos mensais (assinaturas) são
+// divididos pelos dias do mês, então cada período (dia ou semana) só carrega
+// a fatia proporcional a ele — o valor cheio nunca cai de uma vez só num dia.
+function calcularGastoOperacional(inicio, fim){
+  let total = 0;
+  operacionaisData.filter(o=>!o.recorrente).forEach(o=>{
+    if(o.data>=inicio && o.data<=fim) total += o.valor;
+  });
+  const recorrentes = operacionaisData.filter(o=>o.recorrente);
+  if(recorrentes.length){
+    let cursor = new Date(inicio+'T00:00:00');
+    const fimDate = new Date(fim+'T00:00:00');
+    while(cursor <= fimDate){
+      const diaStr = toISODate(cursor);
+      const totalDiasMes = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0).getDate();
+      recorrentes.forEach(o=>{
+        if(diaStr >= o.data) total += o.valor / totalDiasMes;
+      });
+      cursor.setDate(cursor.getDate()+1);
+    }
+  }
+  return total;
+}
+
+function renderProdutosAll(){
+  if(produtoHistAberto) renderProdutoTable();
+  populateProdutosMetricas();
+  renderMetricas();
+}
+
+/* ---- Exportar pedidos em PDF (para o entregador) ---- */
+function desenharPedidoPDF(doc, v, yStart){
+  let y = yStart;
+  doc.setFontSize(14);
+  doc.setFont(undefined,'bold');
+  doc.text(v.contacto || 'Sem contacto', 20, y);
+  doc.setFontSize(9);
+  doc.setFont(undefined,'normal');
+  doc.text(STATUS_LABEL[v.status]||'', 190, y, {align:'right'});
+  y += 7;
+
+  const produto = produtosData.find(p=>normalizarNomeProduto(p.nome)===normalizarNomeProduto(v.produto));
+  const temFoto = produto && produto.foto;
+  const infoX = temFoto ? 68 : 20;
+
+  if(temFoto){
+    try{ doc.addImage(produto.foto, 'JPEG', 20, y, 42, 42); }catch(e){}
+  }
+
+  let ty = y + 2;
+  doc.setFontSize(10);
+  const linhas = [
+    ['Produto', v.produto || '—'],
+    ['Quantidade', String(v.quantidade||1)],
+    ['Valor', fmtMT(v.valor||0)],
+    ['Local', v.local || '—'],
+    ['Horário', v.horario || '—']
+  ];
+  if(v.delivery) linhas.push(['Entregador', v.delivery]);
+  if(v.descricao) linhas.push(['Nota', v.descricao]);
+
+  linhas.forEach(([label, valor])=>{
+    doc.setFont(undefined,'bold');
+    doc.text(label+':', infoX, ty);
+    doc.setFont(undefined,'normal');
+    doc.text(String(valor), infoX+26, ty, {maxWidth: 190-(infoX+26)});
+    ty += 6;
+  });
+
+  y = Math.max(y + (temFoto?46:2), ty) + 4;
+  doc.setDrawColor(210);
+  doc.line(20, y, 190, y);
+  return y + 4;
+}
+
+function gerarPDFPedido(id){
+  if(typeof jspdf==='undefined'){ alert('Não consegui carregar a biblioteca de PDF — confira sua ligação à internet e tente de novo.'); return; }
+  const v = vendasData.find(x=>x.id===id);
+  if(!v) return;
+  const doc = new jspdf.jsPDF();
+  desenharPedidoPDF(doc, v, 20);
+  const nomeFicheiro = 'pedido-' + (v.contacto||'sem-nome').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.pdf';
+  doc.save(nomeFicheiro);
+}
+
+function gerarPDFPedidosData(dataStr){
+  if(typeof jspdf==='undefined'){ alert('Não consegui carregar a biblioteca de PDF — confira sua ligação à internet e tente de novo.'); return; }
+  const pedidos = vendasData.filter(v=> v.data===dataStr && (v.status==='pendente' || v.status==='remarcado'))
+    .sort((a,b)=> (a.horario||'99:99').localeCompare(b.horario||'99:99'));
+  if(pedidos.length===0){ alert('Nenhum pedido em aberto nesse dia.'); return; }
+  const doc = new jspdf.jsPDF();
+  doc.setFontSize(15);
+  doc.setFont(undefined,'bold');
+  doc.text('Pedidos — ' + fmtData(dataStr), 20, 16);
+  let y = 26;
+  pedidos.forEach(v=>{
+    if(y > 245){ doc.addPage(); y = 20; }
+    y = desenharPedidoPDF(doc, v, y);
+  });
+  doc.save('pedidos-' + dataStr + '.pdf');
+}
+
+/* ---- Gastos Operacionais ---- */
+let opRecorrenteAtivo = false;
+function setOpRecorrente(v){
+  opRecorrenteAtivo = v;
+  document.getElementById('opBtnUnico').classList.toggle('on', !v);
+  document.getElementById('opBtnMensal').classList.toggle('on', v);
+  document.getElementById('opDataLabel').textContent = v ? 'Cobrado desde' : 'Data';
+}
+
+document.getElementById('opForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const nome = document.getElementById('opNome').value.trim();
+  const valor = parseFloat(document.getElementById('opValor').value)||0;
+  const data = document.getElementById('opData').value;
+  const recorrente = opRecorrenteAtivo;
+  if(!nome || !data || valor<=0){ showOpMsg('Preencha o nome, a data e o valor.'); return; }
+
+  if(opEditId){
+    const idx = operacionaisData.findIndex(o=>o.id===opEditId);
+    if(idx>-1) operacionaisData[idx] = {...operacionaisData[idx], nome, valor, data, recorrente};
+    showOpMsg('Gasto atualizado.');
+    opEditId = null;
+    document.getElementById('opSubmitBtn').textContent = 'Adicionar';
+    document.getElementById('opCancelEdit').style.display = 'none';
+  } else {
+    operacionaisData.push({id:uid(), nome, valor, data, recorrente});
+    showOpMsg('Gasto adicionado.');
+  }
+  saveOperacional();
+  document.getElementById('opForm').reset();
+  document.getElementById('opData').valueAsDate = new Date();
+  setOpRecorrente(false);
+  renderOpAll();
+});
+
+function showOpMsg(t){
+  const el = document.getElementById('opMsg');
+  el.textContent = t;
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+}
+
+function toggleOpHist(){
+  opHistAberto = !opHistAberto;
+  const t = document.getElementById('opHistToggle');
+  t.classList.toggle('open', opHistAberto);
+  t.innerHTML = opHistAberto ? '<span class="chev">▶</span> Ocultar gastos operacionais' : '<span class="chev">▶</span> Ver gastos operacionais';
+  document.getElementById('opHistBody').style.display = opHistAberto ? 'block' : 'none';
+  if(opHistAberto) renderOpTable();
+}
+
+function renderOpTable(){
+  const list = operacionaisData.slice().sort((a,b)=> b.data.localeCompare(a.data));
+  const tbody = document.getElementById('opTableBody');
+  const empty = document.getElementById('opEmpty');
+  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = list.map(o=>`
+    <tr>
+      <td class="mono" data-label="Desde">${fmtData(o.data)}</td>
+      <td data-label="Gasto">${escapeHtml(o.nome)}</td>
+      <td data-label="Tipo">${o.recorrente ? '<span class="pill tipo-ads">Mensal</span>' : '<span class="pill tipo-outros">Único</span>'}</td>
+      <td class="mono" data-label="Valor">${fmtMT(o.valor)}${o.recorrente ? '<span style="opacity:.55; font-size:11px;"> /mês</span>' : ''}</td>
+      <td data-label=""><div class="row-actions">
+        <button class="icon-btn" onclick="editOp('${o.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteOp('${o.id}')" title="Apagar">✕</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function editOp(id){
+  const o = operacionaisData.find(x=>x.id===id);
+  if(!o) return;
+  document.getElementById('opNome').value = o.nome;
+  document.getElementById('opValor').value = o.valor;
+  document.getElementById('opData').value = o.data;
+  setOpRecorrente(!!o.recorrente);
+  opEditId = id;
+  document.getElementById('opSubmitBtn').textContent = 'Atualizar';
+  document.getElementById('opCancelEdit').style.display = 'inline-block';
+  window.scrollTo({top: document.getElementById('opForm').offsetTop - 20, behavior:'smooth'});
+}
+function cancelOpEdit(){
+  opEditId = null;
+  document.getElementById('opForm').reset();
+  document.getElementById('opData').valueAsDate = new Date();
+  setOpRecorrente(false);
+  document.getElementById('opSubmitBtn').textContent = 'Adicionar';
+  document.getElementById('opCancelEdit').style.display = 'none';
+}
+function deleteOp(id){
+  if(!confirm('Apagar este gasto operacional?')) return;
+  operacionaisData = operacionaisData.filter(o=>o.id!==id);
+  saveOperacional();
+  renderOpAll();
+}
+function renderOpAll(){
+  if(opHistAberto) renderOpTable();
+  renderMetricas();
+}
+
+document.getElementById('adForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const data = document.getElementById('adData').value;
+  const tipo = document.getElementById('adTipo').value;
+  const produto = document.getElementById('adProduto').value.trim();
+  const valor = parseFloat(document.getElementById('adValor').value)||0;
+  if(!data || valor<=0){ showAdMsg('Preencha a data e o valor.'); return; }
+
+  if(adEditId){
+    const idx = adSpendData.findIndex(a=>a.id===adEditId);
+    if(idx>-1) adSpendData[idx] = {...adSpendData[idx], data, tipo, produto, valor};
+    showAdMsg('Gasto atualizado.');
+    adEditId = null;
+    document.getElementById('adSubmitBtn').textContent = 'Adicionar gasto';
+    document.getElementById('adCancelEdit').style.display = 'none';
+  } else {
+    adSpendData.push({id:uid(), data, tipo, produto, valor});
+    showAdMsg('Gasto adicionado.');
+  }
+  saveAdSpend();
+  document.getElementById('adForm').reset();
+  document.getElementById('adData').valueAsDate = new Date();
+  renderAdAll();
+});
+
+function showAdMsg(t){
+  const el = document.getElementById('adMsg');
+  el.textContent = t;
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+}
+
+function toggleAdHist(){
+  adHistAberto = !adHistAberto;
+  const t = document.getElementById('adHistToggle');
+  t.classList.toggle('open', adHistAberto);
+  t.innerHTML = adHistAberto ? '<span class="chev">▶</span> Ocultar lançamentos de anúncios' : '<span class="chev">▶</span> Ver lançamentos de anúncios';
+  document.getElementById('adHistBody').style.display = adHistAberto ? 'block' : 'none';
+  if(adHistAberto) renderAdTable();
+}
+
+const TIPO_GASTO_LABEL = {aquisicao:'Aquisição', ads:'Ads', outros:'Outros'};
+
+function renderAdTable(){
+  const list = adSpendData.slice().sort((a,b)=> b.data.localeCompare(a.data));
+  const tbody = document.getElementById('adTableBody');
+  const empty = document.getElementById('adEmpty');
+  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = list.map(a=>`
+    <tr>
+      <td class="mono" data-label="Data">${fmtData(a.data)}</td>
+      <td data-label="Tipo"><span class="pill tipo-${a.tipo||'outros'}">${TIPO_GASTO_LABEL[a.tipo]||'Outros'}</span></td>
+      <td data-label="Produto">${escapeHtml(a.produto||'Geral')}</td>
+      <td class="mono" data-label="Valor">${fmtMT(a.valor)}</td>
+      <td data-label=""><div class="row-actions">
+        <button class="icon-btn" onclick="editAd('${a.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteAd('${a.id}')" title="Apagar">✕</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function editAd(id){
+  const a = adSpendData.find(x=>x.id===id);
+  if(!a) return;
+  document.getElementById('adData').value = a.data;
+  document.getElementById('adTipo').value = a.tipo||'outros';
+  document.getElementById('adProduto').value = a.produto||'';
+  document.getElementById('adValor').value = a.valor;
+  adEditId = id;
+  document.getElementById('adSubmitBtn').textContent = 'Atualizar gasto';
+  document.getElementById('adCancelEdit').style.display = 'inline-block';
+  window.scrollTo({top: document.getElementById('adForm').offsetTop - 20, behavior:'smooth'});
+}
+function cancelAdEdit(){
+  adEditId = null;
+  document.getElementById('adForm').reset();
+  document.getElementById('adData').valueAsDate = new Date();
+  document.getElementById('adSubmitBtn').textContent = 'Adicionar gasto';
+  document.getElementById('adCancelEdit').style.display = 'none';
+}
+function deleteAd(id){
+  if(!confirm('Apagar este gasto?')) return;
+  adSpendData = adSpendData.filter(a=>a.id!==id);
+  saveAdSpend();
+  renderAdAll();
+}
+
+function populateProdutosMetricas(){
+  const setP = new Set();
+  vendasData.forEach(v=>{ if(v.produto) setP.add(v.produto.trim()); });
+  adSpendData.forEach(a=>{ if(a.produto) setP.add(a.produto.trim()); });
+  produtosData.forEach(p=>{ if(p.nome) setP.add(p.nome.trim()); });
+  const produtos = [...setP].sort();
+
+  document.getElementById('produtosExistentes').innerHTML = produtos.map(p=>`<option value="${escapeHtml(p)}"></option>`).join('');
+
+  const sel = document.getElementById('metProduto');
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os produtos</option>' + produtos.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  if(produtos.includes(atual)) sel.value = atual;
+}
+
+function setPeriodoMetricas(p){
+  periodoMetricas = p;
+  document.getElementById('metPeriodoDia').classList.toggle('on', p==='dia');
+  document.getElementById('metPeriodoSemana').classList.toggle('on', p==='semana');
+  document.getElementById('metData').style.display = p==='dia' ? '' : 'none';
+  document.getElementById('metSemana').style.display = p==='semana' ? '' : 'none';
+  renderMetricas();
+}
+
+function toISODate(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function getDateOfISOWeek(week, year){
+  const simple = new Date(year, 0, 1 + (week-1)*7);
+  const dow = simple.getDay();
+  const isoStart = new Date(simple);
+  if(dow<=4) isoStart.setDate(simple.getDate() - dow + 1);
+  else isoStart.setDate(simple.getDate() + 8 - dow);
+  return isoStart;
+}
+function currentISOWeekString(){
+  const hoje = new Date();
+  const d = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+  return d.getUTCFullYear() + '-W' + String(weekNo).padStart(2,'0');
+}
+
+function getMetricasRange(){
+  if(periodoMetricas==='dia'){
+    const v = document.getElementById('metData').value;
+    if(!v) return null;
+    return [v, v];
+  } else {
+    const v = document.getElementById('metSemana').value;
+    if(!v) return null;
+    const [y,w] = v.split('-W').map(Number);
+    const start = getDateOfISOWeek(w,y);
+    const end = new Date(start);
+    end.setDate(start.getDate()+6);
+    return [toISODate(start), toISODate(end)];
+  }
+}
+
+function renderMetricas(){
+  const range = getMetricasRange();
+  const produtoFiltro = document.getElementById('metProduto').value.trim();
+
+  if(!range){
+    ['metGastoAquisicao','metGastoAds','metGastoOutros','metGastoOperacional','metGastoTotal','metReceita'].forEach(id=>document.getElementById(id).textContent='0 MT');
+    document.getElementById('metVendasSub').textContent = '';
+    document.getElementById('metCPA').textContent = '—';
+    document.getElementById('metROAS').textContent = '—';
+    document.getElementById('metROI').textContent = '—';
+    return;
+  }
+  const [inicio, fim] = range;
+  const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(p)===normalizarNomeProduto(produtoFiltro);
+
+  const gastos = adSpendData.filter(a=> a.data>=inicio && a.data<=fim && matchProduto(a.produto));
+  const vendasConcluidas = vendasData.filter(v=> v.status==='concluido' && v.data>=inicio && v.data<=fim && matchProduto(v.produto));
+
+  const custoPorProduto = custoAquisicaoPorProduto();
+  const gastoAquisicao = vendasConcluidas.reduce((s,v)=>{
+    const custo = custoPorProduto[normalizarNomeProduto(v.produto)] || 0;
+    return s + custo * (v.quantidade||1);
+  }, 0);
+
+  const somaTipo = (tipo) => gastos.filter(a=>a.tipo===tipo).reduce((s,a)=>s+a.valor,0);
+  const gastoAds = somaTipo('ads');
+  const gastoOutros = somaTipo('outros');
+  // gastos operacionais (domínio, mensalidade, apps…) são da loja toda, não de um produto — só entram na visão "Todos os produtos"
+  const gastoOperacional = produtoFiltro ? 0 : calcularGastoOperacional(inicio, fim);
+
+  const totalGasto = gastoAquisicao + gastoAds + gastoOutros + gastoOperacional;
+  const totalReceita = vendasConcluidas.reduce((s,v)=>s+(v.valor||0),0);
+  const nVendas = vendasConcluidas.length;
+
+  document.getElementById('metGastoAquisicao').textContent = fmtMT(gastoAquisicao);
+  document.getElementById('metGastoAds').textContent = fmtMT(gastoAds);
+  document.getElementById('metGastoOutros').textContent = fmtMT(gastoOutros);
+  document.getElementById('metGastoOperacional').textContent = fmtMT(gastoOperacional);
+  document.getElementById('metGastoTotal').textContent = fmtMT(totalGasto);
+  document.getElementById('metReceita').textContent = fmtMT(totalReceita);
+  document.getElementById('metVendasSub').textContent = '(' + nVendas + (nVendas===1 ? ' venda)' : ' vendas)');
+  document.getElementById('metCPA').textContent = nVendas>0 ? fmtMT(gastoAds/nVendas) : '—';
+  document.getElementById('metROAS').textContent = gastoAds>0 ? (totalReceita/gastoAds).toFixed(2) + 'x' : '—';
+
+  const roiEl = document.getElementById('metROI');
+  if(totalGasto>0){
+    const roi = ((totalReceita-totalGasto)/totalGasto)*100;
+    roiEl.textContent = roi.toFixed(1) + '%';
+    roiEl.style.color = roi>=0 ? 'var(--green)' : 'var(--red)';
+  } else {
+    roiEl.textContent = '—';
+    roiEl.style.color = 'var(--sand)';
+  }
+
+  renderMetChart(inicio, fim, produtoFiltro);
+}
+
+
+function renderMetChart(inicio, fim, produtoFiltro){
+  const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(p)===normalizarNomeProduto(produtoFiltro);
+  const dias = [];
+  let cursor = new Date(inicio+'T00:00:00');
+  const fimDate = new Date(fim+'T00:00:00');
+  while(cursor <= fimDate){
+    dias.push(toISODate(cursor));
+    cursor.setDate(cursor.getDate()+1);
+  }
+  const custoPorProduto = custoAquisicaoPorProduto();
+  const gastoPorDia = dias.map(d=>{
+    const adsOutros = adSpendData.filter(a=> a.data===d && matchProduto(a.produto)).reduce((s,a)=>s+a.valor,0);
+    const aquisicao = vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto))
+      .reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
+    const operacional = produtoFiltro ? 0 : calcularGastoOperacional(d, d);
+    return adsOutros + aquisicao + operacional;
+  });
+  const receitaPorDia = dias.map(d=>
+    vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
+  );
+
+  const canvas = document.getElementById('metChart');
+  const emptyEl = document.getElementById('metChartEmpty');
+  const semDados = gastoPorDia.every(v=>v===0) && receitaPorDia.every(v=>v===0);
+  if(semDados){
+    canvas.style.display='none'; emptyEl.style.display='block';
+    if(metChart){ metChart.destroy(); metChart=null; }
+    return;
+  }
+  canvas.style.display='block'; emptyEl.style.display='none';
+  const labels = dias.map(d=> d.split('-').reverse().join('/'));
+
+  if(metChart){ metChart.destroy(); metChart=null; }
+  requestAnimationFrame(()=>{
+    metChart = new Chart(canvas, {
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          { label:'Gasto total', data: gastoPorDia, backgroundColor:'#F0506E', borderRadius:5, maxBarThickness:34 },
+          { label:'Receita', data: receitaPorDia, backgroundColor:'#34D399', borderRadius:5, maxBarThickness:34 }
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{ labels:{ color:'rgba(245,242,250,0.7)' } },
+          tooltip:{ callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
+        },
+        scales:{
+          y:{ ticks:{ color:'rgba(245,242,250,0.55)', callback:v=>v+' MT' }, grid:{ color:'rgba(245,242,250,0.07)' } },
+          x:{ ticks:{ color:'rgba(245,242,250,0.55)' }, grid:{ display:false } }
+        }
+      }
+    });
+  });
+}
+
+function renderAdAll(){
+  if(adHistAberto) renderAdTable();
+  populateProdutosMetricas();
+  renderMetricas();
+}
+
+/* ============ INIT ============ */
+document.getElementById('fData').valueAsDate = new Date();
+document.getElementById('vData').valueAsDate = new Date();
+document.getElementById('adData').valueAsDate = new Date();
+document.getElementById('opData').valueAsDate = new Date();
+document.getElementById('metData').valueAsDate = new Date();
+document.getElementById('metSemana').value = currentISOWeekString();
+loadFluxo();
+loadVendas();
+loadAdSpend();
+loadProdutos();
+loadOperacional();
+const hoje = new Date();
+mesAtivo = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+const mesesVendasExistentes = [...new Set(vendasData.map(v=>v.mes))].filter(Boolean).sort();
+mesAtivoVendas = mesesVendasExistentes.length ? mesesVendasExistentes[mesesVendasExistentes.length-1] : mesAtivo;
+renderFluxoAll();
+renderVendasAll();
+populateProdutosMetricas();
+
+const savedShopifyApiUrl = localStorage.getItem(SHOPIFY_API_URL_KEY);
+if(savedShopifyApiUrl){
+  document.getElementById('shopifyApiUrl').value = savedShopifyApiUrl;
+  document.getElementById('shopifyStatusTag').textContent = 'conectado';
+}
+</script>
+</body>
+</html>
