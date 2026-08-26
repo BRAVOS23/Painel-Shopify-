@@ -946,7 +946,12 @@ const SEMANAS = [
 ];
 const STATUS_LABEL = {pendente:'PENDENTE', concluido:'CONCLUÍDO', cancelado:'CANCELADO', remarcado:'REMARCADO'};
 
-function uid(){ return 'x' + Date.now() + Math.floor(Math.random()*1000); }
+// contador que só cresce, junto do timestamp+aleatório — sem ele, importar/gerar muitos registos
+// na mesma tarefa síncrona (ex: importar um CSV com 40+ pedidos de uma vez) pode gerar o mesmo
+// Date.now() com o mesmo sufixo aleatório para dois registos, e aí os dois passam a "ser o mesmo"
+// pedido pro resto do painel (editar/concluir/cancelar um deles mexe sempre no primeiro que achar)
+let uidCounter = 0;
+function uid(){ return 'x' + Date.now() + Math.floor(Math.random()*1000) + '_' + (uidCounter++); }
 // normaliza nome de produto pra comparar (ignora maiúsculas/minúsculas e espaços extras)
 function normalizarNomeProduto(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
 function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' MT'; }
@@ -1162,15 +1167,16 @@ function renderFluxoChart(){
   const emptyEl = document.getElementById('fluxoChartEmpty');
   const range = drFluxo ? drFluxo.getRange() : null;
 
-  if(fluxoChart){ fluxoChart.destroy(); fluxoChart=null; }
   if(!range){
     canvas.style.display='none'; emptyEl.style.display='block';
+    if(fluxoChart){ fluxoChart.destroy(); fluxoChart=null; }
     return;
   }
   const [inicio, fim] = range;
   const doPeriodo = fluxoData.filter(f=>f.data>=inicio && f.data<=fim);
   if(doPeriodo.length===0){
     canvas.style.display='none'; emptyEl.style.display='block';
+    if(fluxoChart){ fluxoChart.destroy(); fluxoChart=null; }
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
@@ -1194,6 +1200,10 @@ function renderFluxoChart(){
   }
 
   requestAnimationFrame(()=>{
+    // chamadas seguidas (ex: confirmar vários pedidos em lote) podem empilhar vários destes
+    // callbacks antes do browser pintar — por isso o destroy tem de ser checado de novo aqui,
+    // no momento exato da criação, e não só antes de agendar, senão dá "Canvas already in use"
+    if(fluxoChart){ fluxoChart.destroy(); fluxoChart=null; }
     fluxoChart = new Chart(canvas, {
       type:'line',
       data:{
@@ -2183,14 +2193,16 @@ function renderFonteChart(dados){
   dados.forEach(v=>{ const f = v.fonte || '05.OUTRO'; grupos[f] = (grupos[f]||0) + 1; });
   const fontes = Object.keys(grupos);
 
-  if(fonteChart){ fonteChart.destroy(); fonteChart=null; }
   if(fontes.length===0){
     canvas.style.display='none'; emptyEl.style.display='block';
+    if(fonteChart){ fonteChart.destroy(); fonteChart=null; }
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
   const total = fontes.reduce((s,f)=>s+grupos[f],0);
   requestAnimationFrame(()=>{
+    // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
+    if(fonteChart){ fonteChart.destroy(); fonteChart=null; }
     fonteChart = new Chart(canvas, {
       type:'doughnut',
       data:{
@@ -2217,9 +2229,9 @@ function renderProdutoChart(dados){
   dados.filter(v=>v.status==='concluido' && v.produto).forEach(v=>{ grupos[v.produto] = (grupos[v.produto]||0) + (v.quantidade||0); });
   let produtos = Object.keys(grupos).map(p=>({produto:p, unidades:grupos[p]})).sort((a,b)=>b.unidades-a.unidades);
 
-  if(produtoChart){ produtoChart.destroy(); produtoChart=null; }
   if(produtos.length===0){
     canvas.style.display='none'; emptyEl.style.display='block';
+    if(produtoChart){ produtoChart.destroy(); produtoChart=null; }
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
@@ -2233,6 +2245,8 @@ function renderProdutoChart(dados){
   }
 
   requestAnimationFrame(()=>{
+    // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
+    if(produtoChart){ produtoChart.destroy(); produtoChart=null; }
     produtoChart = new Chart(canvas, {
       type:'bar',
       data:{
@@ -2905,8 +2919,9 @@ function renderMetChart(inicio, fim, produtoFiltro){
   canvas.style.display='block'; emptyEl.style.display='none';
   const labels = dias.map(d=> d.split('-').reverse().join('/'));
 
-  if(metChart){ metChart.destroy(); metChart=null; }
   requestAnimationFrame(()=>{
+    // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
+    if(metChart){ metChart.destroy(); metChart=null; }
     metChart = new Chart(canvas, {
       type:'bar',
       data:{
@@ -2943,14 +2958,16 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
     {label:'Entrega', valor:entrega, cor: cssVar('--cat-5')}
   ].filter(p=>p.valor>0);
 
-  if(metCostChart){ metCostChart.destroy(); metCostChart=null; }
   if(partes.length===0){
     canvas.style.display='none'; emptyEl.style.display='block';
+    if(metCostChart){ metCostChart.destroy(); metCostChart=null; }
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
   const total = partes.reduce((s,p)=>s+p.valor,0);
   requestAnimationFrame(()=>{
+    // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
+    if(metCostChart){ metCostChart.destroy(); metCostChart=null; }
     metCostChart = new Chart(canvas, {
       type:'doughnut',
       data:{
