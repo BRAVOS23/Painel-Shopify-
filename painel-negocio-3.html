@@ -77,6 +77,7 @@
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
 
+  .header-tabs-row{ display:flex; align-items:center; gap:10px; min-width:0; }
   .maintabs{ display:flex; gap:6px; background:var(--panel); border:1px solid var(--panel-line); padding:5px; border-radius:13px; box-shadow:var(--shadow-tabs); }
   .maintabs button{
     border:none; background:transparent; color:var(--sand-dim); padding:9px 16px; border-radius:9px;
@@ -135,7 +136,7 @@
   .subtabs button:hover:not(.active){ color:var(--sand); }
 
   /* form */
-  form{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px; align-items:end; }
+  form{ display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; align-items:end; }
   .field{ display:flex; flex-direction:column; gap:6px; }
   .field.span2{ grid-column:span 2; }
   .field.span3{ grid-column:span 3; }
@@ -179,8 +180,8 @@
   .historico-toggle.open .chev{ transform: rotate(90deg); }
   #historicoBody{ display:none; margin-top:16px; }
 
-  .cards3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
-  .cards4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  .cards3{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+  .cards4{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
 
   .roi-hero{
     background:linear-gradient(160deg, var(--violet-soft), var(--ink-2) 75%);
@@ -292,24 +293,24 @@
   }
 
   /* controle de vendas: overview + side panels */
-  .overview{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px; }
+  .overview{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; margin-bottom:18px; }
   .ov-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:14px; text-align:center; transition:transform .15s ease, box-shadow .15s ease; }
   .ov-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card-hover); }
   .ov-card .v{ font-family:var(--font-mono); font-weight:600; font-size:20px; letter-spacing:-0.01em; }
   .ov-card .k{ font-size:10.5px; color:var(--sand-dim); text-transform:uppercase; letter-spacing:.06em; margin-top:4px; display:block; }
 
   /* cartões de gráfico — usados no Fluxo, Vendas > Relatórios e CPA/ROI/ROAS */
-  .chart-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .chart-grid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
   .chart-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:16px; }
   .chart-card-title{ font-family:var(--font-display); font-size:13px; font-weight:600; color:var(--sand-dim); margin-bottom:12px; }
   .chart-card-title .tag{ font-family:var(--font-mono); font-size:10.5px; font-weight:500; color:var(--sand-dimmer); text-transform:none; margin-left:6px; }
   .chart-canvas-wrap{ position:relative; height:230px; }
   .chart-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--sand-dimmer); font-size:12.5px; padding:0 20px; }
-  .cards6{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:16px; }
+  .cards6{ display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
   .metricas-nota{ font-size:11.5px; color:var(--sand-dimmer); margin:-8px 0 16px; line-height:1.5; }
   .metricas-aviso{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--gold); background:var(--gold-soft); border:1px solid rgba(240,180,41,0.3); border-radius:9px; padding:9px 13px; margin-bottom:14px; line-height:1.4; }
 
-  .side-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+  .side-grid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:16px; }
   .side-panel{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:16px; }
   .side-panel h3{ font-family:var(--font-display); font-size:13.5px; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
   .side-panel table thead th{ padding:6px 6px; background:none; }
@@ -360,12 +361,12 @@
   footer{ text-align:center; color:var(--sand-dimmer); font-size:12px; margin-top:36px; }
 
   @media (max-width: 900px){
-    form{ grid-template-columns:repeat(2,1fr); }
+    form{ grid-template-columns:repeat(2, minmax(0,1fr)); }
     .field.span2, .field.span3{ grid-column:span 2; }
     .cards3{ grid-template-columns:1fr; }
-    .cards4{ grid-template-columns:repeat(2,1fr); }
-    .cards6{ grid-template-columns:repeat(3,1fr); }
-    .overview{ grid-template-columns:repeat(2,1fr); }
+    .cards4{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .cards6{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .overview{ grid-template-columns:repeat(2, minmax(0,1fr)); }
     .side-grid{ grid-template-columns:1fr; }
     .chart-grid{ grid-template-columns:1fr; }
 
@@ -394,8 +395,19 @@
     .panel{ padding:16px; }
     .brand h1{ font-size:22px; }
     header.top{ margin-bottom:18px; }
-    .maintabs{ width:100%; overflow-x:auto; }
+    .header-tabs-row{ width:100%; }
+    .maintabs{ position:relative; flex:1; min-width:0; overflow-x:auto; }
     .maintabs button{ white-space:nowrap; }
+    .theme-toggle{ flex-shrink:0; }
+    /* dica visual de que dá pra arrastar pra ver as outras abas — sem isso parece que só cabem duas */
+    .maintabs::after{
+      content:''; position:absolute; top:0; right:0; bottom:0; width:22px;
+      background:linear-gradient(to right, transparent, var(--panel)); pointer-events:none; border-radius:0 13px 13px 0;
+    }
+    .maintabs::before{
+      content:''; position:absolute; top:0; left:0; bottom:0; width:22px; z-index:1;
+      background:linear-gradient(to left, transparent, var(--panel)); pointer-events:none; border-radius:13px 0 0 13px;
+    }
     .subnav{ width:100%; overflow-x:auto; }
     .subnav button{ white-space:nowrap; }
     /* alvos de toque maiores */
@@ -404,8 +416,8 @@
     .field input, .field select{ padding:12px 12px; font-size:15px; }
     .pedido-card-actions button{ flex:1 1 46%; text-align:center; padding:10px 8px; }
     .mover-semana-select{ flex:1 1 100%; padding:10px 8px; }
-    .cards4{ grid-template-columns:1fr 1fr; }
-    .cards6{ grid-template-columns:1fr 1fr; }
+    .cards4{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .cards6{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
     .chart-canvas-wrap{ height:210px; }
     .toolbar{ flex-direction:column; align-items:stretch; }
     .toolbar .filters{ flex-direction:column; align-items:stretch; }
@@ -421,7 +433,7 @@
       <span class="eyebrow">Painel do Negócio</span>
       <h1>Fluxo de Caixa &amp; Controle de Vendas</h1>
     </div>
-    <div style="display:flex; align-items:center; gap:10px;">
+    <div class="header-tabs-row">
       <div class="maintabs">
         <button id="tabBtnFluxo" class="active" onclick="switchMain('fluxo')">Fluxo de Caixa</button>
         <button id="tabBtnVendas" onclick="switchMain('vendas')">Controle de Vendas</button>
@@ -790,11 +802,11 @@
           <label for="pCusto">Custo de aquisição (MT/unidade)</label>
           <input type="number" id="pCusto" min="0" step="0.01" placeholder="0.00" required>
         </div>
-        <div class="field" style="align-items:flex-start;">
+        <div class="field" style="align-items:flex-start; min-width:0;">
           <label for="pFoto">Foto</label>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <img id="pFotoPreview" style="display:none; width:38px; height:38px; object-fit:cover; border-radius:8px; border:1px solid var(--panel-line);">
-            <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim);">
+          <div style="display:flex; align-items:center; gap:8px; min-width:0; max-width:100%;">
+            <img id="pFotoPreview" style="display:none; width:38px; height:38px; object-fit:cover; border-radius:8px; border:1px solid var(--panel-line); flex-shrink:0;">
+            <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim); min-width:0; max-width:100%;">
           </div>
         </div>
         <div class="field" style="grid-column:1/-1; flex-direction:row; align-items:center; gap:10px;">
