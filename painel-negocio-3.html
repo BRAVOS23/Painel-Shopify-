@@ -250,6 +250,9 @@
     box-shadow:var(--shadow-popover); width:560px; max-width:calc(100vw - 40px);
   }
   .daterange-panel.open{ display:flex; gap:16px; }
+  /* quando o gatilho fica perto da borda direita da página (ex: o seletor da "Visão geral", que fica
+     encostado à direita do h2), abrir pra direita (left:0) faz o painel de 560px vazar pra fora da tela */
+  .daterange-panel.align-right{ left:auto; right:0; }
   .daterange-presets{ display:flex; flex-direction:column; gap:2px; width:158px; flex-shrink:0; border-right:1px solid var(--panel-line); padding-right:14px; }
   .daterange-preset-btn{
     text-align:left; border:none; background:transparent; color:var(--sand-dim); padding:8px 10px; border-radius:8px;
@@ -1911,8 +1914,13 @@ function createDateRangePicker(container, opts){
     pickStart = null;
     renderPresets();
     renderCalendar();
+    panel.classList.remove('align-right');
     panel.classList.add('open');
     container.classList.add('open');
+    // abre pra esquerda por padrão (left:0); se isso vazar a tela, vira pra abrir encostado na direita do gatilho
+    if(panel.getBoundingClientRect().right > window.innerWidth - 8){
+      panel.classList.add('align-right');
+    }
   }
   function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
   function toggle(){ panel.classList.contains('open') ? close() : open(); }
