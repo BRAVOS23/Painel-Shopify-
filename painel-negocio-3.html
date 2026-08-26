@@ -952,6 +952,18 @@ const STATUS_LABEL = {pendente:'PENDENTE', concluido:'CONCLUÍDO', cancelado:'CA
 // pedido pro resto do painel (editar/concluir/cancelar um deles mexe sempre no primeiro que achar)
 let uidCounter = 0;
 function uid(){ return 'x' + Date.now() + Math.floor(Math.random()*1000) + '_' + (uidCounter++); }
+
+// o painel já sabia avisar quando a biblioteca de PDF (jspdf) não carrega do CDN, mas os gráficos
+// (Chart.js) não tinham o mesmo cuidado: se cdnjs.cloudflare.com falhar (rede, firewall, bloqueador
+// de anúncios), "Chart" nunca existe e todo "new Chart(...)" lançava um erro silencioso dentro de um
+// requestAnimationFrame — o quadro do gráfico ficava em branco pra sempre, sem aviso nenhum ao usuário
+function chartLibIndisponivel(canvas, emptyEl){
+  if(typeof Chart !== 'undefined') return false;
+  canvas.style.display = 'none';
+  emptyEl.textContent = '⚠ Gráfico indisponível — a biblioteca não carregou. Verifique a ligação à internet e recarregue a página.';
+  emptyEl.style.display = 'block';
+  return true;
+}
 // normaliza nome de produto pra comparar (ignora maiúsculas/minúsculas e espaços extras)
 function normalizarNomeProduto(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
 function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' MT'; }
@@ -1180,6 +1192,7 @@ function renderFluxoChart(){
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
+  if(chartLibIndisponivel(canvas, emptyEl)) return;
 
   const dias = [];
   let cursor = new Date(inicio+'T00:00:00');
@@ -2199,6 +2212,7 @@ function renderFonteChart(dados){
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
+  if(chartLibIndisponivel(canvas, emptyEl)) return;
   const total = fontes.reduce((s,f)=>s+grupos[f],0);
   requestAnimationFrame(()=>{
     // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
@@ -2235,6 +2249,7 @@ function renderProdutoChart(dados){
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
+  if(chartLibIndisponivel(canvas, emptyEl)) return;
 
   const TOP_N = 8;
   let cores = produtos.slice(0,TOP_N).map(()=>cssVar('--cat-1'));
@@ -2917,6 +2932,7 @@ function renderMetChart(inicio, fim, produtoFiltro){
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
+  if(chartLibIndisponivel(canvas, emptyEl)) return;
   const labels = dias.map(d=> d.split('-').reverse().join('/'));
 
   requestAnimationFrame(()=>{
@@ -2964,6 +2980,7 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
     return;
   }
   canvas.style.display='block'; emptyEl.style.display='none';
+  if(chartLibIndisponivel(canvas, emptyEl)) return;
   const total = partes.reduce((s,p)=>s+p.valor,0);
   requestAnimationFrame(()=>{
     // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
@@ -3001,6 +3018,27 @@ loadVendas();
 loadAdSpend();
 loadProdutos();
 loadOperacional();
+
+// repara dados já guardados de antes da correção do uid() (Date.now() podia colidir ao importar
+// muitos registos de uma vez, ex: um CSV com 40+ pedidos) — sem isto, quem já tinha registos com
+// o mesmo id guardados no navegador continuava com "pedidos fantasma" presos mesmo depois de
+// atualizar o painel, porque o bug já tinha acontecido e ficou gravado no localStorage
+(function repararIdsDuplicadosExistentes(){
+  function reparar(arr){
+    const vistos = new Set();
+    let corrigidos = 0;
+    arr.forEach(item=>{
+      if(vistos.has(item.id)){ item.id = uid(); corrigidos++; }
+      vistos.add(item.id);
+    });
+    return corrigidos;
+  }
+  const total = reparar(fluxoData) + reparar(vendasData) + reparar(adSpendData) + reparar(produtosData) + reparar(operacionaisData);
+  if(total>0){
+    saveFluxo(); saveVendas(); saveAdSpend(); saveProdutos(); saveOperacional();
+  }
+})();
+
 const hoje = new Date();
 mesAtivo = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
 const mesesVendasExistentes = [...new Set(vendasData.map(v=>v.mes))].filter(Boolean).sort();
