@@ -22,17 +22,17 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
 <script>
-  // TODO: troque estes valores pelos do SEU projeto — Firebase Console → Definições do projeto →
-  // Geral → "As suas apps" → app Web → "Configuração do SDK". Estes valores não são secretos (o
+  // Configuração real do projeto "Painel Shopify" (Firebase Console → Definições do projeto →
+  // Geral → "As suas apps" → app Web → "Configuração do SDK"). Estes valores não são secretos (o
   // Firebase foi desenhado pra eles ficarem expostos no cliente); a segurança real vem das regras
   // do Firestore (firestore.rules) e da verificação dentro de cada Cloud Function, não daqui.
   const firebaseConfig = {
-    apiKey: 'SUBSTITUA-PELA-SUA-API-KEY',
-    authDomain: 'SUBSTITUA.firebaseapp.com',
-    projectId: 'substitua-pelo-id-do-projeto',
-    storageBucket: 'SUBSTITUA.appspot.com',
-    messagingSenderId: 'SUBSTITUA',
-    appId: 'SUBSTITUA'
+    apiKey: 'AIzaSyBbY8M34c8gjUPaK7FJjNaOHlK2Qk_0AvY',
+    authDomain: 'painel-shopify.firebaseapp.com',
+    projectId: 'painel-shopify',
+    storageBucket: 'painel-shopify.firebasestorage.app',
+    messagingSenderId: '209189061037',
+    appId: '1:209189061037:web:92f68e72da90c1eaeca124'
   };
   let firebaseIndisponivel = false;
   let auth, db, functions;
