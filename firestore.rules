@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Modelo: businesses/{businessId} é o negócio (cliente que usa o painel). Cada negócio tem uma
+// subcoleção "members" (quem tem acesso) e as subcoleções de dados (fluxo, vendas, adSpend,
+// produtos, operacionais). "integrations" guarda os tokens da Shopify/Meta — nunca é lido/escrito
+// pelo cliente, só pelas Cloud Functions via Admin SDK (que ignora estas regras por definição).
+//
+// IMPORTANTE: a criação do PRIMEIRO membro (dono) de um negócio novo não passa por aqui — é feita
+// pela Cloud Function "bootstrapBusinessForUser" com o Admin SDK, exatamente para evitar que
+// alguém, só por adivinhar o businessId de outra pessoa, se auto-nomeie "owner" desse negócio
+// escrevendo diretamente no Firestore. Por isso "create" em businesses/* e members/* fica negado
+// aqui — só update/delete/read, feitos por quem já é membro.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(businessId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid));
+    }
+
+    match /businesses/{businessId} {
+      allow read: if isMember(businessId);
+      allow update, delete: if isMember(businessId);
+      allow create: if false; // só a Cloud Function bootstrapBusinessForUser cria negócios
+
+      match /members/{uid} {
+        allow read: if isMember(businessId);
+        // um membro existente pode adicionar/remover outros membros; o primeiro (dono) vem sempre
+        // da Cloud Function de bootstrap, nunca escrito diretamente pelo cliente
+        allow create, update, delete: if isMember(businessId);
+      }
+
+      match /fluxo/{monthKey} {
+        allow read, write: if isMember(businessId);
+      }
+
+      match /vendas/{docId} {
+        allow read, write: if isMember(businessId);
+      }
+
+      match /adSpend/{docId} {
+        allow read, write: if isMember(businessId);
+      }
+
+      match /produtos/{docId} {
+        allow read, write: if isMember(businessId);
+      }
+
+      match /operacionais/{docId} {
+        allow read, write: if isMember(businessId);
+      }
+
+      match /integrations/{docId} {
+        allow read, write: if false;
+      }
+    }
+
+    // nada fora de businesses/* é permitido
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
