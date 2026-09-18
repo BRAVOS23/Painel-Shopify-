@@ -18,14 +18,21 @@
   // aplica o tema salvo antes da página pintar, pra não piscar o tema errado por uma fração de segundo
   try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('lobo_theme_v1')==='light' ? 'light' : 'dark'); }catch(e){}
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<!-- servidas pelo próprio Hosting (vendor/), não por CDN externa — cdnjs.cloudflare.com ficou
-     instável/bloqueado na rede de pelo menos um utilizador real, deixando os gráficos sempre em
-     branco mesmo com aviso claro; hospedar aqui elimina essa dependência de terceiros de vez. -->
+<!-- fontes e bibliotecas servidas pelo próprio Hosting (vendor/), não por CDN externa — tanto
+     cdnjs.cloudflare.com quanto fonts.googleapis.com ficaram instáveis/bloqueados na rede de pelo
+     menos um utilizador real (gráficos em branco, depois tipografia a cair pra uma fonte genérica
+     com espaçamento errado); hospedar tudo aqui elimina essa dependência de terceiros de vez. -->
 <script src="vendor/chart.umd.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <style>
+  @font-face{ font-family:'Space Grotesk'; font-style:normal; font-weight:500; font-display:swap; src:url('vendor/fonts/space-grotesk-latin-500-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Space Grotesk'; font-style:normal; font-weight:600; font-display:swap; src:url('vendor/fonts/space-grotesk-latin-600-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Space Grotesk'; font-style:normal; font-weight:700; font-display:swap; src:url('vendor/fonts/space-grotesk-latin-700-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap; src:url('vendor/fonts/inter-latin-400-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap; src:url('vendor/fonts/inter-latin-500-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap; src:url('vendor/fonts/inter-latin-600-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'IBM Plex Mono'; font-style:normal; font-weight:500; font-display:swap; src:url('vendor/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'IBM Plex Mono'; font-style:normal; font-weight:600; font-display:swap; src:url('vendor/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); }
   :root{
     color-scheme: dark;
     --ink:#0D0A14; --ink-2:#1E1729; --panel:#171020; --panel-line: rgba(255,255,255,0.08);
