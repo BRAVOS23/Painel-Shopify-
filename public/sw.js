@@ -2,7 +2,7 @@
 // externas de gráfico/PDF) na primeira visita, pra depois abrir e funcionar mesmo sem internet.
 // Suba o número da versão sempre que publicar uma alteração no index.html, senão o telemóvel
 // continua a mostrar a versão antiga guardada em cache.
-const CACHE_VERSION = 'painel-negocio-v4';
+const CACHE_VERSION = 'painel-negocio-v5';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -37,6 +37,26 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  // a própria página (navegação/index.html) usa "rede primeiro": sempre tenta buscar a versão
+  // mais recente quando há internet, e só cai no cache guardado se estiver mesmo offline. Com
+  // "cache primeiro" (como estava antes) o telemóvel ficava preso numa versão antiga da página
+  // pra sempre, mesmo online, mesmo depois de eu publicar uma correção — só o cache dos ficheiros
+  // que raramente mudam (ícones, bibliotecas) continua "cache primeiro", que é seguro pra esses.
+  const isNavegacao = event.request.mode === 'navigate' ||
+    (event.request.headers.get('accept') || '').includes('text/html');
+
+  if (isNavegacao) {
+    event.respondWith(
+      fetch(event.request).then((resp) => {
+        const copy = resp.clone();
+        caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy)).catch(() => {});
+        return resp;
+      }).catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
