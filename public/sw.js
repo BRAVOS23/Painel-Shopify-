@@ -2,7 +2,7 @@
 // de gráfico/PDF, agora servidas pelo próprio Hosting em vez de uma CDN externa) na primeira
 // visita, pra depois abrir e funcionar mesmo sem internet. Suba o número da versão sempre que
 // publicar uma alteração no index.html, senão o telemóvel continua a mostrar a versão antiga.
-const CACHE_VERSION = 'painel-negocio-v8';
+const CACHE_VERSION = 'painel-negocio-v9';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -17,8 +17,10 @@ const PRECACHE_URLS = [
   './vendor/fonts/inter-latin-400-normal.woff2',
   './vendor/fonts/inter-latin-500-normal.woff2',
   './vendor/fonts/inter-latin-600-normal.woff2',
+  './vendor/fonts/inter-latin-700-normal.woff2',
   './vendor/fonts/ibm-plex-mono-latin-500-normal.woff2',
-  './vendor/fonts/ibm-plex-mono-latin-600-normal.woff2'
+  './vendor/fonts/ibm-plex-mono-latin-600-normal.woff2',
+  './vendor/fonts/ibm-plex-mono-latin-700-normal.woff2'
 ];
 
 self.addEventListener('install', (event) => {

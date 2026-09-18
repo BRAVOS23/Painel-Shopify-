@@ -31,8 +31,10 @@
   @font-face{ font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap; src:url('vendor/fonts/inter-latin-400-normal.woff2') format('woff2'); }
   @font-face{ font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap; src:url('vendor/fonts/inter-latin-500-normal.woff2') format('woff2'); }
   @font-face{ font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap; src:url('vendor/fonts/inter-latin-600-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:700; font-display:swap; src:url('vendor/fonts/inter-latin-700-normal.woff2') format('woff2'); }
   @font-face{ font-family:'IBM Plex Mono'; font-style:normal; font-weight:500; font-display:swap; src:url('vendor/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); }
   @font-face{ font-family:'IBM Plex Mono'; font-style:normal; font-weight:600; font-display:swap; src:url('vendor/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'IBM Plex Mono'; font-style:normal; font-weight:700; font-display:swap; src:url('vendor/fonts/ibm-plex-mono-latin-700-normal.woff2') format('woff2'); }
   :root{
     color-scheme: dark;
     --ink:#0B0C0E; --ink-2:#1D2024; --panel:#15171B; --panel-line: rgba(255,255,255,0.08);
@@ -47,6 +49,7 @@
     --overlay-3: rgba(244,245,242,0.07); --overlay-4: rgba(244,245,242,0.14);
     --shadow-panel: 0 1px 0 rgba(255,255,255,0.02) inset, 0 14px 34px -22px rgba(0,0,0,0.75);
     --shadow-tabs: 0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7);
+    --shadow-card-rest: 0 1px 0 rgba(255,255,255,0.02) inset, 0 3px 10px -6px rgba(0,0,0,0.5);
     --shadow-card-hover: 0 10px 24px -14px rgba(0,0,0,0.6);
     --shadow-popover: 0 20px 44px -18px rgba(0,0,0,0.85);
     --body-glow: radial-gradient(1100px 480px at 88% -8%, rgba(159,230,79,0.10), transparent 60%),
@@ -69,6 +72,7 @@
     --overlay-3: rgba(20,23,26,0.07); --overlay-4: rgba(20,23,26,0.10);
     --shadow-panel: 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 26px -18px rgba(15,20,10,0.16);
     --shadow-tabs: 0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 20px -14px rgba(15,20,10,0.14);
+    --shadow-card-rest: 0 1px 0 rgba(255,255,255,0.5) inset, 0 2px 8px -5px rgba(15,20,10,0.14);
     --shadow-popover: 0 20px 44px -18px rgba(15,20,10,0.24);
     --body-glow: radial-gradient(1100px 480px at 88% -8%, rgba(63,122,27,0.05), transparent 60%),
                  radial-gradient(900px 480px at -8% 8%, rgba(240,180,41,0.035), transparent 55%),
@@ -208,18 +212,19 @@
     border:1px solid rgba(159,230,79,0.3); border-radius:14px; padding:24px; text-align:center; margin-bottom:18px;
   }
   .roi-hero-label{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--sand-dim); margin-bottom:10px; }
-  .roi-hero-value{ font-family:var(--font-mono); font-weight:700; font-size:44px; letter-spacing:-0.02em; color:var(--sand); line-height:1; }
+  .roi-hero-value{ font-family:var(--font-mono); font-weight:700; font-size:46px; letter-spacing:-0.03em; color:var(--sand); line-height:1; font-variant-numeric:tabular-nums; }
   .roi-hero-sub{ font-size:12px; color:var(--sand-dimmer); margin-top:8px; }
   .metricas-subhead{ font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--sand-dim); margin:4px 0 10px; font-weight:600; }
   .card{
-    background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:15px 16px;
-    position:relative; overflow:hidden; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    background:var(--ink-2); border:1px solid var(--panel-line); border-radius:14px; padding:16px 17px;
+    position:relative; overflow:hidden; box-shadow:var(--shadow-card-rest);
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
   }
   .card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card-hover); border-color:var(--overlay-4); }
   .card.destaque{ background:var(--panel); border-color:var(--sand-dimmer); }
   .card.destaque .v{ font-weight:700; }
-  .card .k{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--sand-dim); display:block; margin-bottom:7px; }
-  .card .v{ font-family:var(--font-mono); font-weight:600; font-size:21px; letter-spacing:-0.01em; }
+  .card .k{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--sand-dim); display:block; margin-bottom:8px; }
+  .card .v{ font-family:var(--font-mono); font-weight:600; font-size:23px; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
   .card.entrada .v{ color:var(--green); }
   .card.saida .v{ color:var(--red); }
   .card.saldo .v.neg{ color:var(--red); }
@@ -323,24 +328,24 @@
 
   /* controle de vendas: overview + side panels */
   .overview{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; margin-bottom:18px; }
-  .ov-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:14px; text-align:center; transition:transform .15s ease, box-shadow .15s ease; }
+  .ov-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:14px; padding:15px 14px; text-align:center; box-shadow:var(--shadow-card-rest); transition:transform .15s ease, box-shadow .15s ease; }
   .ov-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card-hover); }
-  .ov-card .v{ font-family:var(--font-mono); font-weight:600; font-size:20px; letter-spacing:-0.01em; }
-  .ov-card .k{ font-size:10.5px; color:var(--sand-dim); text-transform:uppercase; letter-spacing:.06em; margin-top:4px; display:block; }
+  .ov-card .v{ font-family:var(--font-mono); font-weight:700; font-size:22px; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+  .ov-card .k{ font-size:10.5px; color:var(--sand-dim); text-transform:uppercase; letter-spacing:.07em; margin-top:5px; display:block; }
 
   /* cartões de gráfico — usados no Fluxo, Vendas > Relatórios e CPA/ROI/ROAS */
   .chart-grid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
-  .chart-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:16px; }
-  .chart-card-title{ font-family:var(--font-display); font-size:13px; font-weight:600; color:var(--sand-dim); margin-bottom:12px; }
+  .chart-card{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:14px; padding:18px; box-shadow:var(--shadow-card-rest); }
+  .chart-card-title{ font-family:var(--font-display); font-size:13.5px; font-weight:600; color:var(--sand); margin-bottom:16px; }
   .chart-card-title .tag{ font-family:var(--font-mono); font-size:10.5px; font-weight:500; color:var(--sand-dimmer); text-transform:none; margin-left:6px; }
-  .chart-canvas-wrap{ position:relative; height:230px; }
+  .chart-canvas-wrap{ position:relative; height:240px; }
   .chart-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--sand-dimmer); font-size:12.5px; padding:0 20px; }
   .cards6{ display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
   .metricas-nota{ font-size:11.5px; color:var(--sand-dimmer); margin:-8px 0 16px; line-height:1.5; }
   .metricas-aviso{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--gold); background:var(--gold-soft); border:1px solid rgba(240,180,41,0.3); border-radius:9px; padding:9px 13px; margin-bottom:14px; line-height:1.4; }
 
   .side-grid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:16px; }
-  .side-panel{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:12px; padding:16px; }
+  .side-panel{ background:var(--ink-2); border:1px solid var(--panel-line); border-radius:14px; padding:16px; box-shadow:var(--shadow-card-rest); }
   .side-panel h3{ font-family:var(--font-display); font-size:13.5px; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
   .side-panel table thead th{ padding:6px 6px; background:none; }
   .side-panel table tbody td{ padding:8px 6px; font-size:12.5px; }
@@ -1009,6 +1014,12 @@ function chartLibIndisponivel(canvas, emptyEl){
   emptyEl.style.display = 'block';
   return true;
 }
+// sem isto, o texto dos gráficos (eixos, legendas, tooltips) usa a fonte genérica do navegador
+// (Arial/Helvetica) enquanto o resto do painel usa Inter — destoava bastante
+if(typeof Chart !== 'undefined'){
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.font.size = 12;
+}
 // normaliza nome de produto pra comparar (ignora maiúsculas/minúsculas e espaços extras)
 function normalizarNomeProduto(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
 function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' MT'; }
@@ -1262,14 +1273,24 @@ function renderFluxoChart(){
     // callbacks antes do browser pintar — por isso o destroy tem de ser checado de novo aqui,
     // no momento exato da criação, e não só antes de agendar, senão dá "Canvas already in use"
     if(fluxoChart){ fluxoChart.destroy(); fluxoChart=null; }
+    // gradiente sob a linha de saldo acumulado — só dá pra construir depois que o canvas tem área
+    // desenhável (chartArea), por isso é uma função (scriptable option), não uma cor fixa
+    const saldoFill = (ctx) => {
+      const {chartArea} = ctx.chart;
+      if(!chartArea) return 'transparent';
+      const g = ctx.chart.ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+      const brand = cssVar('--brand');
+      g.addColorStop(0, brand + '2E'); g.addColorStop(1, brand + '00');
+      return g;
+    };
     fluxoChart = new Chart(canvas, {
       type:'line',
       data:{
         labels,
         datasets:[
-          { label:'Entrada', data:entradaPorDia, borderColor: cssVar('--green-chart'), backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:.25 },
-          { label:'Saída', data:saidaPorDia, borderColor: cssVar('--red'), backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:.25 },
-          { label:'Saldo acumulado', data:saldoAcumulado, borderColor: cssVar('--brand'), backgroundColor:'transparent', borderWidth:2, borderDash:[4,3], pointRadius:0, tension:.25 }
+          { label:'Entrada', data:entradaPorDia, borderColor: cssVar('--green-chart'), backgroundColor:'transparent', borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHitRadius:10, tension:.3 },
+          { label:'Saída', data:saidaPorDia, borderColor: cssVar('--red'), backgroundColor:'transparent', borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHitRadius:10, tension:.3 },
+          { label:'Saldo acumulado', data:saldoAcumulado, borderColor: cssVar('--brand'), backgroundColor:saldoFill, fill:true, borderWidth:2, borderDash:[4,3], pointRadius:0, pointHoverRadius:4, pointHitRadius:10, tension:.3 }
         ]
       },
       options:{
@@ -1277,12 +1298,12 @@ function renderFluxoChart(){
         maintainAspectRatio:false,
         interaction:{ mode:'index', intersect:false },
         plugins:{
-          legend:{ labels:{ color:chartInk(0.7), boxWidth:11, font:{size:11.5} } },
-          tooltip:{ callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
+          legend:{ labels:chartLegendStyle() },
+          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
         },
         scales:{
-          y:{ ticks:{ color:chartInk(0.55), callback:v=>v+' MT' }, grid:{ color:chartInk(0.07) } },
-          x:{ ticks:{ color:chartInk(0.55), maxTicksLimit:15 }, grid:{ display:false } }
+          y:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55), callback:v=>v+' MT' }, grid:{ ...chartGridStyle(0.07), borderDash:[3,4] } },
+          x:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55), maxTicksLimit:15 }, grid:{ display:false } }
         }
       }
     });
@@ -2400,15 +2421,15 @@ function renderFonteChart(dados){
       type:'doughnut',
       data:{
         labels: fontes,
-        datasets:[{ data: fontes.map(f=>grupos[f]), backgroundColor: fontes.map(f=>cssVar(FONTE_COLOR[f]||'--cat-muted')), borderColor: cssVar('--ink-2'), borderWidth:2, hoverOffset:6 }]
+        datasets:[{ data: fontes.map(f=>grupos[f]), backgroundColor: fontes.map(f=>cssVar(FONTE_COLOR[f]||'--cat-muted')), borderColor: cssVar('--ink-2'), borderWidth:2, spacing:2, hoverOffset:8 }]
       },
       options:{
         responsive:true,
         maintainAspectRatio:false,
-        cutout:'62%',
+        cutout:'72%',
         plugins:{
-          legend:{ position:'right', labels:{ color:chartInk(0.7), boxWidth:11, padding:12, font:{size:11} } },
-          tooltip:{ callbacks:{ label: ctx => ' ' + ctx.label + ': ' + ctx.raw + ' (' + (ctx.raw/total*100).toFixed(0) + '%)' } }
+          legend:{ position:'right', labels:chartLegendStyle({font:{size:11}}) },
+          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ' ' + ctx.label + ': ' + ctx.raw + ' (' + (ctx.raw/total*100).toFixed(0) + '%)' } }
         }
       }
     });
@@ -2445,7 +2466,7 @@ function renderProdutoChart(dados){
       type:'bar',
       data:{
         labels: produtos.map(p=>p.produto),
-        datasets:[{ data: produtos.map(p=>p.unidades), backgroundColor: cores, borderRadius:5, maxBarThickness:22 }]
+        datasets:[{ data: produtos.map(p=>p.unidades), backgroundColor: cores, borderRadius:6, borderSkipped:false, maxBarThickness:22 }]
       },
       options:{
         indexAxis:'y',
@@ -2453,11 +2474,11 @@ function renderProdutoChart(dados){
         maintainAspectRatio:false,
         plugins:{
           legend:{ display:false },
-          tooltip:{ callbacks:{ label: ctx => ctx.raw + ' unidade' + (ctx.raw===1?'':'s') } }
+          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ctx.raw + ' unidade' + (ctx.raw===1?'':'s') } }
         },
         scales:{
-          x:{ ticks:{ color:chartInk(0.55), precision:0 }, grid:{ color:chartInk(0.07) } },
-          y:{ ticks:{ color:chartInk(0.7), font:{size:11.5} }, grid:{ display:false } }
+          x:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55), precision:0 }, grid:{ ...chartGridStyle(0.07), borderDash:[3,4] } },
+          y:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.7), font:{size:11.5} }, grid:{ display:false } }
         }
       }
     });
@@ -2585,7 +2606,33 @@ function cssVar(name){ return getComputedStyle(document.documentElement).getProp
 // segue a mesma base de cor do tema atual (texto claro no escuro, escuro no claro) na opacidade pedida
 function chartInk(opacity){
   const light = document.documentElement.getAttribute('data-theme')==='light';
-  return light ? `rgba(28,22,38,${opacity})` : `rgba(245,242,250,${opacity})`;
+  return light ? `rgba(20,23,26,${opacity})` : `rgba(244,245,242,${opacity})`;
+}
+// estilo compartilhado do tooltip do Chart.js — sem isso ele usa a caixa cinza genérica default,
+// que destoa dos cartões arredondados do resto do painel
+function chartTooltipStyle(){
+  return {
+    backgroundColor: cssVar('--panel'),
+    titleColor: cssVar('--sand'),
+    bodyColor: chartInk(0.82),
+    borderColor: cssVar('--panel-line'),
+    borderWidth:1,
+    padding:10,
+    cornerRadius:9,
+    boxPadding:5,
+    usePointStyle:true,
+    titleFont:{ family:"'Space Grotesk', sans-serif", weight:'600', size:12.5 },
+    bodyFont:{ family:"'IBM Plex Mono', monospace", size:12 }
+  };
+}
+// grade discreta (tracejada, sem a linha sólida do eixo) — o padrão do Chart.js desenha um eixo
+// grosso e sólido que pesa muito visualmente ao lado dos cartões flat do resto do painel
+function chartGridStyle(opacity){
+  return { color: chartInk(opacity), drawTicks:false };
+}
+function chartAxisNoBorder(){ return { display:false }; }
+function chartLegendStyle(extra){
+  return Object.assign({ color:chartInk(0.72), boxWidth:8, boxHeight:8, usePointStyle:true, pointStyle:'circle', padding:12, font:{size:11.5} }, extra||{});
 }
 
 function loadAdSpend(){
@@ -3199,20 +3246,20 @@ function renderMetChart(inicio, fim, produtoFiltro){
       data:{
         labels,
         datasets:[
-          { label:'Gasto total', data: gastoPorDia, backgroundColor:cssVar('--red'), borderRadius:5, maxBarThickness:34 },
-          { label:'Receita', data: receitaPorDia, backgroundColor:cssVar('--green-chart'), borderRadius:5, maxBarThickness:34 }
+          { label:'Gasto total', data: gastoPorDia, backgroundColor:cssVar('--red'), borderRadius:6, borderSkipped:false, maxBarThickness:34 },
+          { label:'Receita', data: receitaPorDia, backgroundColor:cssVar('--green-chart'), borderRadius:6, borderSkipped:false, maxBarThickness:34 }
         ]
       },
       options:{
         responsive:true,
         maintainAspectRatio:false,
         plugins:{
-          legend:{ labels:{ color:chartInk(0.7) } },
-          tooltip:{ callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
+          legend:{ labels:chartLegendStyle() },
+          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
         },
         scales:{
-          y:{ ticks:{ color:chartInk(0.55), callback:v=>v+' MT' }, grid:{ color:chartInk(0.07) } },
-          x:{ ticks:{ color:chartInk(0.55) }, grid:{ display:false } }
+          y:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55), callback:v=>v+' MT' }, grid:{ ...chartGridStyle(0.07), borderDash:[3,4] } },
+          x:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55) }, grid:{ display:false } }
         }
       }
     });
@@ -3245,15 +3292,15 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
       type:'doughnut',
       data:{
         labels: partes.map(p=>p.label),
-        datasets:[{ data: partes.map(p=>p.valor), backgroundColor: partes.map(p=>p.cor), borderColor: cssVar('--ink-2'), borderWidth:2, hoverOffset:6 }]
+        datasets:[{ data: partes.map(p=>p.valor), backgroundColor: partes.map(p=>p.cor), borderColor: cssVar('--ink-2'), borderWidth:2, spacing:2, hoverOffset:8 }]
       },
       options:{
         responsive:true,
         maintainAspectRatio:false,
-        cutout:'62%',
+        cutout:'72%',
         plugins:{
-          legend:{ position:'right', labels:{ color:chartInk(0.7), boxWidth:11, padding:12, font:{size:11.5} } },
-          tooltip:{ callbacks:{ label: ctx => ' ' + ctx.label + ': ' + fmtMT(ctx.raw) + ' (' + (ctx.raw/total*100).toFixed(1) + '%)' } }
+          legend:{ position:'right', labels:chartLegendStyle({font:{size:11.5}}) },
+          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ' ' + ctx.label + ': ' + fmtMT(ctx.raw) + ' (' + (ctx.raw/total*100).toFixed(1) + '%)' } }
         }
       }
     });
