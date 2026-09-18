@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel do Negócio</title>
+<!-- PWA: permite "Adicionar ao ecrã principal" no telemóvel e funcionar offline (service worker
+     abaixo) — os dados continuam 100% no localStorage deste aparelho, nada sai daqui. -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0D0A14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painel">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
 <script>
   // aplica o tema salvo antes da página pintar, pra não piscar o tema errado por uma fração de segundo
   try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('lobo_theme_v1')==='light' ? 'light' : 'dark'); }catch(e){}
@@ -12,49 +22,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<!-- SDK do Firebase — build "compat" (namespace global `firebase`, sem ES modules) de propósito:
-     o resto da app usa <script> comuns com onclick="" inline, mesmo estilo do Chart.js/jsPDF acima,
-     então usar o SDK modular (import/export) obrigaria a reescrever tudo. O compat dá a mesma
-     funcionalidade (Auth, Firestore, Functions) só com uma API mais antiga, plenamente suportada. -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
-<script>
-  // Configuração real do projeto "Painel Shopify" (Firebase Console → Definições do projeto →
-  // Geral → "As suas apps" → app Web → "Configuração do SDK"). Estes valores não são secretos (o
-  // Firebase foi desenhado pra eles ficarem expostos no cliente); a segurança real vem das regras
-  // do Firestore (firestore.rules) e da verificação dentro de cada Cloud Function, não daqui.
-  const firebaseConfig = {
-    apiKey: 'AIzaSyBbY8M34c8gjUPaK7FJjNaOHlK2Qk_0AvY',
-    authDomain: 'painel-shopify.firebaseapp.com',
-    projectId: 'painel-shopify',
-    storageBucket: 'painel-shopify.firebasestorage.app',
-    messagingSenderId: '209189061037',
-    appId: '1:209189061037:web:92f68e72da90c1eaeca124'
-  };
-  let firebaseIndisponivel = false;
-  let auth, db, functions;
-  try{
-    if(typeof firebase === 'undefined') throw new Error('SDK não carregou');
-    firebase.initializeApp(firebaseConfig);
-    auth = firebase.auth();
-    db = firebase.firestore();
-    functions = firebase.functions();
-    // em localhost, liga automaticamente aos emuladores locais (Firebase Emulator Suite) em vez
-    // do Firebase real — não tem efeito nenhum fora de localhost, seguro deixar sempre ligado
-    if(['localhost','127.0.0.1'].includes(location.hostname)){
-      auth.useEmulator('http://127.0.0.1:9099');
-      db.useEmulator('127.0.0.1', 8080);
-      functions.useEmulator('127.0.0.1', 5001);
-    }
-  } catch(e){
-    // mesma lição do bug do Chart.js: se um CDN externo falhar (rede, firewall, bloqueador de
-    // anúncios), é melhor mostrar um aviso claro do que deixar a app "morta" sem explicação
-    firebaseIndisponivel = true;
-  }
-</script>
 <style>
   :root{
     color-scheme: dark;
@@ -468,57 +435,10 @@
     .toolbar .filters{ flex-direction:column; align-items:stretch; }
     .toolbar select, .toolbar input{ width:100%; }
   }
-
-  /* ecrãs de login/carregamento/erro — cobrem a tela toda antes da app (.wrap) aparecer */
-  .auth-gate{
-    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
-  }
-  .auth-gate-panel{
-    background:var(--panel); border:1px solid var(--panel-line); border-radius:14px; padding:32px;
-    box-shadow:var(--shadow-panel); max-width:380px; width:100%; text-align:center;
-  }
-  .auth-gate-panel .eyebrow{ display:block; margin-bottom:6px; }
-  .auth-gate-panel h1{ font-family:var(--font-display); font-size:20px; margin-bottom:10px; }
-  .auth-gate-panel p{ font-size:13px; color:var(--sand-dim); line-height:1.5; margin-bottom:20px; }
-  .auth-gate-panel .btn-primary{ width:100%; justify-content:center; }
-  .auth-gate-spinner{
-    width:28px; height:28px; border-radius:50%; margin:0 auto 16px;
-    border:3px solid var(--panel-line); border-top-color:var(--violet);
-    animation:auth-gate-spin .8s linear infinite;
-  }
-  @keyframes auth-gate-spin{ to{ transform:rotate(360deg); } }
-  .auth-gate-error{ color:var(--red); font-size:12.5px; margin-top:14px; min-height:14px; }
 </style>
 </head>
 <body>
-
-<div id="authGateFirebaseErro" class="auth-gate" style="display:none;">
-  <div class="auth-gate-panel">
-    <span class="eyebrow">— PAINEL DO NEGÓCIO</span>
-    <h1>Não consegui carregar</h1>
-    <p>A ligação ao Firebase falhou — verifique a sua ligação à internet e recarregue a página. Se persistir, um bloqueador de anúncios ou firewall pode estar a impedir o carregamento.</p>
-    <button type="button" class="btn-primary" onclick="location.reload()">Recarregar</button>
-  </div>
-</div>
-
-<div id="authGateCarregando" class="auth-gate" style="display:none;">
-  <div class="auth-gate-panel">
-    <div class="auth-gate-spinner"></div>
-    <p style="margin-bottom:0;">A carregar…</p>
-  </div>
-</div>
-
-<div id="authGateLogin" class="auth-gate" style="display:none;">
-  <div class="auth-gate-panel">
-    <span class="eyebrow">— PAINEL DO NEGÓCIO</span>
-    <h1>Fluxo de Caixa &amp; Controle de Vendas</h1>
-    <p>Inicie sessão com a sua conta Google para aceder aos dados do seu negócio.</p>
-    <button type="button" class="btn-primary" onclick="entrarComGoogle()">Entrar com Google</button>
-    <div id="authGateErro" class="auth-gate-error"></div>
-  </div>
-</div>
-
-<div class="wrap" id="appWrap" style="display:none;">
+<div class="wrap">
 
   <header class="top">
     <div class="brand">
@@ -534,9 +454,6 @@
       <button type="button" class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
         <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
         <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-      </button>
-      <button type="button" class="theme-toggle" onclick="sair()" title="Terminar sessão" aria-label="Terminar sessão">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
       </button>
     </div>
   </header>
@@ -1010,62 +927,13 @@
     </div>
   </section>
 
-  <footer>Os dados ficam guardados na sua conta — acessíveis a partir de qualquer computador em que inicie sessão.</footer>
+  <footer>Os dados ficam guardados apenas neste computador, neste navegador.</footer>
 </div>
 
 <script>
-/* ============ AUTENTICAÇÃO E NEGÓCIO (Firebase) ============
-   Os dados deixaram de viver no localStorage — agora vivem no Firestore, debaixo de
-   businesses/{currentBusinessId}. Cada utilizador só vê o(s) negócio(s) de que é membro
-   (firestore.rules); o primeiro negócio de um utilizador novo é criado pela Cloud Function
-   bootstrapBusinessForUser (não diretamente pelo cliente — ver o comentário em firestore.rules
-   sobre porquê "create" é negado aqui). */
-let currentBusinessId = null;
-
-function businessRef(){ return db.collection('businesses').doc(currentBusinessId); }
-
-function mostrarAuthGate(estado){
-  document.getElementById('authGateFirebaseErro').style.display = estado==='erro-firebase' ? 'flex' : 'none';
-  document.getElementById('authGateCarregando').style.display = estado==='carregando' ? 'flex' : 'none';
-  document.getElementById('authGateLogin').style.display = estado==='login' ? 'flex' : 'none';
-  document.getElementById('appWrap').style.display = estado==='app' ? 'block' : 'none';
-}
-
-function entrarComGoogle(){
-  document.getElementById('authGateErro').textContent = '';
-  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>{
-    document.getElementById('authGateErro').textContent = 'Não consegui iniciar sessão: ' + (e.message || e);
-  });
-}
-
-function sair(){ auth.signOut(); }
-
-if(firebaseIndisponivel){
-  mostrarAuthGate('erro-firebase');
-} else {
-  mostrarAuthGate('carregando');
-  auth.onAuthStateChanged(async (user) => {
-    if(!user){
-      currentBusinessId = null;
-      mostrarAuthGate('login');
-      return;
-    }
-    mostrarAuthGate('carregando');
-    try{
-      const bootstrap = functions.httpsCallable('bootstrapBusinessForUser');
-      const resultado = await bootstrap();
-      currentBusinessId = resultado.data.businessId;
-      await bootApp();
-      mostrarAuthGate('app');
-    } catch(e){
-      document.getElementById('authGateErro').textContent = 'Não consegui preparar o seu negócio: ' + (e.message || e);
-      mostrarAuthGate('login');
-      auth.signOut();
-    }
-  });
-}
-
 /* ============ ESTADO GERAL ============ */
+const FLUXO_KEY = 'lobo_fluxo_caixa_v2';
+const VENDAS_KEY = 'lobo_controle_vendas_v2';
 
 let fluxoData = [];
 let vendasData = [];
@@ -1175,46 +1043,10 @@ function switchMetricasView(which){
 }
 
 /* ============ FLUXO DE CAIXA ============ */
-// fluxoData continua uma lista única em memória (todos os meses juntos, como sempre foi) — só a
-// forma de guardar mudou: no Firestore fica particionado por mês (businesses/{id}/fluxo/{YYYY-MM})
-// pra nenhum documento crescer sem limite. ultimoEstadoFluxoPorMes guarda o que já está gravado em
-// cada mês, pra saveFluxo() só reescrever os meses que realmente mudaram, não o histórico inteiro
-// a cada pequena edição.
-let ultimoEstadoFluxoPorMes = {};
-
-async function loadFluxo(){
-  try{
-    const snap = await businessRef().collection('fluxo').get();
-    fluxoData = [];
-    ultimoEstadoFluxoPorMes = {};
-    snap.forEach(doc=>{
-      const items = doc.data().items || [];
-      ultimoEstadoFluxoPorMes[doc.id] = JSON.stringify(items);
-      fluxoData.push(...items);
-    });
-  }catch(e){
-    console.error('Não consegui carregar o fluxo de caixa:', e);
-    fluxoData = [];
-  }
+function loadFluxo(){
+  try{ fluxoData = JSON.parse(localStorage.getItem(FLUXO_KEY)) || []; }catch(e){ fluxoData = []; }
 }
-async function saveFluxo(){
-  const porMes = {};
-  fluxoData.forEach(f=>{ const m = monthKeyOf(f.data); (porMes[m] = porMes[m] || []).push(f); });
-  const escritas = [];
-  for(const mes of Object.keys(porMes)){
-    const serial = JSON.stringify(porMes[mes]);
-    if(ultimoEstadoFluxoPorMes[mes] === serial) continue;
-    ultimoEstadoFluxoPorMes[mes] = serial;
-    escritas.push(businessRef().collection('fluxo').doc(mes).set({ items: porMes[mes] }));
-  }
-  for(const mes of Object.keys(ultimoEstadoFluxoPorMes)){
-    if(!porMes[mes] && ultimoEstadoFluxoPorMes[mes] !== '[]'){
-      ultimoEstadoFluxoPorMes[mes] = '[]';
-      escritas.push(businessRef().collection('fluxo').doc(mes).set({ items: [] }));
-    }
-  }
-  await Promise.all(escritas);
-}
+function saveFluxo(){ localStorage.setItem(FLUXO_KEY, JSON.stringify(fluxoData)); }
 
 function setTipo(t){
   tipoAtivo = t;
@@ -1423,51 +1255,15 @@ function renderFluxoChart(){
 }
 
 /* ============ CONTROLE DE VENDAS ============ */
-// mesma lógica de "um doc por mês, só reescreve o que mudou" do fluxo de caixa — ver o comentário
-// em loadFluxo/saveFluxo. "_shopifyIndex" é um doc à parte (usado só pela Cloud Function de
-// sincronização com a Shopify pra saber que pedidos já foram importados) — não é um mês, ignora-se
-// aqui na leitura normal.
-let ultimoEstadoVendasPorMes = {};
-
-async function loadVendas(){
-  try{
-    const snap = await businessRef().collection('vendas').get();
-    vendasData = [];
-    ultimoEstadoVendasPorMes = {};
-    snap.forEach(doc=>{
-      if(doc.id === '_shopifyIndex') return;
-      const items = doc.data().items || [];
-      ultimoEstadoVendasPorMes[doc.id] = JSON.stringify(items);
-      vendasData.push(...items);
-    });
-  }catch(e){
-    console.error('Não consegui carregar as vendas:', e);
-    vendasData = [];
-  }
+function loadVendas(){
+  try{ vendasData = JSON.parse(localStorage.getItem(VENDAS_KEY)) || []; }catch(e){ vendasData = []; }
   const hoje = new Date();
   const atual = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
   let precisaSalvar = false;
   vendasData.forEach(v=>{ if(!v.mes){ v.mes = atual; precisaSalvar = true; } });
-  if(precisaSalvar) await saveVendas();
+  if(precisaSalvar) saveVendas();
 }
-async function saveVendas(){
-  const porMes = {};
-  vendasData.forEach(v=>{ (porMes[v.mes] = porMes[v.mes] || []).push(v); });
-  const escritas = [];
-  for(const mes of Object.keys(porMes)){
-    const serial = JSON.stringify(porMes[mes]);
-    if(ultimoEstadoVendasPorMes[mes] === serial) continue;
-    ultimoEstadoVendasPorMes[mes] = serial;
-    escritas.push(businessRef().collection('vendas').doc(mes).set({ items: porMes[mes] }));
-  }
-  for(const mes of Object.keys(ultimoEstadoVendasPorMes)){
-    if(!porMes[mes] && ultimoEstadoVendasPorMes[mes] !== '[]'){
-      ultimoEstadoVendasPorMes[mes] = '[]';
-      escritas.push(businessRef().collection('vendas').doc(mes).set({ items: [] }));
-    }
-  }
-  await Promise.all(escritas);
-}
+function saveVendas(){ localStorage.setItem(VENDAS_KEY, JSON.stringify(vendasData)); }
 
 /* ---- Importar pedidos da planilha Shopify (via ficheiro CSV local) ---- */
 const SHOPIFY_COUNT_KEY = 'lobo_shopify_synced_count_v1';
@@ -2519,6 +2315,9 @@ function downloadCSV(header, rows, filename){
 }
 
 /* ============ CPA / ROI / ROAS ============ */
+const ADSPEND_KEY = 'lobo_ad_spend_v1';
+const PRODUTOS_KEY = 'lobo_produtos_v1';
+const OPERACIONAL_KEY = 'lobo_gastos_operacionais_v1';
 let adSpendData = [];
 let produtosData = [];
 let operacionaisData = [];
@@ -2547,46 +2346,20 @@ function chartInk(opacity){
   return light ? `rgba(28,22,38,${opacity})` : `rgba(245,242,250,${opacity})`;
 }
 
-// adSpend/produtos/operacionais são do tamanho de um catálogo (nunca crescem sem limite como
-// vendas/fluxo), por isso cada um fica só num documento — sem partição por mês, sem diffing.
-async function loadAdSpend(){
-  try{
-    const doc = await businessRef().collection('adSpend').doc('main').get();
-    adSpendData = (doc.exists && doc.data().items) || [];
-  }catch(e){
-    console.error('Não consegui carregar os gastos com ads:', e);
-    adSpendData = [];
-  }
+function loadAdSpend(){
+  try{ adSpendData = JSON.parse(localStorage.getItem(ADSPEND_KEY)) || []; }catch(e){ adSpendData = []; }
 }
-async function saveAdSpend(){
-  await businessRef().collection('adSpend').doc('main').set({ items: adSpendData });
-}
+function saveAdSpend(){ localStorage.setItem(ADSPEND_KEY, JSON.stringify(adSpendData)); }
 
-async function loadProdutos(){
-  try{
-    const doc = await businessRef().collection('produtos').doc('main').get();
-    produtosData = (doc.exists && doc.data().items) || [];
-  }catch(e){
-    console.error('Não consegui carregar os produtos:', e);
-    produtosData = [];
-  }
+function loadProdutos(){
+  try{ produtosData = JSON.parse(localStorage.getItem(PRODUTOS_KEY)) || []; }catch(e){ produtosData = []; }
 }
-async function saveProdutos(){
-  await businessRef().collection('produtos').doc('main').set({ items: produtosData });
-}
+function saveProdutos(){ localStorage.setItem(PRODUTOS_KEY, JSON.stringify(produtosData)); }
 
-async function loadOperacional(){
-  try{
-    const doc = await businessRef().collection('operacionais').doc('main').get();
-    operacionaisData = (doc.exists && doc.data().items) || [];
-  }catch(e){
-    console.error('Não consegui carregar os gastos operacionais:', e);
-    operacionaisData = [];
-  }
+function loadOperacional(){
+  try{ operacionaisData = JSON.parse(localStorage.getItem(OPERACIONAL_KEY)) || []; }catch(e){ operacionaisData = []; }
 }
-async function saveOperacional(){
-  await businessRef().collection('operacionais').doc('main').set({ items: operacionaisData });
-}
+function saveOperacional(){ localStorage.setItem(OPERACIONAL_KEY, JSON.stringify(operacionaisData)); }
 
 /* ---- Produtos ---- */
 let pendingFotoBase64 = null;
@@ -3248,28 +3021,19 @@ function renderAdAll(){
 }
 
 /* ============ INIT ============ */
-// tema e os seletores de data não dependem de dados — podem ficar prontos já, mesmo antes do
-// login resolver (os painéis estão só escondidos via CSS, os elementos já existem no DOM)
 initTheme();
 initDateRangePickers();
+loadFluxo();
+loadVendas();
+loadAdSpend();
+loadProdutos();
+loadOperacional();
 
-/* chamado pelo auth-gate assim que o login E o negócio (currentBusinessId) estão prontos —
-   substitui o antigo bloco de INIT síncrono, que lia tudo do localStorage na hora; agora cada
-   loadX() é uma leitura assíncrona ao Firestore, por isso isto tem de esperar por todas antes de
-   renderizar, senão a primeira renderização acontece contra arrays ainda vazios */
-async function bootApp(){
-  await Promise.all([
-    loadFluxo(),
-    loadVendas(),
-    loadAdSpend(),
-    loadProdutos(),
-    loadOperacional()
-  ]);
-
-  // repara dados já guardados de antes da correção do uid() (Date.now() podia colidir ao importar
-  // muitos registos de uma vez, ex: um CSV com 40+ pedidos) — sem isto, quem já tinha registos com
-  // o mesmo id guardados continuava com "pedidos fantasma" presos mesmo depois de atualizar o
-  // painel, porque o bug já tinha acontecido e ficou gravado
+// repara dados já guardados de antes da correção do uid() (Date.now() podia colidir ao importar
+// muitos registos de uma vez, ex: um CSV com 40+ pedidos) — sem isto, quem já tinha registos com
+// o mesmo id guardados no navegador continuava com "pedidos fantasma" presos mesmo depois de
+// atualizar o painel, porque o bug já tinha acontecido e ficou gravado no localStorage
+(function repararIdsDuplicadosExistentes(){
   function reparar(arr){
     const vistos = new Set();
     let corrigidos = 0;
@@ -3279,26 +3043,31 @@ async function bootApp(){
     });
     return corrigidos;
   }
-  const totalReparado = reparar(fluxoData) + reparar(vendasData) + reparar(adSpendData) + reparar(produtosData) + reparar(operacionaisData);
-  if(totalReparado>0){
-    await Promise.all([saveFluxo(), saveVendas(), saveAdSpend(), saveProdutos(), saveOperacional()]);
+  const total = reparar(fluxoData) + reparar(vendasData) + reparar(adSpendData) + reparar(produtosData) + reparar(operacionaisData);
+  if(total>0){
+    saveFluxo(); saveVendas(); saveAdSpend(); saveProdutos(); saveOperacional();
   }
+})();
 
-  const hoje = new Date();
-  mesAtivo = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
-  const mesesVendasExistentes = [...new Set(vendasData.map(v=>v.mes))].filter(Boolean).sort();
-  mesAtivoVendas = mesesVendasExistentes.length ? mesesVendasExistentes[mesesVendasExistentes.length-1] : mesAtivo;
-  renderFluxoAll();
-  renderVendasAll();
-  populateProdutosMetricas();
+const hoje = new Date();
+mesAtivo = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+const mesesVendasExistentes = [...new Set(vendasData.map(v=>v.mes))].filter(Boolean).sort();
+mesAtivoVendas = mesesVendasExistentes.length ? mesesVendasExistentes[mesesVendasExistentes.length-1] : mesAtivo;
+renderFluxoAll();
+renderVendasAll();
+populateProdutosMetricas();
 
-  // a ligação à Shopify (Apps Script/JSONP) ainda não mudou nesta fase — continua a ler o URL
-  // colado do localStorage, como sempre fez; isto muda quando a Fase B trocar isto pela API real
-  const savedShopifyApiUrl = localStorage.getItem(SHOPIFY_API_URL_KEY);
-  if(savedShopifyApiUrl){
-    document.getElementById('shopifyApiUrl').value = savedShopifyApiUrl;
-    document.getElementById('shopifyStatusTag').textContent = 'conectado';
-  }
+const savedShopifyApiUrl = localStorage.getItem(SHOPIFY_API_URL_KEY);
+if(savedShopifyApiUrl){
+  document.getElementById('shopifyApiUrl').value = savedShopifyApiUrl;
+  document.getElementById('shopifyStatusTag').textContent = 'conectado';
+}
+
+// registra o service worker pra poder instalar como app e abrir offline depois da primeira visita
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
 }
 </script>
 </body>
