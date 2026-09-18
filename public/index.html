@@ -20,8 +20,11 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- servidas pelo próprio Hosting (vendor/), não por CDN externa — cdnjs.cloudflare.com ficou
+     instável/bloqueado na rede de pelo menos um utilizador real, deixando os gráficos sempre em
+     branco mesmo com aviso claro; hospedar aqui elimina essa dependência de terceiros de vez. -->
+<script src="vendor/chart.umd.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
 <style>
   :root{
     color-scheme: dark;

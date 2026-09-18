@@ -1,16 +1,16 @@
 // Service worker do Painel do Negócio — cacheia o essencial (HTML, ícones, e as duas bibliotecas
-// externas de gráfico/PDF) na primeira visita, pra depois abrir e funcionar mesmo sem internet.
-// Suba o número da versão sempre que publicar uma alteração no index.html, senão o telemóvel
-// continua a mostrar a versão antiga guardada em cache.
-const CACHE_VERSION = 'painel-negocio-v5';
+// de gráfico/PDF, agora servidas pelo próprio Hosting em vez de uma CDN externa) na primeira
+// visita, pra depois abrir e funcionar mesmo sem internet. Suba o número da versão sempre que
+// publicar uma alteração no index.html, senão o telemóvel continua a mostrar a versão antiga.
+const CACHE_VERSION = 'painel-negocio-v6';
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  './vendor/chart.umd.min.js',
+  './vendor/jspdf.umd.min.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -18,9 +18,9 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_VERSION).then((cache) =>
       Promise.all(
         PRECACHE_URLS.map((url) =>
-          fetch(url, { mode: url.startsWith('http') ? 'no-cors' : 'same-origin' })
+          fetch(url)
             .then((resp) => cache.put(url, resp))
-            .catch(() => {}) // uma biblioteca externa falhar aqui não deve impedir a instalação
+            .catch(() => {}) // um ficheiro falhar aqui não deve impedir a instalação dos outros
         )
       )
     ).then(() => self.skipWaiting())
