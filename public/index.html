@@ -693,6 +693,19 @@
 
     <div id="vendasViewConfig" class="subview">
       <div class="panel panel-slim">
+        <h2>Backup dos Dados <span class="tag">guardar/restaurar um ficheiro no telemóvel</span></h2>
+        <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
+          Os dados deste painel ficam só neste navegador — se limpar os dados do navegador ou trocar de telemóvel, perde tudo. Exporte um backup de vez em quando e guarde o ficheiro num lugar seguro (Google Drive, WhatsApp pra si mesmo, etc.).
+        </p>
+        <div class="toolbar">
+          <button class="btn-primary" onclick="exportarBackup()">⬇ Exportar backup (.json)</button>
+          <input type="file" id="backupFile" accept="application/json" style="flex:1; min-width:200px; color:var(--sand); font-size:13px;">
+          <button class="btn-ghost" onclick="importarBackup()">⬆ Importar backup</button>
+        </div>
+        <div id="backupMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
+      </div>
+
+      <div class="panel panel-slim">
         <h2>Meses anteriores <span class="tag">consultar histórico por mês</span></h2>
         <div class="toolbar">
           <div class="historico-toggle" id="historicoMesesToggle" onclick="toggleHistoricoMeses()" style="margin:0;">
@@ -2314,6 +2327,79 @@ function downloadCSV(header, rows, filename){
   URL.revokeObjectURL(url);
 }
 
+/* ============ BACKUP (exportar/importar um ficheiro .json com todos os dados) ============
+   Os dados vivem s\u00F3 no localStorage deste navegador \u2014 n\u00E3o h\u00E1 nenhuma pasta do telem\u00F3vel onde a
+   app consiga gravar diretamente (restri\u00E7\u00E3o de seguran\u00E7a de qualquer navegador). Isto \u00E9 o
+   substituto real: um ficheiro que o pr\u00F3prio utilizador escolhe onde guardar (Downloads, Drive,
+   etc.) via o download normal do navegador, e que pode trazer de volta a qualquer momento. */
+function recalcularMesesAtivos(){
+  const hoje = new Date();
+  mesAtivo = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+  const mesesVendasExistentes = [...new Set(vendasData.map(v=>v.mes))].filter(Boolean).sort();
+  mesAtivoVendas = mesesVendasExistentes.length ? mesesVendasExistentes[mesesVendasExistentes.length-1] : mesAtivo;
+}
+
+function showBackupMsg(t, isError){
+  const el = document.getElementById('backupMsg');
+  el.textContent = t;
+  el.style.color = isError ? 'var(--red)' : 'var(--gold)';
+}
+
+function exportarBackup(){
+  const backup = {
+    tipo: 'painel-negocio-backup',
+    versao: 1,
+    exportadoEm: new Date().toISOString(),
+    fluxoData, vendasData, adSpendData, produtosData, operacionaisData
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dataStr = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `painel-negocio-backup-${dataStr}.json`; a.click();
+  URL.revokeObjectURL(url);
+  showBackupMsg('Backup exportado \u2014 verifique a pasta de Downloads do seu telem\u00F3vel.');
+}
+
+function importarBackup(){
+  const input = document.getElementById('backupFile');
+  const file = input.files[0];
+  if(!file){ showBackupMsg('Escolha o ficheiro de backup (.json) primeiro.', true); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    let backup;
+    try{ backup = JSON.parse(e.target.result); }
+    catch(err){ showBackupMsg('Este ficheiro n\u00E3o \u00E9 um backup v\u00E1lido (JSON inv\u00E1lido).', true); return; }
+
+    if(backup.tipo !== 'painel-negocio-backup' || !Array.isArray(backup.vendasData)){
+      showBackupMsg('Este ficheiro n\u00E3o parece ser um backup deste painel.', true);
+      return;
+    }
+    if(!confirm('Isto substitui TODOS os dados atuais (Fluxo, Vendas, Ads, Produtos, Operacionais) pelos do backup de ' + (backup.exportadoEm ? new Date(backup.exportadoEm).toLocaleString('pt-PT') : 'data desconhecida') + '. Continuar?')){
+      return;
+    }
+
+    fluxoData = backup.fluxoData || [];
+    vendasData = backup.vendasData || [];
+    adSpendData = backup.adSpendData || [];
+    produtosData = backup.produtosData || [];
+    operacionaisData = backup.operacionaisData || [];
+    saveFluxo(); saveVendas(); saveAdSpend(); saveProdutos(); saveOperacional();
+
+    recalcularMesesAtivos();
+    renderFluxoAll();
+    renderVendasAll();
+    populateProdutosMetricas();
+    renderMetricas();
+
+    input.value = '';
+    showBackupMsg('Backup importado com sucesso \u2014 dados restaurados.');
+  };
+  reader.onerror = function(){ showBackupMsg('Erro ao ler o ficheiro.', true); };
+  reader.readAsText(file, 'UTF-8');
+}
+
 /* ============ CPA / ROI / ROAS ============ */
 const ADSPEND_KEY = 'lobo_ad_spend_v1';
 const PRODUTOS_KEY = 'lobo_produtos_v1';
@@ -3049,10 +3135,7 @@ loadOperacional();
   }
 })();
 
-const hoje = new Date();
-mesAtivo = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
-const mesesVendasExistentes = [...new Set(vendasData.map(v=>v.mes))].filter(Boolean).sort();
-mesAtivoVendas = mesesVendasExistentes.length ? mesesVendasExistentes[mesesVendasExistentes.length-1] : mesAtivo;
+recalcularMesesAtivos();
 renderFluxoAll();
 renderVendasAll();
 populateProdutosMetricas();
