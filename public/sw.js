@@ -2,7 +2,7 @@
 // externas de gráfico/PDF) na primeira visita, pra depois abrir e funcionar mesmo sem internet.
 // Suba o número da versão sempre que publicar uma alteração no index.html, senão o telemóvel
 // continua a mostrar a versão antiga guardada em cache.
-const CACHE_VERSION = 'painel-negocio-v2';
+const CACHE_VERSION = 'painel-negocio-v3';
 const PRECACHE_URLS = [
   './',
   './index.html',

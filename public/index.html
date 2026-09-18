@@ -750,6 +750,18 @@
         </div>
         <div id="shopifyCsvMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
       </div>
+
+      <div class="panel panel-slim">
+        <h2>Importar exportação nativa da Shopify <span class="tag">já traz o status certo (pago/cancelado)</span></h2>
+        <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
+          No admin da Shopify: <strong>Pedidos → Exportar → Todos os pedidos → CSV para o Excel, Numbers, etc.</strong> Esse ficheiro já vem com o status real de cada pedido (pago, cancelado) — os pedidos entram direto como Concluído/Cancelado, sem precisar clicar um por um. Reimportar um ficheiro mais recente atualiza o status dos pedidos que já tinha importado, sem duplicar.
+        </p>
+        <div class="toolbar">
+          <input type="file" id="shopifyNativeFile" accept=".csv" style="flex:1; min-width:220px; color:var(--sand); font-size:13px;">
+          <button class="btn-ghost" onclick="importarCSVShopifyNativo()">Importar exportação da Shopify</button>
+        </div>
+        <div id="shopifyNativeMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
+      </div>
     </div>
   </section>
 
@@ -1392,6 +1404,140 @@ function importarCSVShopify(){
     }
   };
   reader.onerror = function(){ showCsvMsg('Erro ao ler o ficheiro.', true); };
+  reader.readAsText(file, 'UTF-8');
+}
+
+/* ---- Importar a exportação NATIVA de pedidos da Shopify (Pedidos → Exportar → CSV) ----
+   Diferente da planilha ACHAKE PEDIDOS (formato manual, sem cabeçalho, sempre "pendente"), este
+   ficheiro já vem com o status real de cada pedido — Financial Status ("paid"/"voided"/...) e
+   Cancelled at — então os pedidos entram já como Concluído/Cancelado. Também dá pra reimportar
+   um ficheiro mais recente: em vez de só adicionar linhas novas, atualiza o status dos pedidos
+   já conhecidos (identificados pelo "Id" da Shopify), então "pendente" vira "concluído"/"cancelado"
+   assim que o pedido for resolvido, sem duplicar nada. */
+function showShopifyNativeMsg(t, isError){
+  const el = document.getElementById('shopifyNativeMsg');
+  el.textContent = t;
+  el.style.color = isError ? 'var(--red)' : 'var(--gold)';
+}
+
+// as respostas do seu formulário de checkout ficam nas "Note Attributes" da Shopify, uma por
+// linha em "Chave: valor" — mais confiável do que os campos padrão de envio, que às vezes vêm
+// com endereço incompleto/genérico
+function parseNoteAttributes(raw){
+  const mapa = {};
+  String(raw||'').split('\n').forEach(linha=>{
+    const i = linha.indexOf(':');
+    if(i===-1) return;
+    const chave = linha.slice(0,i).trim().toLowerCase();
+    const valor = linha.slice(i+1).trim();
+    if(chave) mapa[chave] = valor;
+  });
+  return mapa;
+}
+
+// Semana 1-4 é um agrupamento manual dentro do mês (não ligado a datas reais) — como um pedido
+// histórico não tem essa informação, cai numa semana por padrão a partir do dia do mês; dá pra
+// mover manualmente depois ("Mover p/...") se não bater com o seu jeito de organizar
+function semanaPorDia(dataISO){
+  const dia = Number(dataISO.slice(8,10)) || 1;
+  if(dia<=7) return 'semana1';
+  if(dia<=14) return 'semana2';
+  if(dia<=21) return 'semana3';
+  return 'semana4';
+}
+
+function importarCSVShopifyNativo(){
+  const input = document.getElementById('shopifyNativeFile');
+  const file = input.files[0];
+  if(!file){ showShopifyNativeMsg('Escolha o ficheiro exportado da Shopify primeiro.', true); return; }
+  showShopifyNativeMsg('A ler o ficheiro…');
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const linhas = parseCSV(e.target.result).filter(r=>r.some(c=>String(c).trim()!==''));
+      if(linhas.length<2){ showShopifyNativeMsg('Ficheiro vazio ou sem pedidos.', true); return; }
+      const header = linhas[0];
+      const col = (nome) => header.indexOf(nome);
+      const iId=col('Id'), iFin=col('Financial Status'), iCancel=col('Cancelled at'), iCreated=col('Created at'),
+            iNotas=col('Note Attributes'), iShipName=col('Shipping Name'), iShipPhone=col('Shipping Phone'),
+            iSubtotal=col('Subtotal'), iQtd=col('Lineitem quantity'), iProduto=col('Lineitem name');
+      if(iId===-1 || iFin===-1 || iCreated===-1){
+        showShopifyNativeMsg('Este ficheiro não parece ser uma exportação de pedidos da Shopify (faltam colunas esperadas).', true);
+        return;
+      }
+
+      const nomeCanonicoPorProduto = {};
+      produtosData.forEach(p=>{ nomeCanonicoPorProduto[normalizarNomeProduto(p.nome)] = p.nome; });
+
+      let novos = 0, atualizados = 0;
+      const naoReconhecidos = new Set();
+
+      for(let i=1;i<linhas.length;i++){
+        const cols = linhas[i];
+        const shopifyOrderId = String(cols[iId]||'').trim();
+        if(!shopifyOrderId) continue;
+
+        const finStatus = String(cols[iFin]||'').trim().toLowerCase();
+        const cancelledAt = String(cols[iCancel]||'').trim();
+        let status = 'pendente';
+        if(cancelledAt || finStatus==='voided' || finStatus==='refunded') status = 'cancelado';
+        else if(finStatus==='paid') status = 'concluido';
+
+        const existenteIdx = vendasData.findIndex(v=>v.shopifyOrderId===shopifyOrderId);
+        if(existenteIdx>-1){
+          if(vendasData[existenteIdx].status !== status){
+            vendasData[existenteIdx] = {...vendasData[existenteIdx], status};
+            atualizados++;
+          }
+          continue;
+        }
+
+        const notas = parseNoteAttributes(cols[iNotas]);
+        const nome = notas['nome'] || String(cols[iShipName]||'').replace(/\s*-\s*$/,'').trim();
+        const telefone = notas['contacto'] || String(cols[iShipPhone]||'').trim();
+        const provincia = notas['província'] || notas['provincia'] || '';
+        const localBase = notas['local de entrega'] || '';
+        const local = provincia ? (localBase ? localBase+', '+provincia : provincia) : localBase;
+        const horario = normalizeHorario(notas['hora da entrega'] || '');
+
+        const createdRaw = String(cols[iCreated]||'').trim();
+        const data = createdRaw ? createdRaw.slice(0,10) : drISO(new Date());
+        const mes = data.slice(0,7);
+
+        const produtoCru = String(cols[iProduto]||'').trim();
+        const chave = normalizarNomeProduto(produtoCru);
+        const produto = produtoCru ? (nomeCanonicoPorProduto[chave] || produtoCru) : '';
+        if(produtoCru && !nomeCanonicoPorProduto[chave]) naoReconhecidos.add(produtoCru);
+
+        const quantidade = parseInt(cols[iQtd],10) || 1;
+        const valor = parseFloat(cols[iSubtotal]) || 0;
+
+        vendasData.push({
+          id: uid(), semana: semanaPorDia(data), mes,
+          data, horario, fonte: '04.SHOPIFY',
+          contacto: (nome + ' ' + telefone).trim(),
+          local, descricao: '', produto, quantidade, valor,
+          delivery: '', comissao: 0, status, shopifyOrderId
+        });
+        novos++;
+      }
+
+      saveVendas();
+      let msg = novos + (novos===1 ? ' pedido novo importado' : ' pedidos novos importados');
+      if(atualizados>0) msg += ', ' + atualizados + (atualizados===1 ? ' status atualizado' : ' status atualizados');
+      msg += '.';
+      if(naoReconhecidos.size){
+        msg += ' Atenção: produto(s) sem cadastro em "Produtos" — ' + [...naoReconhecidos].join(', ') + '. O custo de aquisição desses não entra no ROI até você cadastrar.';
+      }
+      showShopifyNativeMsg(msg, naoReconhecidos.size>0);
+      input.value = '';
+      renderVendasAll();
+    } catch(err){
+      showShopifyNativeMsg('Não consegui ler esse ficheiro. Confirme que é a exportação de pedidos da Shopify (Pedidos → Exportar).', true);
+    }
+  };
+  reader.onerror = function(){ showShopifyNativeMsg('Erro ao ler o ficheiro.', true); };
   reader.readAsText(file, 'UTF-8');
 }
 
