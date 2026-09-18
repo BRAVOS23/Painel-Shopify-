@@ -794,8 +794,9 @@
         <div class="roi-hero-sub">retorno sobre o gasto total (custo do produto + ads + outros + operacional + entrega)</div>
       </div>
 
-      <div class="cards3">
+      <div class="cards4">
         <div class="card"><span class="k">Receita</span><span class="v mono" id="metReceita">0 MT</span></div>
+        <div class="card"><span class="k">Lucro Líquido <span style="opacity:.6;">(receita − custos)</span></span><span class="v mono" id="metLucroLiquido">0 MT</span></div>
         <div class="card"><span class="k">CPA <span style="opacity:.6;">(blended)</span></span><span class="v mono" id="metCPA">—</span></div>
         <div class="card"><span class="k">ROAS <span style="opacity:.6;">(blended)</span></span><span class="v mono" id="metROAS">—</span></div>
       </div>
@@ -809,7 +810,7 @@
         <div class="card"><span class="k">Outros</span><span class="v mono" id="metGastoOutros">0 MT</span></div>
         <div class="card"><span class="k">Operacional</span><span class="v mono" id="metGastoOperacional">0 MT</span></div>
         <div class="card"><span class="k">Entrega <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoEntrega">0 MT</span></div>
-        <div class="card destaque"><span class="k">Total</span><span class="v mono" id="metGastoTotal">0 MT</span></div>
+        <div class="card destaque"><span class="k">Total de Custos</span><span class="v mono" id="metGastoTotal">0 MT</span></div>
       </div>
 
       <div class="chart-grid">
@@ -3075,7 +3076,7 @@ function renderMetricas(){
   const produtoFiltro = document.getElementById('metProduto').value.trim();
 
   if(!range){
-    ['metGastoAquisicao','metGastoAds','metGastoOutros','metGastoOperacional','metGastoEntrega','metGastoTotal','metReceita'].forEach(id=>document.getElementById(id).textContent='0 MT');
+    ['metGastoAquisicao','metGastoAds','metGastoOutros','metGastoOperacional','metGastoEntrega','metGastoTotal','metReceita','metLucroLiquido'].forEach(id=>document.getElementById(id).textContent='0 MT');
     document.getElementById('metVendasSub').textContent = '';
     document.getElementById('metCPA').textContent = '—';
     document.getElementById('metROAS').textContent = '—';
@@ -3118,6 +3119,10 @@ function renderMetricas(){
   document.getElementById('metGastoEntrega').textContent = fmtMT(gastoEntrega);
   document.getElementById('metGastoTotal').textContent = fmtMT(totalGasto);
   document.getElementById('metReceita').textContent = fmtMT(totalReceita);
+  const lucroLiquido = totalReceita - totalGasto;
+  const lucroEl = document.getElementById('metLucroLiquido');
+  lucroEl.textContent = fmtMT(lucroLiquido);
+  lucroEl.style.color = lucroLiquido>=0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('metVendasSub').textContent = '(' + nVendas + (nVendas===1 ? ' venda)' : ' vendas)');
   document.getElementById('metCPA').textContent = nVendas>0 ? fmtMT(gastoAds/nVendas) : '—';
   document.getElementById('metROAS').textContent = gastoAds>0 ? (totalReceita/gastoAds).toFixed(2) + 'x' : '—';
