@@ -2293,26 +2293,27 @@ function renderVendaTable(){
         </div></td>
       </tr>`).join('');
   }
-  renderSaidaProdutos();
-  renderEntregas();
 }
 
-function renderSaidaProdutos(){
-  const doSemana = vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && v.status==='concluido' && v.produto);
+// "Resumo da Semana" (Saída de Produtos / Entregas Concluídas) segue o mesmo filtro de data da
+// Visão Geral (drOverview) — não o da aba de semana do formulário — porque agora mora junto dos
+// outros dois painéis de Relatórios que já respondem a esse mesmo seletor de período
+function renderSaidaProdutos(dados){
+  const doPeriodo = dados.filter(v=>v.status==='concluido' && v.produto);
   const grupos = {};
-  doSemana.forEach(v=>{ grupos[v.produto] = (grupos[v.produto]||0) + (v.quantidade||0); });
+  doPeriodo.forEach(v=>{ grupos[v.produto] = (grupos[v.produto]||0) + (v.quantidade||0); });
   const produtos = Object.keys(grupos);
   const total = produtos.reduce((s,p)=>s+grupos[p],0);
   const tbody = document.getElementById('saidaProdutosBody');
-  if(produtos.length===0){ tbody.innerHTML = '<tr><td colspan="2" style="color:var(--sand-dimmer); font-size:12px;">Sem saídas concluídas nesta semana.</td></tr>'; return; }
+  if(produtos.length===0){ tbody.innerHTML = '<tr><td colspan="2" style="color:var(--sand-dimmer); font-size:12px;">Sem saídas concluídas neste período.</td></tr>'; return; }
   tbody.innerHTML = produtos.map(p=>`<tr><td>${escapeHtml(p)}</td><td class="mono">${grupos[p]}</td></tr>`).join('')
     + `<tr class="total-row"><td>Total</td><td class="mono">${total}</td></tr>`;
 }
 
-function renderEntregas(){
-  const doSemana = vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && v.status==='concluido' && v.delivery);
+function renderEntregas(dados){
+  const doPeriodo = dados.filter(v=>v.status==='concluido' && v.delivery);
   const grupos = {};
-  doSemana.forEach(v=>{
+  doPeriodo.forEach(v=>{
     if(!grupos[v.delivery]) grupos[v.delivery] = {count:0, total:0};
     grupos[v.delivery].count += 1;
     grupos[v.delivery].total += (v.comissao||0);
@@ -2321,7 +2322,7 @@ function renderEntregas(){
   const totalEntregas = entregadores.reduce((s,e)=>s+grupos[e].count,0);
   const totalPago = entregadores.reduce((s,e)=>s+grupos[e].total,0);
   const tbody = document.getElementById('entregasBody');
-  if(entregadores.length===0){ tbody.innerHTML = '<tr><td colspan="3" style="color:var(--sand-dimmer); font-size:12px;">Sem entregas concluídas nesta semana.</td></tr>'; return; }
+  if(entregadores.length===0){ tbody.innerHTML = '<tr><td colspan="3" style="color:var(--sand-dimmer); font-size:12px;">Sem entregas concluídas neste período.</td></tr>'; return; }
   tbody.innerHTML = entregadores.map(e=>`<tr><td>${escapeHtml(e)}</td><td class="mono">${grupos[e].count}</td><td class="mono">${fmtMT(grupos[e].total)}</td></tr>`).join('')
     + `<tr class="total-row"><td>Total</td><td class="mono">${totalEntregas}</td><td class="mono">${fmtMT(totalPago)}</td></tr>`;
 }
@@ -2743,6 +2744,8 @@ function renderOverview(){
 
   renderFonteChart(dados);
   renderProdutoChart(dados);
+  renderSaidaProdutos(dados);
+  renderEntregas(dados);
 }
 
 function renderFonteChart(dados){
