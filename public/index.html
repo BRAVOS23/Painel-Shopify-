@@ -811,8 +811,20 @@
           No admin da Shopify: <strong>Pedidos → Exportar → Todos os pedidos → CSV para o Excel, Numbers, etc.</strong> Esse ficheiro já vem com o status real de cada pedido (pago, cancelado) — os pedidos entram direto como Concluído/Cancelado, sem precisar clicar um por um. Reimportar um ficheiro mais recente atualiza o status dos pedidos que já tinha importado, sem duplicar.
         </p>
         <div class="toolbar">
-          <input type="file" id="shopifyNativeFile" style="flex:1; min-width:220px; color:var(--sand); font-size:13px;">
-          <button class="btn-ghost" onclick="importarCSVShopifyNativo()">Importar exportação da Shopify</button>
+          <input type="file" id="shopifyNativeFile" style="flex:1; min-width:220px; color:var(--sand); font-size:13px;" onchange="onShopifyFileEscolhido(this)">
+          <button class="btn-ghost" id="shopifyNativeImportBtn" onclick="importarCSVShopifyNativo()">Importar exportação da Shopify</button>
+        </div>
+        <div style="font-size:12px; color:var(--sand-dimmer); margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span>🔧 Mapeamento de campos do formulário de checkout: <span id="shopifyMapResumo" class="mono"></span></span>
+          <button type="button" class="btn-ghost" style="padding:4px 10px; font-size:11.5px;" onclick="abrirMapeamentoShopify()">Alterar mapeamento</button>
+        </div>
+        <div id="shopifyMapAviso" class="metricas-aviso" style="display:none; margin-top:12px;">
+          ⚠ O ficheiro escolhido tem campos diferentes do mapeamento guardado — confirme abaixo qual campo é qual antes de importar.
+        </div>
+        <div id="shopifyMapBox" style="display:none; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; margin-top:12px;"></div>
+        <div id="shopifyMapBoxActions" style="display:none; gap:10px; margin-top:12px;">
+          <button type="button" class="btn-primary" onclick="guardarMapeamentoShopify(true)">Guardar mapeamento e importar</button>
+          <button type="button" class="btn-ghost" onclick="cancelarMapeamentoShopify()">Cancelar</button>
         </div>
         <div id="shopifyNativeMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
       </div>
@@ -1619,6 +1631,111 @@ function parseNoteAttributes(raw){
   return mapa;
 }
 
+/* ============ MAPEAMENTO DE CAMPOS DO CHECKOUT (Shopify) ============ */
+// cada loja desenha o seu próprio formulário de checkout, então os nomes dos campos dentro de
+// "Note Attributes" mudam de loja pra loja (uma pode chamar "Contacto", outra "WhatsApp"). Em vez
+// de adivinhar às cegas, o painel descobre quais campos existem no ficheiro escolhido e deixa a
+// própria loja dizer, uma vez, qual é qual — depois disso fica guardado e nunca mais pergunta,
+// a não ser que o ficheiro mude (aí sim, é hora de perguntar de novo) ou a loja peça pra alterar.
+const SHOPIFY_MAP_KEY = 'lobo_shopify_field_map_v1';
+const SHOPIFY_MAP_CAMPOS = [
+  {key:'nome', label:'Nome do cliente'},
+  {key:'contacto', label:'Contacto / telefone'},
+  {key:'local', label:'Local de entrega'},
+  {key:'provincia', label:'Província'},
+  {key:'horario', label:'Horário de entrega'}
+];
+const SHOPIFY_MAP_SUGESTOES = {
+  nome: ['nome','nome completo','cliente','nome do cliente'],
+  contacto: ['contacto','contato','telefone','whatsapp','celular','número','numero'],
+  local: ['local de entrega','endereço de entrega','endereço','endereco','morada','bairro','local'],
+  provincia: ['província','provincia','cidade'],
+  horario: ['hora da entrega','horário da entrega','horário','horario','hora preferida','hora']
+};
+// mapeamento que já reflete exatamente como o painel lia esses campos antes desta funcionalidade
+// existir — garante que quem já usa o painel hoje não perde nada nem precisa configurar nada
+function shopifyMapPadrao(){
+  return {nome:'nome', contacto:'contacto', local:'local de entrega', provincia:'província', horario:'hora da entrega'};
+}
+function loadShopifyFieldMap(){
+  try{ return {...shopifyMapPadrao(), ...(JSON.parse(localStorage.getItem(SHOPIFY_MAP_KEY))||{})}; }
+  catch(e){ return shopifyMapPadrao(); }
+}
+function saveShopifyFieldMap(mapa){ localStorage.setItem(SHOPIFY_MAP_KEY, JSON.stringify(mapa)); }
+function sugerirChaveShopify(campo, chavesDisponiveis){
+  for(const s of (SHOPIFY_MAP_SUGESTOES[campo]||[])){ if(chavesDisponiveis.includes(s)) return s; }
+  return '';
+}
+// olha todas as linhas do ficheiro (não só a primeira) porque um pedido antigo pode não ter
+// preenchido todos os campos do formulário — a união de todas garante achar tudo que existe
+function descobrirChavesNotas(textoCSV){
+  const linhas = parseCSV(textoCSV).filter(r=>r.some(c=>String(c).trim()!==''));
+  if(linhas.length<2) return [];
+  const iNotas = linhas[0].indexOf('Note Attributes');
+  if(iNotas===-1) return [];
+  const chaves = new Set();
+  for(let i=1;i<linhas.length;i++){
+    Object.keys(parseNoteAttributes(linhas[i][iNotas])).forEach(k=>chaves.add(k));
+  }
+  return [...chaves].sort();
+}
+function mapeamentoCompativel(mapa, chavesDisponiveis){
+  return SHOPIFY_MAP_CAMPOS.every(c => !mapa[c.key] || chavesDisponiveis.includes(mapa[c.key]));
+}
+function renderShopifyMapResumo(){
+  const mapa = loadShopifyFieldMap();
+  const partes = SHOPIFY_MAP_CAMPOS.filter(c=>mapa[c.key]).map(c=>`${c.label}→"${mapa[c.key]}"`);
+  document.getElementById('shopifyMapResumo').textContent = partes.length ? partes.join(' · ') : 'nenhum campo mapeado ainda';
+}
+
+let shopifyChavesDescobertas = [];
+function onShopifyFileEscolhido(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    shopifyChavesDescobertas = descobrirChavesNotas(e.target.result);
+    if(shopifyChavesDescobertas.length && !mapeamentoCompativel(loadShopifyFieldMap(), shopifyChavesDescobertas)){
+      abrirMapeamentoShopify();
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+function abrirMapeamentoShopify(){
+  if(shopifyChavesDescobertas.length===0){
+    showShopifyNativeMsg('Escolha primeiro o ficheiro CSV exportado da Shopify, pra eu conseguir mostrar os campos que ele tem.', true);
+    return;
+  }
+  const mapaAtual = loadShopifyFieldMap();
+  const box = document.getElementById('shopifyMapBox');
+  box.innerHTML = SHOPIFY_MAP_CAMPOS.map(c=>{
+    const valorAtual = shopifyChavesDescobertas.includes(mapaAtual[c.key]) ? mapaAtual[c.key] : sugerirChaveShopify(c.key, shopifyChavesDescobertas);
+    const opcoes = ['<option value="">(não usar)</option>']
+      .concat(shopifyChavesDescobertas.map(k=>`<option value="${escapeHtml(k)}"${k===valorAtual?' selected':''}>${escapeHtml(k)}</option>`));
+    return `<div class="field"><label>${c.label}</label><select id="shopifyMap_${c.key}">${opcoes.join('')}</select></div>`;
+  }).join('');
+  box.style.display = 'grid';
+  document.getElementById('shopifyMapBoxActions').style.display = 'flex';
+  document.getElementById('shopifyMapAviso').style.display = 'block';
+  window.scrollTo({top: box.offsetTop - 20, behavior:'smooth'});
+}
+function guardarMapeamentoShopify(eImportarDepois){
+  const mapa = {};
+  SHOPIFY_MAP_CAMPOS.forEach(c=>{ mapa[c.key] = document.getElementById('shopifyMap_'+c.key).value; });
+  saveShopifyFieldMap(mapa);
+  document.getElementById('shopifyMapBox').style.display = 'none';
+  document.getElementById('shopifyMapBoxActions').style.display = 'none';
+  document.getElementById('shopifyMapAviso').style.display = 'none';
+  renderShopifyMapResumo();
+  showShopifyNativeMsg('Mapeamento guardado.');
+  if(eImportarDepois) importarCSVShopifyNativo();
+}
+function cancelarMapeamentoShopify(){
+  document.getElementById('shopifyMapBox').style.display = 'none';
+  document.getElementById('shopifyMapBoxActions').style.display = 'none';
+  document.getElementById('shopifyMapAviso').style.display = 'none';
+}
+
 // Semana 1-4 é um agrupamento manual dentro do mês (não ligado a datas reais) — como um pedido
 // histórico não tem essa informação, cai numa semana por padrão a partir do dia do mês; dá pra
 // mover manualmente depois ("Mover p/...") se não bater com o seu jeito de organizar
@@ -1654,6 +1771,11 @@ function importarCSVShopifyNativo(){
       const nomeCanonicoPorProduto = {};
       produtosData.forEach(p=>{ nomeCanonicoPorProduto[normalizarNomeProduto(p.nome)] = p.nome; });
 
+      // qual atributo do Note Attributes corresponde a cada campo — configurável por loja, porque
+      // o formulário de checkout de cada uma usa nomes diferentes (ver "Alterar mapeamento" acima)
+      const mapaCampos = loadShopifyFieldMap();
+      const campoMapeado = (notas, campo) => mapaCampos[campo] ? String(notas[mapaCampos[campo]]||'').trim() : '';
+
       let novos = 0, atualizados = 0;
       const naoReconhecidos = new Set();
 
@@ -1678,22 +1800,22 @@ function importarCSVShopifyNativo(){
         }
 
         const notas = parseNoteAttributes(cols[iNotas]);
-        const nome = notas['nome'] || String(cols[iShipName]||'').replace(/\s*-\s*$/,'').trim();
+        const nome = campoMapeado(notas,'nome') || String(cols[iShipName]||'').replace(/\s*-\s*$/,'').trim();
         // muitos pedidos têm DOIS números diferentes: o que o cliente escreveu no formulário do
-        // checkout (Note Attributes "Contacto") e o número da própria conta/entrega da Shopify —
+        // checkout (campo mapeado como "contacto") e o número da própria conta/entrega da Shopify —
         // quando divergem, guarda os dois (separados por "/") em vez de descartar um deles, senão
         // um contacto de entrega válido acaba perdido silenciosamente
-        const telContacto = String(notas['contacto']||'').trim();
+        const telContacto = campoMapeado(notas,'contacto');
         const telShip = String(cols[iShipPhone]||'').trim();
         const so9digitos = s => s.replace(/\D/g,'').slice(-9);
         let telefone = telContacto || telShip;
         if(telContacto && telShip && so9digitos(telContacto)!==so9digitos(telShip)){
           telefone = telContacto + ' / ' + telShip;
         }
-        const provincia = notas['província'] || notas['provincia'] || '';
-        const localBase = notas['local de entrega'] || '';
+        const provincia = campoMapeado(notas,'provincia');
+        const localBase = campoMapeado(notas,'local');
         const local = provincia ? (localBase ? localBase+', '+provincia : provincia) : localBase;
-        const horario = normalizeHorario(notas['hora da entrega'] || '');
+        const horario = normalizeHorario(campoMapeado(notas,'horario'));
 
         const createdRaw = String(cols[iCreated]||'').trim();
         const data = createdRaw ? createdRaw.slice(0,10) : drISO(new Date());
@@ -3658,6 +3780,7 @@ loadVendas();
 loadAdSpend();
 loadProdutos();
 loadOperacional();
+renderShopifyMapResumo();
 
 // repara dados já guardados de antes da correção do uid() (Date.now() podia colidir ao importar
 // muitos registos de uma vez, ex: um CSV com 40+ pedidos) — sem isto, quem já tinha registos com
