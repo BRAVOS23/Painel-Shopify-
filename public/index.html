@@ -1141,10 +1141,14 @@ function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s
 
 /* ============ CONTACTO CLICÁVEL (ligar / SMS / WhatsApp) ============ */
 // o campo "contacto" é texto livre (nome + número juntos, ex: "Felizarda 865460006") — não há um
-// campo de telefone separado, então aqui procura-se uma sequência de dígitos que pareça um número
-function extrairTelefone(contacto){
-  const m = (contacto||'').match(/(\+?\d[\d\s-]{6,}\d)/);
-  return m ? m[1].replace(/[\s-]/g,'') : null;
+// campo de telefone separado, então aqui procura-se toda sequência de dígitos que pareça um número.
+// Alguns pedidos importados da Shopify têm DOIS números (o que o cliente escreveu no formulário do
+// checkout + o número da conta/entrega da própria Shopify, quando são diferentes) — por isso devolve
+// uma lista, não só o primeiro que encontrar, e cada um vira o seu próprio grupo de ícones.
+function extrairTelefones(contacto){
+  const brutos = String(contacto||'').match(/(\+?\d[\d\s-]{6,}\d)/g) || [];
+  const limpos = brutos.map(n=>n.replace(/[\s-]/g,'')).filter(n=>n.length>=8);
+  return [...new Set(limpos)].slice(0,2);
 }
 // tel:/sms:/wa.me precisam do número em formato internacional; números moçambicanos costumam vir
 // só com os 9 dígitos locais (ex: 865460006) — nesse caso prefixa-se o 258, senão usa-se como está
@@ -1154,19 +1158,22 @@ function telInternacional(numero){
   if(!d.startsWith('258') && d.length===9) d = '258'+d;
   return d;
 }
-// devolve o texto do contacto já com os ícones de ligar/SMS/WhatsApp ao lado, se conseguir achar
-// um número nele — o stopPropagation evita que clicar num ícone dispare outra coisa por cima (ex:
-// o card recolher/expandir no mobile) quando este HTML está dentro de um elemento clicável maior
+// devolve o texto do contacto já com os ícones de ligar/SMS/WhatsApp ao lado de cada número que
+// conseguir achar nele — o stopPropagation evita que clicar num ícone dispare outra coisa por cima
+// (ex: o card recolher/expandir no mobile) quando este HTML está dentro de um elemento clicável maior
 function contactoComAcoes(contacto){
   const texto = escapeHtml(contacto || 'Sem contacto');
-  const tel = extrairTelefone(contacto);
-  if(!tel) return texto;
-  const intl = telInternacional(tel);
-  return `${texto}<span class="contacto-acoes" onclick="event.stopPropagation()">`
-    + `<a href="tel:+${intl}" title="Ligar">📞</a>`
-    + `<a href="sms:+${intl}" title="Enviar SMS">💬</a>`
-    + `<a href="https://wa.me/${intl}" target="_blank" rel="noopener" title="Abrir no WhatsApp">🟢</a>`
-    + `</span>`;
+  const tels = extrairTelefones(contacto);
+  if(tels.length===0) return texto;
+  const grupos = tels.map(tel=>{
+    const intl = telInternacional(tel);
+    return `<span class="contacto-acoes" onclick="event.stopPropagation()">`
+      + `<a href="tel:+${intl}" title="Ligar para ${tel}">📞</a>`
+      + `<a href="sms:+${intl}" title="Enviar SMS para ${tel}">💬</a>`
+      + `<a href="https://wa.me/${intl}" target="_blank" rel="noopener" title="Abrir WhatsApp com ${tel}">🟢</a>`
+      + `</span>`;
+  }).join('');
+  return texto + grupos;
 }
 
 /* ============ TEMA CLARO / ESCURO ============ */
@@ -1672,7 +1679,17 @@ function importarCSVShopifyNativo(){
 
         const notas = parseNoteAttributes(cols[iNotas]);
         const nome = notas['nome'] || String(cols[iShipName]||'').replace(/\s*-\s*$/,'').trim();
-        const telefone = notas['contacto'] || String(cols[iShipPhone]||'').trim();
+        // muitos pedidos têm DOIS números diferentes: o que o cliente escreveu no formulário do
+        // checkout (Note Attributes "Contacto") e o número da própria conta/entrega da Shopify —
+        // quando divergem, guarda os dois (separados por "/") em vez de descartar um deles, senão
+        // um contacto de entrega válido acaba perdido silenciosamente
+        const telContacto = String(notas['contacto']||'').trim();
+        const telShip = String(cols[iShipPhone]||'').trim();
+        const so9digitos = s => s.replace(/\D/g,'').slice(-9);
+        let telefone = telContacto || telShip;
+        if(telContacto && telShip && so9digitos(telContacto)!==so9digitos(telShip)){
+          telefone = telContacto + ' / ' + telShip;
+        }
         const provincia = notas['província'] || notas['provincia'] || '';
         const localBase = notas['local de entrega'] || '';
         const local = provincia ? (localBase ? localBase+', '+provincia : provincia) : localBase;
