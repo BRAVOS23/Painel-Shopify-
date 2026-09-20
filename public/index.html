@@ -600,6 +600,7 @@
     <div class="subnav">
       <button id="subnavVendasPedidos" class="active" onclick="switchVendasView('pedidos')">Pedidos</button>
       <button id="subnavVendasRelatorios" onclick="switchVendasView('relatorios')">Relatórios</button>
+      <button id="subnavVendasMeses" onclick="switchVendasView('meses')">Meses Anteriores</button>
       <button id="subnavVendasConfig" onclick="switchVendasView('config')">Configurações</button>
     </div>
 
@@ -769,9 +770,26 @@
       </div>
     </div>
 
+    <div id="vendasViewMeses" class="subview">
+      <div class="panel">
+        <h2>Meses Anteriores <span class="tag">pedidos de meses já fechados, só para consulta</span></h2>
+        <div class="subtabs" id="mesesPassadosTabs"></div>
+        <div class="subtabs" id="semanaHistTabs"></div>
+        <div class="toolbar">
+          <input type="text" id="histBusca" placeholder="Buscar contacto, local ou produto…" oninput="renderHistoricoMesTable()">
+          <button class="btn-ghost" onclick="exportHistoricoMesCSV()">Exportar CSV</button>
+        </div>
+        <table class="responsive-table">
+          <thead><tr><th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th></tr></thead>
+          <tbody id="histTableBody"></tbody>
+        </table>
+        <div class="empty" id="histEmpty" style="display:none;">Nenhum registo neste mês/semana.</div>
+      </div>
+    </div>
+
     <div id="vendasViewConfig" class="subview">
       <div class="panel panel-slim">
-        <h2>Backup dos Dados <span class="tag">guardar/restaurar um ficheiro no telemóvel</span></h2>
+        <h2>Backup dos Dados <span class="tag">salvar uma cópia de segurança ou restaurar a partir de um ficheiro</span></h2>
         <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
           Os dados deste painel ficam só neste navegador — se limpar os dados do navegador ou trocar de telemóvel, perde tudo. Exporte um backup de vez em quando e guarde o ficheiro num lugar seguro (Google Drive, WhatsApp pra si mesmo, etc.).
         </p>
@@ -784,31 +802,9 @@
       </div>
 
       <div class="panel panel-slim">
-        <h2>Meses anteriores <span class="tag">consultar histórico por mês</span></h2>
-        <div class="toolbar">
-          <div class="historico-toggle" id="historicoMesesToggle" onclick="toggleHistoricoMeses()" style="margin:0;">
-            <span class="chev">▶</span> Ver meses anteriores
-          </div>
-        </div>
-        <div id="historicoMesesBody" style="display:none; margin-top:16px;">
-          <div class="subtabs" id="mesesPassadosTabs"></div>
-          <div class="subtabs" id="semanaHistTabs"></div>
-          <div class="toolbar">
-            <input type="text" id="histBusca" placeholder="Buscar contacto, local ou produto…" oninput="renderHistoricoMesTable()">
-            <button class="btn-ghost" onclick="exportHistoricoMesCSV()">Exportar CSV</button>
-          </div>
-          <table class="responsive-table">
-            <thead><tr><th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th></tr></thead>
-            <tbody id="histTableBody"></tbody>
-          </table>
-          <div class="empty" id="histEmpty" style="display:none;">Nenhum registo neste mês/semana.</div>
-        </div>
-      </div>
-
-      <div class="panel panel-slim">
-        <h2>Sincronizar com a Shopify <span class="tag" id="shopifyStatusTag">não conectado</span></h2>
+        <h2>Sincronização automática com a Shopify <span class="tag" id="shopifyStatusTag">não conectado</span></h2>
         <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
-          Cole aqui o link do seu Apps Script (com <code>?token=...</code>). Isso traz os pedidos reais da Shopify — com produto certinho — e também manda de volta pra Shopify quando você marcar Concluído ou Cancelado no painel.
+          Opcional e avançado — pula o passo de exportar/importar CSV toda vez. Cole aqui o link do seu Apps Script (termina em <code>?token=...</code>) e clique em "Sincronizar agora" sempre que quiser buscar os pedidos novos. Isso também manda o status de volta pra Shopify quando você marcar Concluído ou Cancelado aqui no painel. Se ainda não configurou um Apps Script, ignore esta seção e use a importação por CSV logo abaixo — não precisa de nenhuma configuração técnica.
         </p>
         <div class="toolbar">
           <input type="text" id="shopifyApiUrl" placeholder="https://script.google.com/macros/s/…/exec?token=…" style="flex:1; min-width:260px;">
@@ -818,7 +814,7 @@
       </div>
 
       <div class="panel panel-slim">
-        <h2>Importar exportação nativa da Shopify <span class="tag">já traz o status certo (pago/cancelado)</span></h2>
+        <h2>Importar exportação nativa da Shopify <span class="tag">a forma mais simples — sem configuração</span></h2>
         <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
           No admin da Shopify: <strong>Pedidos → Exportar → Todos os pedidos → CSV para o Excel, Numbers, etc.</strong> Esse ficheiro já vem com o status real de cada pedido (pago, cancelado) — os pedidos entram direto como Concluído/Cancelado, sem precisar clicar um por um. Reimportar um ficheiro mais recente atualiza o status dos pedidos que já tinha importado, sem duplicar.
         </p>
@@ -1278,11 +1274,15 @@ function switchMain(which){
 function switchVendasView(which){
   document.getElementById('vendasViewPedidos').classList.toggle('active', which==='pedidos');
   document.getElementById('vendasViewRelatorios').classList.toggle('active', which==='relatorios');
+  document.getElementById('vendasViewMeses').classList.toggle('active', which==='meses');
   document.getElementById('vendasViewConfig').classList.toggle('active', which==='config');
   document.getElementById('subnavVendasPedidos').classList.toggle('active', which==='pedidos');
   document.getElementById('subnavVendasRelatorios').classList.toggle('active', which==='relatorios');
+  document.getElementById('subnavVendasMeses').classList.toggle('active', which==='meses');
   document.getElementById('subnavVendasConfig').classList.toggle('active', which==='config');
+  historicoMesesAberto = which==='meses';
   if(which==='relatorios') renderOverview();
+  if(which==='meses') renderHistoricoMeses();
 }
 
 function switchMetricasView(which){
@@ -1993,17 +1993,6 @@ function definirMesVendas(){
 let historicoMesesAberto = false;
 let mesHistoricoSelecionado = '';
 let semanaHistoricoSelecionada = 'semana1';
-
-function toggleHistoricoMeses(){
-  historicoMesesAberto = !historicoMesesAberto;
-  const toggle = document.getElementById('historicoMesesToggle');
-  toggle.classList.toggle('open', historicoMesesAberto);
-  toggle.innerHTML = historicoMesesAberto
-    ? '<span class="chev">▶</span> Ocultar meses anteriores'
-    : '<span class="chev">▶</span> Ver meses anteriores';
-  document.getElementById('historicoMesesBody').style.display = historicoMesesAberto ? 'block' : 'none';
-  if(historicoMesesAberto) renderHistoricoMeses();
-}
 
 function getMesesPassados(){
   const set = new Set(vendasData.map(v=>v.mes));
