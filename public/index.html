@@ -848,9 +848,9 @@
 
     <div class="subnav">
       <button id="subnavMetResultados" class="active" onclick="switchMetricasView('resultados')">Resultados</button>
-      <button id="subnavMetGastos" onclick="switchMetricasView('gastos')">Ver Gastos</button>
-      <button id="subnavMetProdutos" onclick="switchMetricasView('produtos')">Produtos</button>
       <button id="subnavMetCadastros" onclick="switchMetricasView('cadastros')">Cadastros</button>
+      <button id="subnavMetProdutos" onclick="switchMetricasView('produtos')">Produtos</button>
+      <button id="subnavMetGastos" onclick="switchMetricasView('gastos')">Histórico de Gastos</button>
     </div>
 
     <div id="metricasViewResultados" class="subview active">
@@ -908,43 +908,6 @@
     </div>
 
     <div id="metricasViewCadastros" class="subview">
-    <div class="panel">
-      <h2>Produtos <span class="tag">custo de aquisição por unidade — entra sozinho no ROI</span></h2>
-      <form id="produtoForm">
-        <div class="field span3">
-          <label for="pNome">Nome do produto</label>
-          <input type="text" id="pNome" list="produtosExistentes" placeholder="Ex: Selante" required>
-          <datalist id="produtosExistentes"></datalist>
-        </div>
-        <div class="field span2">
-          <label for="pCusto">Custo de aquisição (MT/unidade)</label>
-          <input type="number" id="pCusto" min="0" step="0.01" placeholder="0.00" required>
-        </div>
-        <div class="field" style="align-items:flex-start; min-width:0;">
-          <label for="pFoto">Foto</label>
-          <div style="display:flex; align-items:center; gap:8px; min-width:0; max-width:100%;">
-            <img id="pFotoPreview" style="display:none; width:38px; height:38px; object-fit:cover; border-radius:8px; border:1px solid var(--panel-line); flex-shrink:0;">
-            <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim); min-width:0; max-width:100%;">
-          </div>
-        </div>
-        <div class="field span2">
-          <label for="pEstoque">Unidades em stock</label>
-          <input type="number" id="pEstoque" min="0" step="1" placeholder="0">
-        </div>
-        <div class="field span3">
-          <label for="pLocal">Onde está guardado <span style="text-transform:none; opacity:.7;">(opcional)</span></label>
-          <input type="text" id="pLocal" placeholder="Ex: Armazém Matola, Casa…">
-        </div>
-        <div class="field" style="grid-column:1/-1; flex-direction:row; align-items:center; gap:10px;">
-          <button type="submit" class="btn-primary" id="produtoSubmitBtn">Guardar</button>
-          <button type="button" class="btn-ghost" id="produtoCancelEdit" style="display:none;" onclick="cancelProdutoEdit()">Cancelar</button>
-        </div>
-        <div id="produtoMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
-      </form>
-
-      <button type="button" class="btn-ghost" style="margin-top:16px;" onclick="switchMetricasView('produtos')">📦 Ver catálogo de produtos e stock →</button>
-    </div>
-
     <div class="panel">
       <h2>Gastos com Ads <span class="tag">a receita já vem das vendas concluídas</span></h2>
       <form id="adForm">
@@ -1084,6 +1047,41 @@
     </div>
 
     <div id="metricasViewProdutos" class="subview">
+    <div class="panel">
+      <h2>Produtos <span class="tag">custo de aquisição por unidade — entra sozinho no ROI</span></h2>
+      <form id="produtoForm">
+        <div class="field span3">
+          <label for="pNome">Nome do produto</label>
+          <input type="text" id="pNome" list="produtosExistentes" placeholder="Ex: Selante" required>
+          <datalist id="produtosExistentes"></datalist>
+        </div>
+        <div class="field span2">
+          <label for="pCusto">Custo de aquisição (MT/unidade)</label>
+          <input type="number" id="pCusto" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field" style="align-items:flex-start; min-width:0;">
+          <label for="pFoto">Foto</label>
+          <div style="display:flex; align-items:center; gap:8px; min-width:0; max-width:100%;">
+            <img id="pFotoPreview" style="display:none; width:38px; height:38px; object-fit:cover; border-radius:8px; border:1px solid var(--panel-line); flex-shrink:0;">
+            <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim); min-width:0; max-width:100%;">
+          </div>
+        </div>
+        <div class="field span2">
+          <label for="pEstoque">Unidades em stock</label>
+          <input type="number" id="pEstoque" min="0" step="1" placeholder="0">
+        </div>
+        <div class="field span3">
+          <label for="pLocal">Onde está guardado <span style="text-transform:none; opacity:.7;">(opcional)</span></label>
+          <input type="text" id="pLocal" placeholder="Ex: Armazém Matola, Casa…">
+        </div>
+        <div class="field" style="grid-column:1/-1; flex-direction:row; align-items:center; gap:10px;">
+          <button type="submit" class="btn-primary" id="produtoSubmitBtn">Guardar</button>
+          <button type="button" class="btn-ghost" id="produtoCancelEdit" style="display:none;" onclick="cancelProdutoEdit()">Cancelar</button>
+        </div>
+        <div id="produtoMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
+      </form>
+    </div>
+
     <div class="panel">
       <h2>Catálogo de Produtos <span class="tag">stock e valor total em mercadoria</span></h2>
       <div class="toolbar">
@@ -3016,7 +3014,7 @@ function editProduto(id){
   const p = produtosData.find(x=>x.id===id);
   if(!p) return;
   switchMain('metricas');
-  switchMetricasView('cadastros');
+  switchMetricasView('produtos');
   document.getElementById('pNome').value = p.nome;
   document.getElementById('pCusto').value = p.custo;
   document.getElementById('pEstoque').value = p.estoque||0;
@@ -3326,7 +3324,7 @@ function toggleOutroHist(){
 }
 
 const TIPO_GASTO_LABEL = {aquisicao:'Aquisição', ads:'Ads', outros:'Outros'};
-// nome de exibição de um gasto qualquer (ads/outros/operacional), usado na lista unificada "Ver Gastos"
+// nome de exibição de um gasto qualquer (ads/outros/operacional), usado na lista unificada "Histórico de Gastos"
 function nomeGasto(a){
   if(a.tipo==='ads') return a.produto ? ('Ads — '+a.produto) : 'Ads (geral)';
   if(a.tipo==='outros') return a.nome || 'Outros';
@@ -3529,7 +3527,7 @@ function renderMetricas(){
   const avisoEl = document.getElementById('metAvisoProduto');
   if(vendasSemProdutoCadastrado>0){
     avisoEl.style.display = 'flex';
-    avisoEl.textContent = '⚠ ' + vendasSemProdutoCadastrado + (vendasSemProdutoCadastrado===1 ? ' venda concluída tem' : ' vendas concluídas têm') + ' um produto sem custo cadastrado — o custo do produto dessa(s) venda(s) entrou como 0 MT no ROI. Cadastre o produto em "Cadastros" para corrigir.';
+    avisoEl.textContent = '⚠ ' + vendasSemProdutoCadastrado + (vendasSemProdutoCadastrado===1 ? ' venda concluída tem' : ' vendas concluídas têm') + ' um produto sem custo cadastrado — o custo do produto dessa(s) venda(s) entrou como 0 MT no ROI. Cadastre o produto em "Produtos" para corrigir.';
   } else {
     avisoEl.style.display = 'none';
   }
