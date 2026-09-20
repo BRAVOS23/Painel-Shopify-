@@ -724,18 +724,10 @@
 
       <div class="panel">
         <h2>Análise <span class="tag">mesmo período do filtro acima</span></h2>
-        <div class="chart-grid">
-          <div class="chart-card">
-            <div class="chart-card-title">Pedidos por fonte de aquisição</div>
-            <div class="chart-canvas-wrap"><canvas id="fonteChart"></canvas>
-              <div id="fonteChartEmpty" class="chart-empty" style="display:none;">Sem pedidos neste período.</div>
-            </div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-card-title">Unidades vendidas por produto</div>
-            <div class="chart-canvas-wrap"><canvas id="produtoChart"></canvas>
-              <div id="produtoChartEmpty" class="chart-empty" style="display:none;">Sem vendas concluídas neste período.</div>
-            </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Pedidos por fonte de aquisição</div>
+          <div class="chart-canvas-wrap"><canvas id="fonteChart"></canvas>
+            <div id="fonteChartEmpty" class="chart-empty" style="display:none;">Sem pedidos neste período.</div>
           </div>
         </div>
       </div>
@@ -2743,7 +2735,6 @@ function renderOverview(){
   document.getElementById('ovConversao').textContent = conversao + '%';
 
   renderFonteChart(dados);
-  renderProdutoChart(dados);
   renderSaidaProdutos(dados);
   renderEntregas(dados);
 }
@@ -2779,55 +2770,6 @@ function renderFonteChart(dados){
         plugins:{
           legend:{ position:'right', labels:chartLegendStyle({font:{size:11}}) },
           tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ' ' + ctx.label + ': ' + ctx.raw + ' (' + (ctx.raw/total*100).toFixed(0) + '%)' } }
-        }
-      }
-    });
-  });
-}
-
-function renderProdutoChart(dados){
-  const canvas = document.getElementById('produtoChart');
-  const emptyEl = document.getElementById('produtoChartEmpty');
-  const grupos = {};
-  dados.filter(v=>v.status==='concluido' && v.produto).forEach(v=>{ grupos[v.produto] = (grupos[v.produto]||0) + (v.quantidade||0); });
-  let produtos = Object.keys(grupos).map(p=>({produto:p, unidades:grupos[p]})).sort((a,b)=>b.unidades-a.unidades);
-
-  if(produtos.length===0){
-    canvas.style.display='none'; emptyEl.style.display='block';
-    if(produtoChart){ produtoChart.destroy(); produtoChart=null; }
-    return;
-  }
-  canvas.style.display='block'; emptyEl.style.display='none';
-  if(chartLibIndisponivel(canvas, emptyEl)) return;
-
-  const TOP_N = 8;
-  let cores = produtos.slice(0,TOP_N).map(()=>cssVar('--cat-1'));
-  if(produtos.length>TOP_N){
-    const outros = produtos.slice(TOP_N).reduce((s,p)=>s+p.unidades,0);
-    produtos = produtos.slice(0,TOP_N).concat([{produto:'Outros', unidades:outros}]);
-    cores.push(cssVar('--cat-muted'));
-  }
-
-  requestAnimationFrame(()=>{
-    // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
-    if(produtoChart){ produtoChart.destroy(); produtoChart=null; }
-    produtoChart = new Chart(canvas, {
-      type:'bar',
-      data:{
-        labels: produtos.map(p=>p.produto),
-        datasets:[{ data: produtos.map(p=>p.unidades), backgroundColor: cores, borderRadius:6, borderSkipped:false, maxBarThickness:22 }]
-      },
-      options:{
-        indexAxis:'y',
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{
-          legend:{ display:false },
-          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ctx.raw + ' unidade' + (ctx.raw===1?'':'s') } }
-        },
-        scales:{
-          x:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55), precision:0 }, grid:{ ...chartGridStyle(0.07), borderDash:[3,4] } },
-          y:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.7), font:{size:11.5} }, grid:{ display:false } }
         }
       }
     });
@@ -2944,7 +2886,6 @@ let metChart = null;
 let metCostChart = null;
 let fluxoChart = null;
 let fonteChart = null;
-let produtoChart = null;
 
 /* mapa fixo de cores por fonte — mesma cor sempre pra mesma fonte, mesmo se filtrar/mudar período */
 const FONTE_COLOR = {
