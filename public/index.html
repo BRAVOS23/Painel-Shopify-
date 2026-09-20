@@ -380,7 +380,6 @@
   }
   .pedido-date-label.hoje{ color:var(--gold); }
   .pedido-date-label.hoje::before{ content:"● "; }
-  .pdf-dia-btn{ text-transform:none; letter-spacing:0; font-size:11.5px; padding:5px 10px; }
 
   /* cartões de pedido (Pedidos da Semana) */
   .pedido-card{
@@ -2243,7 +2242,6 @@ function renderPedidos(){
     return `<div class="pedido-group">
       <div class="pedido-date-label${isHoje?' hoje':''}">
         <span>${label}</span>
-        ${modoSelecaoPedidos ? '' : `<button class="btn-ghost pdf-dia-btn" onclick="gerarPDFPedidosData('${d}')">📄 PDF do dia (${rows.length})</button>`}
       </div>
       ${cardsHtml}
     </div>`;
@@ -3199,23 +3197,6 @@ function gerarPDFPedido(id){
   desenharPedidoPDF(doc, v, 20);
   const nomeFicheiro = 'pedido-' + (v.contacto||'sem-nome').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.pdf';
   doc.save(nomeFicheiro);
-}
-
-function gerarPDFPedidosData(dataStr){
-  if(typeof jspdf==='undefined'){ alert('Não consegui carregar a biblioteca de PDF — confira sua ligação à internet e tente de novo.'); return; }
-  const pedidos = vendasData.filter(v=> v.data===dataStr && (v.status==='pendente' || v.status==='remarcado'))
-    .sort((a,b)=> (a.horario||'99:99').localeCompare(b.horario||'99:99'));
-  if(pedidos.length===0){ alert('Nenhum pedido em aberto nesse dia.'); return; }
-  const doc = new jspdf.jsPDF();
-  doc.setFontSize(15);
-  doc.setFont(undefined,'bold');
-  doc.text('Pedidos — ' + fmtData(dataStr), 20, 16);
-  let y = 26;
-  pedidos.forEach(v=>{
-    if(y > 245){ doc.addPage(); y = 20; }
-    y = desenharPedidoPDF(doc, v, y);
-  });
-  doc.save('pedidos-' + dataStr + '.pdf');
 }
 
 /* ---- Gastos Operacionais ---- */
