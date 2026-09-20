@@ -394,6 +394,14 @@
   .pedido-contacto{ font-size:15px; font-weight:600; color:var(--sand); margin-bottom:3px; }
   .pedido-detalhes{ font-size:12.5px; color:var(--sand-dim); line-height:1.5; }
   .pedido-expand-chev{ display:none; font-size:11px; color:var(--sand-dimmer); transition:transform .2s; }
+  /* modo de seleção pra exportar só alguns pedidos em PDF (em vez de todos os do dia) */
+  .pedido-card.selecionavel{ cursor:pointer; }
+  .pedido-card.selecionado{ border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-soft); }
+  .pedido-checkbox{
+    display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+    border-radius:6px; border:2px solid var(--sand-dimmer); flex-shrink:0; transition:background .12s, border-color .12s;
+  }
+  .pedido-checkbox.checked{ background:var(--brand); border-color:var(--brand); color:var(--on-brand); font-size:13px; font-weight:700; }
   /* número clicável — ícones de ligar/SMS/WhatsApp ao lado do contacto, onde quer que apareça */
   .contacto-acoes{ display:inline-flex; gap:4px; margin-left:8px; vertical-align:middle; }
   .contacto-acoes a{
@@ -686,6 +694,16 @@
 
       <div class="panel panel-highlight">
         <h2>Pedidos da Semana <span class="tag" id="pedidosTag"></span></h2>
+        <div class="toolbar" style="margin-bottom:14px;">
+          <div class="filters">
+            <button type="button" class="btn-ghost" id="pedidosSelecaoBtn" onclick="toggleModoSelecaoPedidos()">☑ Selecionar para PDF</button>
+          </div>
+          <div id="pedidosSelecaoBar" style="display:none; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span id="pedidosSelecaoCount" class="mono" style="font-size:12.5px; color:var(--sand-dim);"></span>
+            <button type="button" class="btn-primary" style="padding:8px 14px; font-size:12.5px;" onclick="exportarPDFSelecionados()">📄 Exportar em PDF</button>
+            <button type="button" class="btn-ghost" style="padding:8px 14px; font-size:12.5px;" onclick="cancelarModoSelecaoPedidos()">Cancelar</button>
+          </div>
+        </div>
         <div id="pedidosBody"></div>
         <div class="empty" id="pedidosEmpty" style="display:none;">Nenhum pedido em aberto nesta semana.</div>
       </div>
@@ -2082,7 +2100,13 @@ function renderSemanaTabs(){
   const lbl = SEMANAS.find(s=>s.key===semanaAtiva).label;
   document.getElementById('semanaAtivaTag').textContent = lbl;
 }
-function selecionarSemana(key){ semanaAtiva = key; renderVendasAll(); }
+function selecionarSemana(key){
+  semanaAtiva = key;
+  // sai do modo de seleção ao trocar de semana — selecionar pedidos de semanas diferentes pro
+  // mesmo PDF não é o caso de uso pedido, e deixar "vazando" seleção de uma semana pra outra confundia
+  if(modoSelecaoPedidos){ modoSelecaoPedidos = false; pedidosSelecionadosPDF.clear(); }
+  renderVendasAll();
+}
 
 function getVendasFiltradas(){
   const status = document.getElementById('filtroStatus').value;
@@ -2105,11 +2129,55 @@ function togglePedidoCard(id){
   renderPedidos();
 }
 
+/* modo de seleção — escolher só alguns pedidos (em vez de todos os de um dia) pra juntar num PDF só */
+let modoSelecaoPedidos = false;
+let pedidosSelecionadosPDF = new Set();
+function toggleModoSelecaoPedidos(){
+  modoSelecaoPedidos = !modoSelecaoPedidos;
+  if(!modoSelecaoPedidos) pedidosSelecionadosPDF.clear();
+  renderPedidos();
+}
+function cancelarModoSelecaoPedidos(){
+  modoSelecaoPedidos = false;
+  pedidosSelecionadosPDF.clear();
+  renderPedidos();
+}
+function toggleSelecaoPedido(id){
+  if(pedidosSelecionadosPDF.has(id)) pedidosSelecionadosPDF.delete(id); else pedidosSelecionadosPDF.add(id);
+  renderPedidos();
+}
+function exportarPDFSelecionados(){
+  if(typeof jspdf==='undefined'){ alert('Não consegui carregar a biblioteca de PDF — confira sua ligação à internet e tente de novo.'); return; }
+  if(pedidosSelecionadosPDF.size===0){ alert('Selecione pelo menos um pedido primeiro.'); return; }
+  const pedidos = vendasData.filter(v=>pedidosSelecionadosPDF.has(v.id))
+    .sort((a,b)=> a.data===b.data ? (a.horario||'99:99').localeCompare(b.horario||'99:99') : a.data.localeCompare(b.data));
+  const doc = new jspdf.jsPDF();
+  doc.setFontSize(15);
+  doc.setFont(undefined,'bold');
+  doc.text('Pedidos selecionados (' + pedidos.length + ')', 20, 16);
+  let y = 26;
+  pedidos.forEach(v=>{
+    if(y > 245){ doc.addPage(); y = 20; }
+    y = desenharPedidoPDF(doc, v, y);
+  });
+  doc.save('pedidos-selecionados-' + drISO(new Date()) + '.pdf');
+  cancelarModoSelecaoPedidos();
+}
+
 function renderPedidos(){
   const list = getPedidosAtivos();
   const cont = document.getElementById('pedidosBody');
   const empty = document.getElementById('pedidosEmpty');
   const tag = document.getElementById('pedidosTag');
+
+  const btnSelecao = document.getElementById('pedidosSelecaoBtn');
+  const barSelecao = document.getElementById('pedidosSelecaoBar');
+  btnSelecao.textContent = modoSelecaoPedidos ? '✕ Sair da seleção' : '☑ Selecionar para PDF';
+  barSelecao.style.display = modoSelecaoPedidos ? 'flex' : 'none';
+  if(modoSelecaoPedidos){
+    const n = pedidosSelecionadosPDF.size;
+    document.getElementById('pedidosSelecaoCount').textContent = n + (n===1 ? ' pedido selecionado' : ' pedidos selecionados');
+  }
 
   if(list.length===0){
     cont.innerHTML = '';
@@ -2135,13 +2203,18 @@ function renderPedidos(){
       const produtoValor = [v.produto ? (v.produto + (v.quantidade>1?' ×'+v.quantidade:'')) : null, v.valor?fmtMT(v.valor):null]
         .filter(Boolean).join(' · ');
       const expandido = pedidosExpandidos.has(v.id);
+      const selecionado = pedidosSelecionadosPDF.has(v.id);
+      const onclickCard = modoSelecaoPedidos ? `toggleSelecaoPedido('${v.id}')` : `togglePedidoCard('${v.id}')`;
+      const classeExtra = modoSelecaoPedidos ? (' selecionavel'+(selecionado?' selecionado':'')) : (expandido?' expanded':'');
       return `
-      <div class="pedido-card${expandido?' expanded':''}" onclick="togglePedidoCard('${v.id}')">
+      <div class="pedido-card${classeExtra}" onclick="${onclickCard}">
         <div class="pedido-card-top">
           <span class="pedido-hora">${v.horario ? '🕒 '+v.horario : 'Sem horário'}</span>
           <span style="display:flex; align-items:center; gap:8px;">
             <span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span>
-            <span class="pedido-expand-chev">▾</span>
+            ${modoSelecaoPedidos
+              ? `<span class="pedido-checkbox${selecionado?' checked':''}">${selecionado?'✓':''}</span>`
+              : `<span class="pedido-expand-chev">▾</span>`}
           </span>
         </div>
         <div class="pedido-card-main">
@@ -2149,6 +2222,7 @@ function renderPedidos(){
           <div class="pedido-detalhes">${escapeHtml(v.local||'—')}</div>
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
         </div>
+        ${modoSelecaoPedidos ? '' : `
         <div class="pedido-card-actions" onclick="event.stopPropagation()">
           <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
           <button class="acao-cancelar" onclick="markStatus('${v.id}','cancelado')">✕ Cancelar</button>
@@ -2160,13 +2234,13 @@ function renderPedidos(){
             <option value="">Mover p/…</option>
             ${SEMANAS.filter(s=>s.key!==v.semana).map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}
           </select>
-        </div>
+        </div>`}
       </div>`;
     }).join('');
     return `<div class="pedido-group">
       <div class="pedido-date-label${isHoje?' hoje':''}">
         <span>${label}</span>
-        <button class="btn-ghost pdf-dia-btn" onclick="gerarPDFPedidosData('${d}')">📄 PDF do dia (${rows.length})</button>
+        ${modoSelecaoPedidos ? '' : `<button class="btn-ghost pdf-dia-btn" onclick="gerarPDFPedidosData('${d}')">📄 PDF do dia (${rows.length})</button>`}
       </div>
       ${cardsHtml}
     </div>`;
