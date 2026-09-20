@@ -616,10 +616,10 @@
       </div>
 
       <div class="panel">
-        <h2>Registar formulário <span class="tag" id="semanaAtivaTag"></span></h2>
+        <h2>Registar Pedido <span class="tag" id="semanaAtivaTag"></span></h2>
         <div class="subtabs" id="semanaTabs"></div>
         <div class="historico-toggle" id="vendaFormToggle" onclick="toggleVendaForm()">
-          <span class="chev">▶</span> Mostrar formulário
+          <span class="chev">▶</span> + Novo pedido
         </div>
         <div id="vendaFormBody" style="display:none; margin-top:16px;">
         <form id="vendaForm">
@@ -733,7 +733,7 @@
       </div>
 
       <div class="panel">
-        <h2>Resumo da Semana <span class="tag">saídas e entregas concluídas — não fica escondido embaixo da tabela</span></h2>
+        <h2>Saídas e Entregas <span class="tag">quanto saiu de cada produto e quanto cada entregador recebeu, no período escolhido em Visão geral</span></h2>
         <div class="side-grid" style="margin-top:0;">
           <div class="side-panel">
             <h3>Saída de Produtos</h3>
@@ -1136,7 +1136,7 @@ function toggleVendaForm(){
     vendaFormAberto = false;
     const t = document.getElementById('vendaFormToggle');
     t.classList.remove('open');
-    t.innerHTML = '<span class="chev">▶</span> Mostrar formulário';
+    t.innerHTML = '<span class="chev">▶</span> + Novo pedido';
     document.getElementById('vendaFormBody').style.display = 'none';
   } else {
     abrirVendaForm();
@@ -1712,7 +1712,7 @@ function cancelarMapeamentoShopify(){
 
 // Semana 1-4 é um agrupamento manual dentro do mês (não ligado a datas reais) — como um pedido
 // histórico não tem essa informação, cai numa semana por padrão a partir do dia do mês; dá pra
-// mover manualmente depois ("Mover p/...") se não bater com o seu jeito de organizar
+// mover manualmente depois ("Mover para...") se não bater com o seu jeito de organizar
 function semanaPorDia(dataISO){
   const dia = Number(dataISO.slice(8,10)) || 1;
   if(dia<=7) return 'semana1';
@@ -2222,10 +2222,10 @@ function renderPedidos(){
           <button class="acao-cancelar" onclick="markStatus('${v.id}','cancelado')">✕ Cancelar</button>
           ${v.status!=='remarcado' ? `<button class="acao-remarcar" onclick="markStatus('${v.id}','remarcado')">↻ Remarcar</button>` : ''}
           <button onclick="editVenda('${v.id}')">✎ Editar</button>
-          <button onclick="deleteVenda('${v.id}')">🗑</button>
+          <button onclick="deleteVenda('${v.id}')">🗑 Apagar</button>
           <button onclick="gerarPDFPedido('${v.id}')">📄 PDF</button>
           <select class="mover-semana-select" onchange="moverPedidoSemana('${v.id}', this.value); this.value='';">
-            <option value="">Mover p/…</option>
+            <option value="">Mover para…</option>
             ${SEMANAS.filter(s=>s.key!==v.semana).map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}
           </select>
         </div>`}
@@ -2287,7 +2287,7 @@ function renderVendaTable(){
   }
 }
 
-// "Resumo da Semana" (Saída de Produtos / Entregas Concluídas) segue o mesmo filtro de data da
+// "Saídas e Entregas" (Saída de Produtos / Entregas Concluídas) segue o mesmo filtro de data da
 // Visão Geral (drOverview) — não o da aba de semana do formulário — porque agora mora junto dos
 // outros dois painéis de Relatórios que já respondem a esse mesmo seletor de período
 function renderSaidaProdutos(dados){
@@ -2380,7 +2380,7 @@ function drDefaultPresets(){
   const hoje = new Date();
   const segundaDe = (base) => { const dia = base.getDay(); return drAddDays(base, dia===0?-6:1-dia); };
   return [
-    { key:'tudo', label:'Tudo', range:() => null },
+    { key:'tudo', label:'Todo o período', range:() => null },
     { key:'hoje', label:'Hoje', range:() => [drISO(hoje), drISO(hoje)] },
     { key:'ontem', label:'Ontem', range:() => { const d = drAddDays(hoje,-1); return [drISO(d), drISO(d)]; } },
     { key:'ultimos_7', label:'Últimos 7 dias', range:() => [drISO(drAddDays(hoje,-6)), drISO(hoje)] },
@@ -2394,13 +2394,13 @@ function drDefaultPresets(){
   ];
 }
 
-/* mesmos atalhos do seletor de relatórios, mas sem "Tudo" — um gasto de ads precisa de um
+/* mesmos atalhos do seletor de relatórios, mas sem "Todo o período" — um gasto de ads precisa de um
    período real (um dia só ou vários), nunca "sem data". */
 function adSpendPresets(){
   return drDefaultPresets().filter(p=>p.key!=='tudo');
 }
 
-/* container: div vazio. opts: {presets, initialPresetKey, onApply(range)}. range é [inicio,fim] em ISO ou null ("Tudo"). */
+/* container: div vazio. opts: {presets, initialPresetKey, onApply(range)}. range é [inicio,fim] em ISO ou null ("Todo o período"). */
 function createDateRangePicker(container, opts){
   const presets = opts.presets || drDefaultPresets();
   let activePresetKey = opts.initialPresetKey || null;
@@ -3460,7 +3460,7 @@ function toISODate(d){
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-/* o gráfico diário desenha uma barra por dia do período — sem "Tudo"/ano aqui pra não virar
+/* o gráfico diário desenha uma barra por dia do período — sem "Todo o período"/ano aqui pra não virar
    um gráfico de centenas de barras ilegível; esses dois ficam só no seletor da Visão Geral */
 function drMetricasPresets(){
   return drDefaultPresets().filter(p => !['tudo','este_ano','ano_passado'].includes(p.key));
