@@ -794,18 +794,6 @@
       </div>
 
       <div class="panel panel-slim">
-        <h2>Importar por CSV <span class="tag">alternativa manual, se a sincronização acima falhar</span></h2>
-        <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
-          Na planilha <strong>ACHAKE PEDIDOS</strong>, na aba <strong>Folha1</strong>: <strong>Ficheiro → Transferir → Valores separados por vírgulas (.csv)</strong>. Depois escolha esse ficheiro aqui embaixo — só os pedidos novos são importados.
-        </p>
-        <div class="toolbar">
-          <input type="file" id="shopifyFile" style="flex:1; min-width:220px; color:var(--sand); font-size:13px;">
-          <button class="btn-ghost" onclick="importarCSVShopify()">Importar CSV</button>
-        </div>
-        <div id="shopifyCsvMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
-      </div>
-
-      <div class="panel panel-slim">
         <h2>Importar exportação nativa da Shopify <span class="tag">já traz o status certo (pago/cancelado)</span></h2>
         <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
           No admin da Shopify: <strong>Pedidos → Exportar → Todos os pedidos → CSV para o Excel, Numbers, etc.</strong> Esse ficheiro já vem com o status real de cada pedido (pago, cancelado) — os pedidos entram direto como Concluído/Cancelado, sem precisar clicar um por um. Reimportar um ficheiro mais recente atualiza o status dos pedidos que já tinha importado, sem duplicar.
@@ -1486,9 +1474,6 @@ function loadVendas(){
 }
 function saveVendas(){ localStorage.setItem(VENDAS_KEY, JSON.stringify(vendasData)); }
 
-/* ---- Importar pedidos da planilha Shopify (via ficheiro CSV local) ---- */
-const SHOPIFY_COUNT_KEY = 'lobo_shopify_synced_count_v1';
-
 function parseCSV(text){
   const rows = [];
   let row = [], cell = '', inQuotes = false;
@@ -1513,12 +1498,6 @@ function parseCSV(text){
   return rows;
 }
 
-function showCsvMsg(t, isError){
-  const el = document.getElementById('shopifyCsvMsg');
-  el.textContent = t;
-  el.style.color = isError ? 'var(--red)' : 'var(--gold)';
-}
-
 function showShopifyMsg(t, isError){
   const el = document.getElementById('shopifyMsg');
   el.textContent = t;
@@ -1536,76 +1515,8 @@ function normalizeHorario(raw){
   return v;
 }
 
-function importarCSVShopify(){
-  const input = document.getElementById('shopifyFile');
-  const file = input.files[0];
-  if(!file){ showCsvMsg('Escolha o ficheiro CSV primeiro.', true); return; }
-  showCsvMsg('A ler o ficheiro…');
-
-  const reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      const linhas = parseCSV(e.target.result).filter(r=>r.some(c=>String(c).trim()!==''));
-      const jaImportadas = parseInt(localStorage.getItem(SHOPIFY_COUNT_KEY),10) || 0;
-      const novas = linhas.slice(jaImportadas);
-
-      if(novas.length===0){
-        showCsvMsg('Nenhum pedido novo neste ficheiro — já foram todos importados antes.');
-        return;
-      }
-
-      const hojeStr = new Date().toISOString().slice(0,10);
-      const custoPorProduto = custoAquisicaoPorProduto();
-      const nomeCanonicoPorProduto = {};
-      produtosData.forEach(p=>{ nomeCanonicoPorProduto[normalizarNomeProduto(p.nome)] = p.nome; });
-
-      let importados = 0;
-      const naoReconhecidos = new Set();
-      novas.forEach(cols=>{
-        const nome = String(cols[0]||'').trim();
-        const telefone = String(cols[1]||'').trim();
-        const provincia = String(cols[2]||'').trim();
-        const localBase = String(cols[3]||'').trim();
-        const local = provincia ? (localBase ? localBase+', '+provincia : provincia) : localBase;
-        const horario = normalizeHorario(cols[4]);
-        const quantidade = parseInt(cols[5],10) || 1;
-        const valor = parseFloat(cols[6]) || 0;
-        const produtoCru = String(cols[7]||'').trim();
-        // se o nome bater (ignorando maiúsculas/espaços) com um produto já cadastrado, usa o nome exato cadastrado
-        const chave = normalizarNomeProduto(produtoCru);
-        const produto = produtoCru ? (nomeCanonicoPorProduto[chave] || produtoCru) : '';
-        if(produtoCru && !nomeCanonicoPorProduto[chave]) naoReconhecidos.add(produtoCru);
-        if(!nome && !telefone) return;
-        vendasData.push({
-          id: uid(), semana: semanaAtiva, mes: mesAtivoVendas,
-          data: hojeStr, horario: horario, fonte: '04.SHOPIFY',
-          contacto: (nome + ' ' + telefone).trim(),
-          local, descricao: '', produto, quantidade, valor,
-          delivery: '', comissao: 0, status: 'pendente'
-        });
-        importados++;
-      });
-
-      localStorage.setItem(SHOPIFY_COUNT_KEY, String(linhas.length));
-      saveVendas();
-      let msg = importados + (importados===1 ? ' pedido novo importado para "Pedidos da Semana".' : ' pedidos novos importados para "Pedidos da Semana".');
-      if(naoReconhecidos.size){
-        msg += ' Atenção: produto(s) sem cadastro em "Produtos" — ' + [...naoReconhecidos].join(', ') + '. O custo de aquisição desses não entra no ROI até você cadastrar.';
-      }
-      showCsvMsg(msg, naoReconhecidos.size>0);
-      input.value = '';
-      renderVendasAll();
-    } catch(err){
-      showCsvMsg('Não consegui ler esse ficheiro. Confirme que é o CSV exportado da planilha (Folha1).', true);
-    }
-  };
-  reader.onerror = function(){ showCsvMsg('Erro ao ler o ficheiro.', true); };
-  reader.readAsText(file, 'UTF-8');
-}
-
 /* ---- Importar a exportação NATIVA de pedidos da Shopify (Pedidos → Exportar → CSV) ----
-   Diferente da planilha ACHAKE PEDIDOS (formato manual, sem cabeçalho, sempre "pendente"), este
-   ficheiro já vem com o status real de cada pedido — Financial Status ("paid"/"voided"/...) e
+   Este ficheiro já vem com o status real de cada pedido — Financial Status ("paid"/"voided"/...) e
    Cancelled at — então os pedidos entram já como Concluído/Cancelado. Também dá pra reimportar
    um ficheiro mais recente: em vez de só adicionar linhas novas, atualiza o status dos pedidos
    já conhecidos (identificados pelo "Id" da Shopify), então "pendente" vira "concluído"/"cancelado"
