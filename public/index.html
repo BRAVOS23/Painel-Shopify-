@@ -742,6 +742,20 @@
       </div>
 
       <div class="panel">
+        <h2>Resumo da Semana <span class="tag">saídas e entregas concluídas — não fica escondido embaixo da tabela</span></h2>
+        <div class="side-grid" style="margin-top:0;">
+          <div class="side-panel">
+            <h3>Saída de Produtos</h3>
+            <table><thead><tr><th>Produto</th><th>Unidades</th></tr></thead><tbody id="saidaProdutosBody"></tbody></table>
+          </div>
+          <div class="side-panel">
+            <h3>Entregas Concluídas</h3>
+            <table><thead><tr><th>Entregador</th><th>Nº</th><th>Pago ao entregador</th></tr></thead><tbody id="entregasBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
         <h2>Planilha de Controle <span class="tag">histórico · concluídos e cancelados</span></h2>
         <div class="toolbar">
           <div class="filters">
@@ -761,17 +775,6 @@
           <tbody id="vendaTableBody"></tbody>
         </table>
         <div class="empty" id="vendaEmpty" style="display:none;">Nenhum registo concluído ou cancelado nesta semana ainda.</div>
-
-        <div class="side-grid">
-          <div class="side-panel">
-            <h3>Saída de Produtos</h3>
-            <table><thead><tr><th>Produto</th><th>Unidades</th></tr></thead><tbody id="saidaProdutosBody"></tbody></table>
-          </div>
-          <div class="side-panel">
-            <h3>Entregas Concluídas</h3>
-            <table><thead><tr><th>Entregador</th><th>Nº</th><th>Pago ao entregador</th></tr></thead><tbody id="entregasBody"></tbody></table>
-          </div>
-        </div>
       </div>
     </div>
 
