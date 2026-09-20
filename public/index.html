@@ -339,6 +339,27 @@
   .chart-card-title{ font-family:var(--font-display); font-size:13.5px; font-weight:600; color:var(--sand); margin-bottom:16px; }
   .chart-card-title .tag{ font-family:var(--font-mono); font-size:10.5px; font-weight:500; color:var(--sand-dimmer); text-transform:none; margin-left:6px; }
   .chart-canvas-wrap{ position:relative; height:240px; }
+
+  /* catálogo de produtos (stock) */
+  .produto-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:14px; }
+  .produto-card{
+    background:var(--ink-2); border:1px solid var(--panel-line); border-radius:14px; padding:14px;
+    box-shadow:var(--shadow-card-rest); transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .produto-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card-hover); }
+  .produto-card-foto{
+    width:100%; aspect-ratio:1.6; border-radius:9px; background:var(--overlay-2); margin-bottom:10px;
+    display:flex; align-items:center; justify-content:center; overflow:hidden; color:var(--sand-dimmer); font-size:26px;
+  }
+  .produto-card-foto img{ width:100%; height:100%; object-fit:cover; }
+  .produto-card-nome{ font-family:var(--font-display); font-weight:600; font-size:14.5px; margin-bottom:8px; }
+  .produto-card-linha{ display:flex; justify-content:space-between; font-size:12px; color:var(--sand-dim); padding:4px 0; }
+  .produto-card-linha .mono{ color:var(--sand); }
+  .produto-card-total{
+    display:flex; justify-content:space-between; font-size:12.5px; font-weight:600; color:var(--sand);
+    padding-top:8px; margin-top:6px; border-top:1px solid var(--panel-line);
+  }
+  .produto-card-total .mono{ color:var(--green); }
   .chart-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--sand-dimmer); font-size:12.5px; padding:0 20px; }
   .cards6{ display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
   .metricas-nota{ font-size:11.5px; color:var(--sand-dimmer); margin:-8px 0 16px; line-height:1.5; }
@@ -372,6 +393,15 @@
   .pedido-card-main{ margin-bottom:13px; }
   .pedido-contacto{ font-size:15px; font-weight:600; color:var(--sand); margin-bottom:3px; }
   .pedido-detalhes{ font-size:12.5px; color:var(--sand-dim); line-height:1.5; }
+  .pedido-expand-chev{ display:none; font-size:11px; color:var(--sand-dimmer); transition:transform .2s; }
+  /* número clicável — ícones de ligar/SMS/WhatsApp ao lado do contacto, onde quer que apareça */
+  .contacto-acoes{ display:inline-flex; gap:4px; margin-left:8px; vertical-align:middle; }
+  .contacto-acoes a{
+    display:inline-flex; align-items:center; justify-content:center; width:23px; height:23px;
+    border-radius:7px; background:var(--overlay-2); text-decoration:none; font-size:12px; line-height:1;
+    transition:background .12s;
+  }
+  .contacto-acoes a:hover{ background:var(--overlay-4); }
   .pedido-card-actions{ display:flex; gap:6px; flex-wrap:wrap; }
   .pedido-card-actions button{
     border:1px solid var(--panel-line); background:var(--ink); color:var(--sand-dim);
@@ -442,6 +472,16 @@
     .daterange-field .daterange-trigger{ padding:12px 12px; font-size:15px; }
     .pedido-card-actions button{ flex:1 1 46%; text-align:center; padding:10px 8px; }
     .mover-semana-select{ flex:1 1 100%; padding:10px 8px; }
+    /* pedidos no mobile: só o essencial (contacto, horário, local) fica sempre visível — o resto
+       (produto/valor e os botões de ação) só aparece depois de tocar no cartão, senão a lista fica
+       enorme e é preciso rolar demais pra ver os pedidos seguintes */
+    .pedido-card{ padding:13px 14px; cursor:pointer; }
+    .pedido-card-main{ margin-bottom:0; }
+    .pedido-expand-chev{ display:inline-block; }
+    .pedido-extra, .pedido-card-actions{ display:none; margin-top:10px; }
+    .pedido-card.expanded .pedido-extra{ display:block; }
+    .pedido-card.expanded .pedido-card-actions{ display:flex; }
+    .pedido-card.expanded .pedido-expand-chev{ transform:rotate(180deg); }
     .cards4{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
     .cards6{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
     .chart-canvas-wrap{ height:210px; }
@@ -784,6 +824,8 @@
 
     <div class="subnav">
       <button id="subnavMetResultados" class="active" onclick="switchMetricasView('resultados')">Resultados</button>
+      <button id="subnavMetGastos" onclick="switchMetricasView('gastos')">Ver Gastos</button>
+      <button id="subnavMetProdutos" onclick="switchMetricasView('produtos')">Produtos</button>
       <button id="subnavMetCadastros" onclick="switchMetricasView('cadastros')">Cadastros</button>
     </div>
 
@@ -861,6 +903,14 @@
             <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim); min-width:0; max-width:100%;">
           </div>
         </div>
+        <div class="field span2">
+          <label for="pEstoque">Unidades em stock</label>
+          <input type="number" id="pEstoque" min="0" step="1" placeholder="0">
+        </div>
+        <div class="field span3">
+          <label for="pLocal">Onde está guardado <span style="text-transform:none; opacity:.7;">(opcional)</span></label>
+          <input type="text" id="pLocal" placeholder="Ex: Armazém Matola, Casa…">
+        </div>
         <div class="field" style="grid-column:1/-1; flex-direction:row; align-items:center; gap:10px;">
           <button type="submit" class="btn-primary" id="produtoSubmitBtn">Guardar</button>
           <button type="button" class="btn-ghost" id="produtoCancelEdit" style="display:none;" onclick="cancelProdutoEdit()">Cancelar</button>
@@ -868,37 +918,21 @@
         <div id="produtoMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
       </form>
 
-      <div class="historico-toggle" id="produtoHistToggle" onclick="toggleProdutoHist()">
-        <span class="chev">▶</span> Ver produtos cadastrados
-      </div>
-      <div id="produtoHistBody" style="display:none; margin-top:16px;">
-        <table class="responsive-table">
-          <thead><tr><th>Foto</th><th>Produto</th><th>Custo de aquisição</th><th></th></tr></thead>
-          <tbody id="produtoTableBody"></tbody>
-        </table>
-        <div class="empty" id="produtoEmpty" style="display:none;">Nenhum produto cadastrado ainda.</div>
-      </div>
+      <button type="button" class="btn-ghost" style="margin-top:16px;" onclick="switchMetricasView('produtos')">📦 Ver catálogo de produtos e stock →</button>
     </div>
 
     <div class="panel">
-      <h2>Gastos com Ads e Marketing <span class="tag">a receita já vem das vendas concluídas</span></h2>
+      <h2>Gastos com Ads <span class="tag">a receita já vem das vendas concluídas</span></h2>
       <form id="adForm">
-        <div class="field">
+        <div class="field span2">
           <label for="adData">Período do gasto</label>
           <div id="dpAdData"></div>
         </div>
         <div class="field span2">
-          <label for="adTipo">Tipo de gasto</label>
-          <select id="adTipo">
-            <option value="ads">Ads</option>
-            <option value="outros">Outros (marketing)</option>
-          </select>
-        </div>
-        <div class="field">
           <label for="adValor">Valor gasto (MT)</label>
           <input type="number" id="adValor" min="0" step="0.01" placeholder="0.00" required>
         </div>
-        <div class="field span3">
+        <div class="field span2">
           <label for="adProduto">Produto <span style="text-transform:none; opacity:.7;">(deixe em branco se for gasto geral)</span></label>
           <input type="text" id="adProduto" list="produtosExistentes" placeholder="Ex: Selante — ou deixe vazio">
         </div>
@@ -910,14 +944,48 @@
       </form>
 
       <div class="historico-toggle" id="adHistToggle" onclick="toggleAdHist()">
-        <span class="chev">▶</span> Ver lançamentos de gastos
+        <span class="chev">▶</span> Ver lançamentos de ads
       </div>
       <div id="adHistBody" style="display:none; margin-top:16px;">
         <table class="responsive-table">
-          <thead><tr><th>Período</th><th>Tipo</th><th>Produto</th><th>Valor gasto</th><th></th></tr></thead>
+          <thead><tr><th>Período</th><th>Produto</th><th>Valor gasto</th><th></th></tr></thead>
           <tbody id="adTableBody"></tbody>
         </table>
-        <div class="empty" id="adEmpty" style="display:none;">Nenhum gasto registado ainda.</div>
+        <div class="empty" id="adEmpty" style="display:none;">Nenhum gasto de ads registado ainda.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Outros Gastos <span class="tag">qualquer despesa que não seja Ads — entra sempre como "Outros" na métrica</span></h2>
+      <form id="outroForm">
+        <div class="field span3">
+          <label for="outroNome">Nome do gasto</label>
+          <input type="text" id="outroNome" placeholder="Ex: Embalagens, Combustível, Taxa bancária…" required>
+        </div>
+        <div class="field span2">
+          <label for="outroData">Período do gasto</label>
+          <div id="dpOutroData"></div>
+        </div>
+        <div class="field">
+          <label for="outroValor">Valor gasto (MT)</label>
+          <input type="number" id="outroValor" min="0" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field span3" style="flex-direction:row; align-items:center; gap:10px;">
+          <button type="submit" class="btn-primary" id="outroSubmitBtn">Adicionar gasto</button>
+          <button type="button" class="btn-ghost" id="outroCancelEdit" style="display:none;" onclick="cancelOutroEdit()">Cancelar edição</button>
+        </div>
+        <div id="outroMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
+      </form>
+
+      <div class="historico-toggle" id="outroHistToggle" onclick="toggleOutroHist()">
+        <span class="chev">▶</span> Ver outros gastos
+      </div>
+      <div id="outroHistBody" style="display:none; margin-top:16px;">
+        <table class="responsive-table">
+          <thead><tr><th>Período</th><th>Nome</th><th>Valor gasto</th><th></th></tr></thead>
+          <tbody id="outroTableBody"></tbody>
+        </table>
+        <div class="empty" id="outroEmpty" style="display:none;">Nenhum outro gasto registado ainda.</div>
       </div>
     </div>
 
@@ -965,6 +1033,49 @@
       </div>
     </div>
     </div>
+
+    <div id="metricasViewGastos" class="subview">
+    <div class="panel">
+      <h2>Todos os Gastos <span class="tag">ads, outros e operacionais juntos — do mais recente pro mais antigo</span></h2>
+      <div class="toolbar">
+        <div class="filters">
+          <select id="gastosFiltroTipo" onchange="renderGastosView()">
+            <option value="">Todos os tipos</option>
+            <option value="ads">Ads</option>
+            <option value="outros">Outros</option>
+            <option value="operacional">Operacional</option>
+          </select>
+          <input type="text" id="gastosBusca" placeholder="Buscar pelo nome do gasto…" oninput="renderGastosView()">
+        </div>
+      </div>
+      <table class="responsive-table">
+        <thead><tr><th>Nome</th><th>Tipo</th><th>Período</th><th>Valor</th><th></th></tr></thead>
+        <tbody id="gastosViewBody"></tbody>
+      </table>
+      <div class="empty" id="gastosViewEmpty" style="display:none;">Nenhum gasto registado ainda.</div>
+      <div class="cards3" style="margin-top:16px;">
+        <div class="card destaque"><span class="k">Total no filtro</span><span class="v mono" id="gastosViewTotal">0 MT</span></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="metricasViewProdutos" class="subview">
+    <div class="panel">
+      <h2>Catálogo de Produtos <span class="tag">stock e valor total em mercadoria</span></h2>
+      <div class="toolbar">
+        <div class="filters">
+          <input type="text" id="produtosBusca" placeholder="Buscar produto…" oninput="renderProdutosView()">
+        </div>
+      </div>
+      <div class="cards3" style="margin-bottom:18px;">
+        <div class="card"><span class="k">Produtos cadastrados</span><span class="v mono" id="pvTotalProdutos">0</span></div>
+        <div class="card"><span class="k">Unidades em stock</span><span class="v mono" id="pvTotalUnidades">0</span></div>
+        <div class="card destaque"><span class="k">Valor total em mercadoria</span><span class="v mono" id="pvTotalValor">0 MT</span></div>
+      </div>
+      <div class="produto-grid" id="produtosGrid"></div>
+      <div class="empty" id="produtosGridEmpty" style="display:none;">Nenhum produto encontrado.</div>
+    </div>
+    </div>
   </section>
 
   <footer>Os dados ficam guardados apenas neste computador, neste navegador.</footer>
@@ -984,6 +1095,8 @@ let mesAtivo = '';
 let semanaAtiva = 'semana1';
 let mesAtivoVendas = '';
 let historicoAberto = false;
+let gastosViewAberta = false;
+let produtosViewAberta = false;
 
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const SEMANAS = [
@@ -1026,6 +1139,36 @@ function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFraction
 function fmtData(d){ return d ? d.split('-').reverse().join('/') : ''; }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
 
+/* ============ CONTACTO CLICÁVEL (ligar / SMS / WhatsApp) ============ */
+// o campo "contacto" é texto livre (nome + número juntos, ex: "Felizarda 865460006") — não há um
+// campo de telefone separado, então aqui procura-se uma sequência de dígitos que pareça um número
+function extrairTelefone(contacto){
+  const m = (contacto||'').match(/(\+?\d[\d\s-]{6,}\d)/);
+  return m ? m[1].replace(/[\s-]/g,'') : null;
+}
+// tel:/sms:/wa.me precisam do número em formato internacional; números moçambicanos costumam vir
+// só com os 9 dígitos locais (ex: 865460006) — nesse caso prefixa-se o 258, senão usa-se como está
+function telInternacional(numero){
+  let d = numero.replace(/\D/g,'');
+  if(d.startsWith('00')) d = d.slice(2);
+  if(!d.startsWith('258') && d.length===9) d = '258'+d;
+  return d;
+}
+// devolve o texto do contacto já com os ícones de ligar/SMS/WhatsApp ao lado, se conseguir achar
+// um número nele — o stopPropagation evita que clicar num ícone dispare outra coisa por cima (ex:
+// o card recolher/expandir no mobile) quando este HTML está dentro de um elemento clicável maior
+function contactoComAcoes(contacto){
+  const texto = escapeHtml(contacto || 'Sem contacto');
+  const tel = extrairTelefone(contacto);
+  if(!tel) return texto;
+  const intl = telInternacional(tel);
+  return `${texto}<span class="contacto-acoes" onclick="event.stopPropagation()">`
+    + `<a href="tel:+${intl}" title="Ligar">📞</a>`
+    + `<a href="sms:+${intl}" title="Enviar SMS">💬</a>`
+    + `<a href="https://wa.me/${intl}" target="_blank" rel="noopener" title="Abrir no WhatsApp">🟢</a>`
+    + `</span>`;
+}
+
 /* ============ TEMA CLARO / ESCURO ============ */
 const THEME_KEY = 'lobo_theme_v1';
 function applyTheme(theme){
@@ -1059,7 +1202,6 @@ function switchMain(which){
   document.getElementById('tabBtnVendas').classList.toggle('active', which==='vendas');
   document.getElementById('tabBtnMetricas').classList.toggle('active', which==='metricas');
   if(which==='metricas'){
-    if(produtoHistAberto) renderProdutoTable();
     if(opHistAberto) renderOpTable();
     renderAdAll();
   }
@@ -1076,15 +1218,19 @@ function switchVendasView(which){
 }
 
 function switchMetricasView(which){
-  document.getElementById('metricasViewResultados').classList.toggle('active', which==='resultados');
-  document.getElementById('metricasViewCadastros').classList.toggle('active', which==='cadastros');
-  document.getElementById('subnavMetResultados').classList.toggle('active', which==='resultados');
-  document.getElementById('subnavMetCadastros').classList.toggle('active', which==='cadastros');
+  ['resultados','gastos','produtos','cadastros'].forEach(v=>{
+    document.getElementById('metricasView'+v.charAt(0).toUpperCase()+v.slice(1)).classList.toggle('active', which===v);
+    document.getElementById('subnavMet'+v.charAt(0).toUpperCase()+v.slice(1)).classList.toggle('active', which===v);
+  });
+  gastosViewAberta = which==='gastos';
+  produtosViewAberta = which==='produtos';
   if(which==='resultados') renderMetricas();
+  if(which==='gastos') renderGastosView();
+  if(which==='produtos') renderProdutosView();
   if(which==='cadastros'){
-    if(produtoHistAberto) renderProdutoTable();
     if(opHistAberto) renderOpTable();
     if(adHistAberto) renderAdTable();
+    if(outroHistAberto) renderOutroTable();
   }
 }
 
@@ -1792,7 +1938,7 @@ function renderHistoricoMesTable(){
     <tr>
       <td class="mono" data-label="Data">${fmtData(v.data)}</td>
       <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-      <td data-label="Contacto">${escapeHtml(v.contacto||'—')}</td>
+      <td data-label="Contacto">${contactoComAcoes(v.contacto)}</td>
       <td data-label="Local">${escapeHtml(v.local||'—')}</td>
       <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -1850,6 +1996,14 @@ function getPedidosAtivos(){
   return vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'));
 }
 
+// no mobile o cartão do pedido começa recolhido (só o essencial); guarda quais estão abertos aqui
+// pra sobreviver a um re-render disparado por outra ação (ex: concluir um pedido diferente)
+let pedidosExpandidos = new Set();
+function togglePedidoCard(id){
+  if(pedidosExpandidos.has(id)) pedidosExpandidos.delete(id); else pedidosExpandidos.add(id);
+  renderPedidos();
+}
+
 function renderPedidos(){
   const list = getPedidosAtivos();
   const cont = document.getElementById('pedidosBody');
@@ -1877,19 +2031,24 @@ function renderPedidos(){
     const isHoje = d===hojeStr;
     const label = (isHoje ? 'HOJE · ' : '') + fmtData(d);
     const cardsHtml = rows.map(v=>{
-      const detalhes = [v.local, v.produto ? (v.produto + (v.quantidade>1?' ×'+v.quantidade:'')) : null, v.valor?fmtMT(v.valor):null]
+      const produtoValor = [v.produto ? (v.produto + (v.quantidade>1?' ×'+v.quantidade:'')) : null, v.valor?fmtMT(v.valor):null]
         .filter(Boolean).join(' · ');
+      const expandido = pedidosExpandidos.has(v.id);
       return `
-      <div class="pedido-card">
+      <div class="pedido-card${expandido?' expanded':''}" onclick="togglePedidoCard('${v.id}')">
         <div class="pedido-card-top">
           <span class="pedido-hora">${v.horario ? '🕒 '+v.horario : 'Sem horário'}</span>
-          <span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span>
+          <span style="display:flex; align-items:center; gap:8px;">
+            <span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span>
+            <span class="pedido-expand-chev">▾</span>
+          </span>
         </div>
         <div class="pedido-card-main">
-          <div class="pedido-contacto">${escapeHtml(v.contacto||'Sem contacto')}</div>
-          <div class="pedido-detalhes">${escapeHtml(detalhes||'—')}</div>
+          <div class="pedido-contacto">${contactoComAcoes(v.contacto)}</div>
+          <div class="pedido-detalhes">${escapeHtml(v.local||'—')}</div>
+          <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
         </div>
-        <div class="pedido-card-actions">
+        <div class="pedido-card-actions" onclick="event.stopPropagation()">
           <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
           <button class="acao-cancelar" onclick="markStatus('${v.id}','cancelado')">✕ Cancelar</button>
           ${v.status!=='remarcado' ? `<button class="acao-remarcar" onclick="markStatus('${v.id}','remarcado')">↻ Remarcar</button>` : ''}
@@ -1945,7 +2104,7 @@ function renderVendaTable(){
       <tr>
         <td class="mono" data-label="Data">${fmtData(v.data)}</td>
         <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-        <td data-label="Contacto">${escapeHtml(v.contacto||'—')}</td>
+        <td data-label="Contacto">${contactoComAcoes(v.contacto)}</td>
         <td data-label="Local">${escapeHtml(v.local||'—')}</td>
         <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
         <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -1994,6 +2153,13 @@ function renderEntregas(){
 function editVenda(id){
   const v = vendasData.find(x=>x.id===id);
   if(!v) return;
+  // editar a partir da tabela de Relatórios (ou de qualquer outro sítio) precisa primeiro trazer
+  // à vista a subview/aba onde o formulário de edição realmente vive — sem isto o scroll acontecia
+  // com o formulário ainda escondido (display:none), então parecia que "não levava a lado nenhum"
+  switchMain('vendas');
+  switchVendasView('pedidos');
+  if(v.semana && v.semana!==semanaAtiva){ semanaAtiva = v.semana; }
+  renderVendasAll();
   dpVData.setValue(v.data);
   document.getElementById('vHorario').value = v.horario||'';
   document.getElementById('vFonte').value = v.fonte;
@@ -2351,7 +2517,7 @@ function createSingleDatePicker(container, opts){
 let drOverview = null;
 let drMetricas = null;
 let drFluxo = null;
-let dpFData = null, dpVData = null, dpAdData = null, dpOpData = null;
+let dpFData = null, dpVData = null, dpAdData = null, dpOutroData = null, dpOpData = null;
 function initDateRangePickers(){
   drOverview = createDateRangePicker(document.getElementById('drOverview'), {
     initialPresetKey: 'tudo',
@@ -2373,6 +2539,9 @@ function initDateRangePickers(){
   // o seletor de período (com atalhos + seleção manual de intervalo), não o de dia único
   dpAdData = createDateRangePicker(document.getElementById('dpAdData'), {
     id:'adData', fieldStyle:true, presets: adSpendPresets(), initialPresetKey:'hoje'
+  });
+  dpOutroData = createDateRangePicker(document.getElementById('dpOutroData'), {
+    id:'outroData', fieldStyle:true, presets: adSpendPresets(), initialPresetKey:'hoje'
   });
   dpOpData = createSingleDatePicker(document.getElementById('dpOpData'), { id:'opData', initialValue: hojeISO });
 }
@@ -2585,10 +2754,11 @@ let adSpendData = [];
 let produtosData = [];
 let operacionaisData = [];
 let adEditId = null;
+let outroEditId = null;
 let produtoEditId = null;
 let opEditId = null;
 let adHistAberto = false;
-let produtoHistAberto = false;
+let outroHistAberto = false;
 let opHistAberto = false;
 let metChart = null;
 let metCostChart = null;
@@ -2688,20 +2858,22 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
   e.preventDefault();
   const nome = document.getElementById('pNome').value.trim();
   const custo = parseFloat(document.getElementById('pCusto').value)||0;
+  const estoque = parseInt(document.getElementById('pEstoque').value,10)||0;
+  const local = document.getElementById('pLocal').value.trim();
   if(!nome){ showProdutoMsg('Preencha o nome do produto.'); return; }
   const foto = pendingFotoBase64;
 
   if(produtoEditId){
     const idx = produtosData.findIndex(p=>p.id===produtoEditId);
-    if(idx>-1) produtosData[idx] = {...produtosData[idx], nome, custo, foto: foto || produtosData[idx].foto || ''};
+    if(idx>-1) produtosData[idx] = {...produtosData[idx], nome, custo, estoque, local, foto: foto || produtosData[idx].foto || ''};
     showProdutoMsg('Produto atualizado.');
     produtoEditId = null;
     document.getElementById('produtoSubmitBtn').textContent = 'Guardar';
     document.getElementById('produtoCancelEdit').style.display = 'none';
   } else {
     const existente = produtosData.find(p=>normalizarNomeProduto(p.nome)===normalizarNomeProduto(nome));
-    if(existente){ existente.custo = custo; if(foto) existente.foto = foto; showProdutoMsg('Produto já existia — atualizado.'); }
-    else { produtosData.push({id:uid(), nome, custo, foto: foto||''}); showProdutoMsg('Produto cadastrado.'); }
+    if(existente){ existente.custo = custo; existente.estoque = estoque; existente.local = local; if(foto) existente.foto = foto; showProdutoMsg('Produto já existia — atualizado.'); }
+    else { produtosData.push({id:uid(), nome, custo, estoque, local, foto: foto||''}); showProdutoMsg('Produto cadastrado.'); }
   }
   saveProdutos();
   document.getElementById('produtoForm').reset();
@@ -2718,38 +2890,16 @@ function showProdutoMsg(t){
   if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
 }
 
-function toggleProdutoHist(){
-  produtoHistAberto = !produtoHistAberto;
-  const t = document.getElementById('produtoHistToggle');
-  t.classList.toggle('open', produtoHistAberto);
-  t.innerHTML = produtoHistAberto ? '<span class="chev">▶</span> Ocultar produtos cadastrados' : '<span class="chev">▶</span> Ver produtos cadastrados';
-  document.getElementById('produtoHistBody').style.display = produtoHistAberto ? 'block' : 'none';
-  if(produtoHistAberto) renderProdutoTable();
-}
-
-function renderProdutoTable(){
-  const list = produtosData.slice().sort((a,b)=> a.nome.localeCompare(b.nome));
-  const tbody = document.getElementById('produtoTableBody');
-  const empty = document.getElementById('produtoEmpty');
-  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display='none';
-  tbody.innerHTML = list.map(p=>`
-    <tr>
-      <td data-label="Foto">${p.foto ? `<img src="${p.foto}" style="width:34px;height:34px;object-fit:cover;border-radius:7px;">` : '<span style="opacity:.4;">—</span>'}</td>
-      <td data-label="Produto">${escapeHtml(p.nome)}</td>
-      <td class="mono" data-label="Custo de aquisição">${fmtMT(p.custo)}</td>
-      <td data-label=""><div class="row-actions">
-        <button class="icon-btn" onclick="editProduto('${p.id}')" title="Editar">✎</button>
-        <button class="icon-btn" onclick="deleteProduto('${p.id}')" title="Apagar">✕</button>
-      </div></td>
-    </tr>`).join('');
-}
 
 function editProduto(id){
   const p = produtosData.find(x=>x.id===id);
   if(!p) return;
+  switchMain('metricas');
+  switchMetricasView('cadastros');
   document.getElementById('pNome').value = p.nome;
   document.getElementById('pCusto').value = p.custo;
+  document.getElementById('pEstoque').value = p.estoque||0;
+  document.getElementById('pLocal').value = p.local||'';
   const preview = document.getElementById('pFotoPreview');
   pendingFotoBase64 = null;
   if(p.foto){ preview.src = p.foto; preview.style.display = 'inline-block'; }
@@ -2812,7 +2962,7 @@ function calcularGastoOperacional(inicio, fim){
 }
 
 function renderProdutosAll(){
-  if(produtoHistAberto) renderProdutoTable();
+  if(produtosViewAberta) renderProdutosView();
   populateProdutosMetricas();
   renderMetricas();
 }
@@ -2961,6 +3111,8 @@ function renderOpTable(){
 function editOp(id){
   const o = operacionaisData.find(x=>x.id===id);
   if(!o) return;
+  switchMain('metricas');
+  switchMetricasView('cadastros');
   document.getElementById('opNome').value = o.nome;
   document.getElementById('opValor').value = o.valor;
   dpOpData.setValue(o.data);
@@ -2992,7 +3144,6 @@ function renderOpAll(){
 document.getElementById('adForm').addEventListener('submit', function(e){
   e.preventDefault();
   const range = dpAdData.getRange();
-  const tipo = document.getElementById('adTipo').value;
   const produto = document.getElementById('adProduto').value.trim();
   const valor = parseFloat(document.getElementById('adValor').value)||0;
   if(!range || valor<=0){ showAdMsg('Preencha o período e o valor.'); return; }
@@ -3000,13 +3151,13 @@ document.getElementById('adForm').addEventListener('submit', function(e){
 
   if(adEditId){
     const idx = adSpendData.findIndex(a=>a.id===adEditId);
-    if(idx>-1) adSpendData[idx] = {...adSpendData[idx], data, dataFim, tipo, produto, valor};
+    if(idx>-1) adSpendData[idx] = {...adSpendData[idx], data, dataFim, tipo:'ads', produto, valor};
     showAdMsg('Gasto atualizado.');
     adEditId = null;
     document.getElementById('adSubmitBtn').textContent = 'Adicionar gasto';
     document.getElementById('adCancelEdit').style.display = 'none';
   } else {
-    adSpendData.push({id:uid(), data, dataFim, tipo, produto, valor});
+    adSpendData.push({id:uid(), data, dataFim, tipo:'ads', produto, valor});
     showAdMsg('Gasto adicionado.');
   }
   saveAdSpend();
@@ -3025,12 +3176,58 @@ function toggleAdHist(){
   adHistAberto = !adHistAberto;
   const t = document.getElementById('adHistToggle');
   t.classList.toggle('open', adHistAberto);
-  t.innerHTML = adHistAberto ? '<span class="chev">▶</span> Ocultar lançamentos de anúncios' : '<span class="chev">▶</span> Ver lançamentos de anúncios';
+  t.innerHTML = adHistAberto ? '<span class="chev">▶</span> Ocultar lançamentos de ads' : '<span class="chev">▶</span> Ver lançamentos de ads';
   document.getElementById('adHistBody').style.display = adHistAberto ? 'block' : 'none';
   if(adHistAberto) renderAdTable();
 }
 
+document.getElementById('outroForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const range = dpOutroData.getRange();
+  const nome = document.getElementById('outroNome').value.trim();
+  const valor = parseFloat(document.getElementById('outroValor').value)||0;
+  if(!range || !nome || valor<=0){ showOutroMsg('Preencha o nome, o período e o valor.'); return; }
+  const [data, dataFim] = range;
+
+  if(outroEditId){
+    const idx = adSpendData.findIndex(a=>a.id===outroEditId);
+    if(idx>-1) adSpendData[idx] = {...adSpendData[idx], data, dataFim, tipo:'outros', nome, produto:'', valor};
+    showOutroMsg('Gasto atualizado.');
+    outroEditId = null;
+    document.getElementById('outroSubmitBtn').textContent = 'Adicionar gasto';
+    document.getElementById('outroCancelEdit').style.display = 'none';
+  } else {
+    adSpendData.push({id:uid(), data, dataFim, tipo:'outros', nome, produto:'', valor});
+    showOutroMsg('Gasto adicionado.');
+  }
+  saveAdSpend();
+  document.getElementById('outroForm').reset();
+  dpOutroData.setRange([drISO(new Date()), drISO(new Date())], 'hoje');
+  renderAdAll();
+});
+
+function showOutroMsg(t){
+  const el = document.getElementById('outroMsg');
+  el.textContent = t;
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+}
+
+function toggleOutroHist(){
+  outroHistAberto = !outroHistAberto;
+  const t = document.getElementById('outroHistToggle');
+  t.classList.toggle('open', outroHistAberto);
+  t.innerHTML = outroHistAberto ? '<span class="chev">▶</span> Ocultar outros gastos' : '<span class="chev">▶</span> Ver outros gastos';
+  document.getElementById('outroHistBody').style.display = outroHistAberto ? 'block' : 'none';
+  if(outroHistAberto) renderOutroTable();
+}
+
 const TIPO_GASTO_LABEL = {aquisicao:'Aquisição', ads:'Ads', outros:'Outros'};
+// nome de exibição de um gasto qualquer (ads/outros/operacional), usado na lista unificada "Ver Gastos"
+function nomeGasto(a){
+  if(a.tipo==='ads') return a.produto ? ('Ads — '+a.produto) : 'Ads (geral)';
+  if(a.tipo==='outros') return a.nome || 'Outros';
+  return a.nome || 'Gasto';
+}
 
 /* um gasto de ads pode cobrir vários dias (ex: "gastei 1000MT nesta semana") — as três funções
    abaixo distribuem o valor igualmente pelos dias do período, tanto para os totais de um período
@@ -3051,7 +3248,7 @@ function fmtAdPeriodo(a){
 }
 
 function renderAdTable(){
-  const list = adSpendData.slice().sort((a,b)=> b.data.localeCompare(a.data));
+  const list = adSpendData.filter(a=>a.tipo==='ads').sort((a,b)=> b.data.localeCompare(a.data));
   const tbody = document.getElementById('adTableBody');
   const empty = document.getElementById('adEmpty');
   if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
@@ -3059,7 +3256,6 @@ function renderAdTable(){
   tbody.innerHTML = list.map(a=>`
     <tr>
       <td class="mono" data-label="Período">${fmtAdPeriodo(a)}</td>
-      <td data-label="Tipo"><span class="pill tipo-${a.tipo||'outros'}">${TIPO_GASTO_LABEL[a.tipo]||'Outros'}</span></td>
       <td data-label="Produto">${escapeHtml(a.produto||'Geral')}</td>
       <td class="mono" data-label="Valor">${fmtMT(a.valor)}</td>
       <td data-label=""><div class="row-actions">
@@ -3072,8 +3268,9 @@ function renderAdTable(){
 function editAd(id){
   const a = adSpendData.find(x=>x.id===id);
   if(!a) return;
+  switchMain('metricas');
+  switchMetricasView('cadastros');
   dpAdData.setRange([a.data, adSpendFim(a)], null);
-  document.getElementById('adTipo').value = a.tipo||'outros';
   document.getElementById('adProduto').value = a.produto||'';
   document.getElementById('adValor').value = a.valor;
   adEditId = id;
@@ -3089,6 +3286,51 @@ function cancelAdEdit(){
   document.getElementById('adCancelEdit').style.display = 'none';
 }
 function deleteAd(id){
+  if(!confirm('Apagar este gasto?')) return;
+  adSpendData = adSpendData.filter(a=>a.id!==id);
+  saveAdSpend();
+  renderAdAll();
+}
+
+function renderOutroTable(){
+  const list = adSpendData.filter(a=>a.tipo==='outros').sort((a,b)=> b.data.localeCompare(a.data));
+  const tbody = document.getElementById('outroTableBody');
+  const empty = document.getElementById('outroEmpty');
+  if(list.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = list.map(a=>`
+    <tr>
+      <td class="mono" data-label="Período">${fmtAdPeriodo(a)}</td>
+      <td data-label="Nome">${escapeHtml(nomeGasto(a))}</td>
+      <td class="mono" data-label="Valor">${fmtMT(a.valor)}</td>
+      <td data-label=""><div class="row-actions">
+        <button class="icon-btn" onclick="editOutro('${a.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteOutro('${a.id}')" title="Apagar">✕</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function editOutro(id){
+  const a = adSpendData.find(x=>x.id===id);
+  if(!a) return;
+  switchMain('metricas');
+  switchMetricasView('cadastros');
+  dpOutroData.setRange([a.data, adSpendFim(a)], null);
+  document.getElementById('outroNome').value = a.nome||'';
+  document.getElementById('outroValor').value = a.valor;
+  outroEditId = id;
+  document.getElementById('outroSubmitBtn').textContent = 'Atualizar gasto';
+  document.getElementById('outroCancelEdit').style.display = 'inline-block';
+  window.scrollTo({top: document.getElementById('outroForm').offsetTop - 20, behavior:'smooth'});
+}
+function cancelOutroEdit(){
+  outroEditId = null;
+  document.getElementById('outroForm').reset();
+  dpOutroData.setRange([drISO(new Date()), drISO(new Date())], 'hoje');
+  document.getElementById('outroSubmitBtn').textContent = 'Adicionar gasto';
+  document.getElementById('outroCancelEdit').style.display = 'none';
+}
+function deleteOutro(id){
   if(!confirm('Apagar este gasto?')) return;
   adSpendData = adSpendData.filter(a=>a.id!==id);
   saveAdSpend();
@@ -3309,8 +3551,86 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
 
 function renderAdAll(){
   if(adHistAberto) renderAdTable();
+  if(outroHistAberto) renderOutroTable();
+  if(gastosViewAberta) renderGastosView();
   populateProdutosMetricas();
   renderMetricas();
+}
+
+/* ============ VER GASTOS (ads + outros + operacionais juntos) ============ */
+function renderGastosView(){
+  const tipoFiltro = document.getElementById('gastosFiltroTipo').value;
+  const busca = document.getElementById('gastosBusca').value.trim().toLowerCase();
+  let itens = [
+    ...adSpendData.map(a=>({tipo:a.tipo, nome:nomeGasto(a), periodo:fmtAdPeriodo(a), valor:a.valor, data:a.data, id:a.id})),
+    ...operacionaisData.map(o=>({tipo:'operacional', nome:o.nome, periodo:fmtData(o.data)+(o.recorrente?' (mensal)':''), valor:o.valor, data:o.data, id:o.id}))
+  ];
+  if(tipoFiltro) itens = itens.filter(i=>i.tipo===tipoFiltro);
+  if(busca) itens = itens.filter(i=>i.nome.toLowerCase().includes(busca));
+  itens.sort((a,b)=> b.data.localeCompare(a.data));
+
+  const tbody = document.getElementById('gastosViewBody');
+  const empty = document.getElementById('gastosViewEmpty');
+  if(itens.length===0){
+    tbody.innerHTML=''; empty.style.display='block';
+    document.getElementById('gastosViewTotal').textContent = fmtMT(0);
+    return;
+  }
+  empty.style.display='none';
+  const TIPO_BADGE = {ads:'tipo-ads', outros:'tipo-outros', operacional:'tipo-aquisicao'};
+  const TIPO_NOME = {ads:'Ads', outros:'Outros', operacional:'Operacional'};
+  const EDIT_FN = {ads:'editAd', outros:'editOutro', operacional:'editOp'};
+  const DEL_FN = {ads:'deleteAd', outros:'deleteOutro', operacional:'deleteOp'};
+  tbody.innerHTML = itens.map(i=>`
+    <tr>
+      <td data-label="Nome">${escapeHtml(i.nome)}</td>
+      <td data-label="Tipo"><span class="pill ${TIPO_BADGE[i.tipo]}">${TIPO_NOME[i.tipo]}</span></td>
+      <td class="mono" data-label="Período">${i.periodo}</td>
+      <td class="mono" data-label="Valor">${fmtMT(i.valor)}</td>
+      <td data-label=""><div class="row-actions">
+        <button class="icon-btn" onclick="${EDIT_FN[i.tipo]}('${i.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="${DEL_FN[i.tipo]}('${i.id}')" title="Apagar">✕</button>
+      </div></td>
+    </tr>`).join('');
+  document.getElementById('gastosViewTotal').textContent = fmtMT(itens.reduce((s,i)=>s+i.valor,0));
+}
+
+/* ============ CATÁLOGO DE PRODUTOS (stock) ============ */
+function renderProdutosView(){
+  const busca = document.getElementById('produtosBusca').value.trim().toLowerCase();
+  let list = produtosData.slice().sort((a,b)=>a.nome.localeCompare(b.nome));
+  if(busca) list = list.filter(p=>p.nome.toLowerCase().includes(busca));
+
+  const grid = document.getElementById('produtosGrid');
+  const empty = document.getElementById('produtosGridEmpty');
+  if(list.length===0){
+    grid.innerHTML='';
+    empty.style.display='block';
+  } else {
+    empty.style.display='none';
+    grid.innerHTML = list.map(p=>{
+      const estoque = p.estoque||0;
+      const valorTotal = (p.custo||0) * estoque;
+      return `
+      <div class="produto-card">
+        <div class="produto-card-foto">${p.foto ? `<img src="${p.foto}">` : '📦'}</div>
+        <div class="produto-card-nome">${escapeHtml(p.nome)}</div>
+        <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${fmtMT(p.custo)}</span></div>
+        <div class="produto-card-linha"><span>Em stock</span><span class="mono">${estoque} un.</span></div>
+        <div class="produto-card-linha"><span>Local</span><span>${escapeHtml(p.local||'—')}</span></div>
+        <div class="produto-card-total"><span>Valor em stock</span><span class="mono">${fmtMT(valorTotal)}</span></div>
+        <div class="row-actions" style="margin-top:10px;">
+          <button class="icon-btn" onclick="editProduto('${p.id}')" title="Editar">✎</button>
+          <button class="icon-btn" onclick="deleteProduto('${p.id}')" title="Apagar">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // os totais do topo consideram todos os produtos cadastrados, não só os que batem com a busca
+  document.getElementById('pvTotalProdutos').textContent = produtosData.length;
+  document.getElementById('pvTotalUnidades').textContent = produtosData.reduce((s,p)=>s+(p.estoque||0),0);
+  document.getElementById('pvTotalValor').textContent = fmtMT(produtosData.reduce((s,p)=>s+(p.custo||0)*(p.estoque||0),0));
 }
 
 /* ============ INIT ============ */
