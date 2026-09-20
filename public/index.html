@@ -402,6 +402,13 @@
     transition:background .12s;
   }
   .contacto-acoes a:hover{ background:var(--overlay-4); }
+  /* botão de alternar número — só aparece quando o contacto tem mais de um telefone */
+  .contacto-alternar{
+    display:inline-flex; align-items:center; justify-content:center; width:23px; height:23px;
+    border-radius:7px; background:var(--brand-soft); border:none; color:var(--brand); cursor:pointer;
+    padding:0; transition:background .12s;
+  }
+  .contacto-alternar:hover{ background:var(--brand); color:var(--on-brand); }
   .pedido-card-actions{ display:flex; gap:6px; flex-wrap:wrap; }
   .pedido-card-actions button{
     border:1px solid var(--panel-line); background:var(--ink); color:var(--sand-dim);
@@ -602,8 +609,12 @@
       </div>
 
       <div class="panel">
-        <h2>Registar contacto / venda <span class="tag" id="semanaAtivaTag"></span></h2>
+        <h2>Registar formulário <span class="tag" id="semanaAtivaTag"></span></h2>
         <div class="subtabs" id="semanaTabs"></div>
+        <div class="historico-toggle" id="vendaFormToggle" onclick="toggleVendaForm()">
+          <span class="chev">▶</span> Mostrar formulário
+        </div>
+        <div id="vendaFormBody" style="display:none; margin-top:16px;">
         <form id="vendaForm">
           <div class="field">
             <label for="vData">Data</label>
@@ -670,6 +681,7 @@
           </div>
           <div id="vendaMsg"></div>
         </form>
+        </div>
       </div>
 
       <div class="panel panel-highlight">
@@ -1095,6 +1107,29 @@ let mesAtivo = '';
 let semanaAtiva = 'semana1';
 let mesAtivoVendas = '';
 let historicoAberto = false;
+let vendaFormAberto = false;
+function abrirVendaForm(){
+  if(vendaFormAberto) return;
+  vendaFormAberto = true;
+  const t = document.getElementById('vendaFormToggle');
+  t.classList.add('open');
+  t.innerHTML = '<span class="chev">▶</span> Ocultar formulário';
+  document.getElementById('vendaFormBody').style.display = 'block';
+}
+// recolhido por padrão pra "Pedidos da Semana" não ficar escondido lá embaixo atrás de um
+// formulário inteiro sempre aberto — as abas de semana continuam visíveis fora disto, porque essas
+// sim são informação essencial pra saber em qual semana você está antes mesmo de abrir o formulário
+function toggleVendaForm(){
+  if(vendaFormAberto){
+    vendaFormAberto = false;
+    const t = document.getElementById('vendaFormToggle');
+    t.classList.remove('open');
+    t.innerHTML = '<span class="chev">▶</span> Mostrar formulário';
+    document.getElementById('vendaFormBody').style.display = 'none';
+  } else {
+    abrirVendaForm();
+  }
+}
 let gastosViewAberta = false;
 let produtosViewAberta = false;
 
@@ -1142,12 +1177,14 @@ function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s
 /* ============ CONTACTO CLICÁVEL (ligar / SMS / WhatsApp) ============ */
 // o campo "contacto" é texto livre (nome + número juntos, ex: "Felizarda 865460006") — não há um
 // campo de telefone separado, então aqui procura-se toda sequência de dígitos que pareça um número.
-// Alguns pedidos importados da Shopify têm DOIS números (o que o cliente escreveu no formulário do
-// checkout + o número da conta/entrega da própria Shopify, quando são diferentes) — por isso devolve
-// uma lista, não só o primeiro que encontrar, e cada um vira o seu próprio grupo de ícones.
+// IMPORTANTE: espaço NÃO entra na classe de caracteres do número — só dígitos e traço. Se um
+// contacto tiver dois números separados só por espaço (ex: "865123456 847555328", sem "/" nem
+// vírgula entre eles), permitir espaço dentro do próprio "número" fazia o regex juntar os dois
+// numa string só, e o resultado ia parar direto no discador do telefone como um número gigante e
+// sem sentido — foi exatamente o que aconteceu e o utilizador reportou com print do discador.
 function extrairTelefones(contacto){
-  const brutos = String(contacto||'').match(/(\+?\d[\d\s-]{6,}\d)/g) || [];
-  const limpos = brutos.map(n=>n.replace(/[\s-]/g,'')).filter(n=>n.length>=8);
+  const brutos = String(contacto||'').match(/\+?\d[\d-]{6,}\d/g) || [];
+  const limpos = brutos.map(n=>n.replace(/-/g,'')).filter(n=>n.length>=8 && n.length<=13);
   return [...new Set(limpos)].slice(0,2);
 }
 // tel:/sms:/wa.me precisam do número em formato internacional; números moçambicanos costumam vir
@@ -1158,22 +1195,36 @@ function telInternacional(numero){
   if(!d.startsWith('258') && d.length===9) d = '258'+d;
   return d;
 }
-// devolve o texto do contacto já com os ícones de ligar/SMS/WhatsApp ao lado de cada número que
-// conseguir achar nele — o stopPropagation evita que clicar num ícone dispare outra coisa por cima
-// (ex: o card recolher/expandir no mobile) quando este HTML está dentro de um elemento clicável maior
-function contactoComAcoes(contacto){
+// quando um contacto tem 2 números, mostra só um grupo de ícones por vez (em vez de duplicar tudo)
+// e um botão pra alternar entre eles — guardado por id do registo, não pelo texto do contacto, pra
+// dois pedidos diferentes não interferirem um no outro mesmo que tenham o mesmo texto de contacto
+let telefoneAtivoPorId = {};
+function alternarTelefoneContacto(chave){
+  telefoneAtivoPorId[chave] = (telefoneAtivoPorId[chave]||0) + 1;
+  renderVendasAll();
+}
+// devolve o texto do contacto já com os ícones de ligar/SMS/WhatsApp ao lado — o stopPropagation
+// evita que clicar num ícone dispare outra coisa por cima (ex: o card recolher/expandir no mobile)
+// quando este HTML está dentro de um elemento clicável maior
+function contactoComAcoes(contacto, idEstado){
   const texto = escapeHtml(contacto || 'Sem contacto');
   const tels = extrairTelefones(contacto);
   if(tels.length===0) return texto;
-  const grupos = tels.map(tel=>{
-    const intl = telInternacional(tel);
-    return `<span class="contacto-acoes" onclick="event.stopPropagation()">`
-      + `<a href="tel:+${intl}" title="Ligar para ${tel}">📞</a>`
-      + `<a href="sms:+${intl}" title="Enviar SMS para ${tel}">💬</a>`
-      + `<a href="https://wa.me/${intl}" target="_blank" rel="noopener" title="Abrir WhatsApp com ${tel}">🟢</a>`
-      + `</span>`;
-  }).join('');
-  return texto + grupos;
+  const chave = idEstado || contacto;
+  const idx = (telefoneAtivoPorId[chave]||0) % tels.length;
+  const tel = tels[idx];
+  const intl = telInternacional(tel);
+  let html = `<span class="contacto-acoes" onclick="event.stopPropagation()">`
+    + `<a href="tel:+${intl}" title="Ligar para ${tel}">📞</a>`
+    + `<a href="sms:+${intl}" title="Enviar SMS para ${tel}">💬</a>`
+    + `<a href="https://wa.me/${intl}" target="_blank" rel="noopener" title="Abrir WhatsApp com ${tel}">🟢</a>`;
+  if(tels.length>1){
+    html += `<button type="button" class="contacto-alternar" title="Este contacto tem ${tels.length} números — trocar (mostrando ${tel})" onclick="alternarTelefoneContacto('${chave}')">`
+      + `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>`
+      + `</button>`;
+  }
+  html += `</span>`;
+  return texto + html;
 }
 
 /* ============ TEMA CLARO / ESCURO ============ */
@@ -1988,7 +2039,7 @@ function renderHistoricoMesTable(){
     <tr>
       <td class="mono" data-label="Data">${fmtData(v.data)}</td>
       <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-      <td data-label="Contacto">${contactoComAcoes(v.contacto)}</td>
+      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}</td>
       <td data-label="Local">${escapeHtml(v.local||'—')}</td>
       <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2094,7 +2145,7 @@ function renderPedidos(){
           </span>
         </div>
         <div class="pedido-card-main">
-          <div class="pedido-contacto">${contactoComAcoes(v.contacto)}</div>
+          <div class="pedido-contacto">${contactoComAcoes(v.contacto, v.id)}</div>
           <div class="pedido-detalhes">${escapeHtml(v.local||'—')}</div>
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
         </div>
@@ -2154,7 +2205,7 @@ function renderVendaTable(){
       <tr>
         <td class="mono" data-label="Data">${fmtData(v.data)}</td>
         <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-        <td data-label="Contacto">${contactoComAcoes(v.contacto)}</td>
+        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}</td>
         <td data-label="Local">${escapeHtml(v.local||'—')}</td>
         <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
         <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2210,6 +2261,7 @@ function editVenda(id){
   switchVendasView('pedidos');
   if(v.semana && v.semana!==semanaAtiva){ semanaAtiva = v.semana; }
   renderVendasAll();
+  abrirVendaForm();
   dpVData.setValue(v.data);
   document.getElementById('vHorario').value = v.horario||'';
   document.getElementById('vFonte').value = v.fonte;
