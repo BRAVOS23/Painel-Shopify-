@@ -368,6 +368,9 @@
     padding-top:8px; margin-top:6px; border-top:1px solid var(--panel-line);
   }
   .produto-card-total .mono{ color:var(--green); }
+  .produto-local-row{ display:flex; gap:8px; margin-bottom:8px; }
+  .produto-local-row input[type="text"]{ flex:2; min-width:0; }
+  .produto-local-row input[type="number"]{ flex:1; min-width:0; max-width:110px; }
   .chart-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--sand-dimmer); font-size:12.5px; padding:0 20px; }
   .cards6{ display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
   .metricas-nota{ font-size:11.5px; color:var(--sand-dimmer); margin:-8px 0 16px; line-height:1.5; }
@@ -1070,13 +1073,13 @@
             <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim); min-width:0; max-width:100%;">
           </div>
         </div>
-        <div class="field span2">
-          <label for="pEstoque">Unidades em stock</label>
-          <input type="number" id="pEstoque" min="0" step="1" placeholder="0">
-        </div>
-        <div class="field span3">
-          <label for="pLocal">Onde está guardado <span style="text-transform:none; opacity:.7;">(opcional)</span></label>
-          <input type="text" id="pLocal" placeholder="Ex: Armazém Matola, Casa…">
+        <div class="field" style="grid-column:1/-1;">
+          <label>Stock por local <span style="text-transform:none; opacity:.7;">(um produto pode ter unidades em mais de um lugar)</span></label>
+          <div id="produtoLocaisRows"></div>
+          <div style="display:flex; align-items:center; gap:12px; margin-top:6px; flex-wrap:wrap;">
+            <button type="button" class="btn-ghost" onclick="adicionarLinhaLocalProduto()">+ Adicionar local</button>
+            <span style="font-size:12.5px; color:var(--sand-dim);">Total em stock: <span id="produtoLocaisTotal" class="mono">0</span> un.</span>
+          </div>
         </div>
         <div class="field" style="grid-column:1/-1; flex-direction:row; align-items:center; gap:10px;">
           <button type="submit" class="btn-primary" id="produtoSubmitBtn">Guardar</button>
@@ -2928,6 +2931,18 @@ function saveAdSpend(){ localStorage.setItem(ADSPEND_KEY, JSON.stringify(adSpend
 
 function loadProdutos(){
   try{ produtosData = JSON.parse(localStorage.getItem(PRODUTOS_KEY)) || []; }catch(e){ produtosData = []; }
+  // migração: produtos cadastrados antes de existir "stock por local" tinham um único par
+  // estoque/local — vira uma "locais" com uma linha só, pra não perder o que já estava guardado
+  produtosData.forEach(p=>{
+    if(!p.locais){
+      p.locais = [{ id: uid(), local: p.local||'', quantidade: p.estoque||0 }];
+      delete p.estoque;
+      delete p.local;
+    }
+  });
+}
+function estoqueTotal(p){
+  return (p.locais||[]).reduce((s,l)=> s + (l.quantidade||0), 0);
 }
 function saveProdutos(){ localStorage.setItem(PRODUTOS_KEY, JSON.stringify(produtosData)); }
 
@@ -2938,6 +2953,40 @@ function saveOperacional(){ localStorage.setItem(OPERACIONAL_KEY, JSON.stringify
 
 /* ---- Produtos ---- */
 let pendingFotoBase64 = null;
+
+/* linhas de "stock por local" dentro do formulário — não são gravadas até o Guardar */
+function novaLinhaLocalProduto(local='', quantidade=0){
+  return { id: uid(), local, quantidade };
+}
+let produtoLocaisForm = [novaLinhaLocalProduto()];
+
+function renderProdutoLocaisForm(){
+  document.getElementById('produtoLocaisRows').innerHTML = produtoLocaisForm.map(r => `
+    <div class="produto-local-row">
+      <input type="text" placeholder="Ex: Armazém Matola, Casa…" value="${escapeHtml(r.local)}" oninput="atualizarLinhaLocalProduto('${r.id}','local',this.value)">
+      <input type="number" min="0" step="1" placeholder="0" value="${r.quantidade||''}" oninput="atualizarLinhaLocalProduto('${r.id}','quantidade',this.value)">
+      <button type="button" class="icon-btn" onclick="removerLinhaLocalProduto('${r.id}')" title="Remover local">✕</button>
+    </div>`).join('');
+  atualizarProdutoLocaisTotal();
+}
+function atualizarProdutoLocaisTotal(){
+  const total = produtoLocaisForm.reduce((s,r)=> s + (parseInt(r.quantidade,10)||0), 0);
+  document.getElementById('produtoLocaisTotal').textContent = total;
+}
+function atualizarLinhaLocalProduto(id, campo, valor){
+  const r = produtoLocaisForm.find(x=>x.id===id);
+  if(!r) return;
+  r[campo] = campo==='quantidade' ? (parseInt(valor,10)||0) : valor;
+  if(campo==='quantidade') atualizarProdutoLocaisTotal();
+}
+function adicionarLinhaLocalProduto(){
+  produtoLocaisForm.push(novaLinhaLocalProduto());
+  renderProdutoLocaisForm();
+}
+function removerLinhaLocalProduto(id){
+  produtoLocaisForm = produtoLocaisForm.filter(r=>r.id!==id);
+  renderProdutoLocaisForm();
+}
 
 // Reduz a foto para no máximo 300px e comprime em JPEG, pra não pesar no localStorage
 function processarFotoProduto(file, callback){
@@ -2974,22 +3023,23 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
   e.preventDefault();
   const nome = document.getElementById('pNome').value.trim();
   const custo = parseFloat(document.getElementById('pCusto').value)||0;
-  const estoque = parseInt(document.getElementById('pEstoque').value,10)||0;
-  const local = document.getElementById('pLocal').value.trim();
+  const locais = produtoLocaisForm
+    .map(r=>({ id:r.id, local:(r.local||'').trim(), quantidade: parseInt(r.quantidade,10)||0 }))
+    .filter(r=> r.local || r.quantidade>0);
   if(!nome){ showProdutoMsg('Preencha o nome do produto.'); return; }
   const foto = pendingFotoBase64;
 
   if(produtoEditId){
     const idx = produtosData.findIndex(p=>p.id===produtoEditId);
-    if(idx>-1) produtosData[idx] = {...produtosData[idx], nome, custo, estoque, local, foto: foto || produtosData[idx].foto || ''};
+    if(idx>-1) produtosData[idx] = {...produtosData[idx], nome, custo, locais, foto: foto || produtosData[idx].foto || ''};
     showProdutoMsg('Produto atualizado.');
     produtoEditId = null;
     document.getElementById('produtoSubmitBtn').textContent = 'Guardar';
     document.getElementById('produtoCancelEdit').style.display = 'none';
   } else {
     const existente = produtosData.find(p=>normalizarNomeProduto(p.nome)===normalizarNomeProduto(nome));
-    if(existente){ existente.custo = custo; existente.estoque = estoque; existente.local = local; if(foto) existente.foto = foto; showProdutoMsg('Produto já existia — atualizado.'); }
-    else { produtosData.push({id:uid(), nome, custo, estoque, local, foto: foto||''}); showProdutoMsg('Produto cadastrado.'); }
+    if(existente){ existente.custo = custo; existente.locais = locais; if(foto) existente.foto = foto; showProdutoMsg('Produto já existia — atualizado.'); }
+    else { produtosData.push({id:uid(), nome, custo, locais, foto: foto||''}); showProdutoMsg('Produto cadastrado.'); }
   }
   saveProdutos();
   document.getElementById('produtoForm').reset();
@@ -2997,6 +3047,8 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
   const preview = document.getElementById('pFotoPreview');
   preview.style.display = 'none';
   preview.src = '';
+  produtoLocaisForm = [novaLinhaLocalProduto()];
+  renderProdutoLocaisForm();
   renderProdutosAll();
 });
 
@@ -3014,8 +3066,8 @@ function editProduto(id){
   switchMetricasView('produtos');
   document.getElementById('pNome').value = p.nome;
   document.getElementById('pCusto').value = p.custo;
-  document.getElementById('pEstoque').value = p.estoque||0;
-  document.getElementById('pLocal').value = p.local||'';
+  produtoLocaisForm = (p.locais && p.locais.length ? p.locais : [novaLinhaLocalProduto()]).map(r=>({...r}));
+  renderProdutoLocaisForm();
   const preview = document.getElementById('pFotoPreview');
   pendingFotoBase64 = null;
   if(p.foto){ preview.src = p.foto; preview.style.display = 'inline-block'; }
@@ -3032,6 +3084,8 @@ function cancelProdutoEdit(){
   const preview = document.getElementById('pFotoPreview');
   preview.style.display = 'none';
   preview.src = '';
+  produtoLocaisForm = [novaLinhaLocalProduto()];
+  renderProdutoLocaisForm();
   document.getElementById('produtoSubmitBtn').textContent = 'Guardar';
   document.getElementById('produtoCancelEdit').style.display = 'none';
 }
@@ -3716,8 +3770,12 @@ function renderProdutosView(){
   } else {
     empty.style.display='none';
     grid.innerHTML = list.map(p=>{
-      const estoque = p.estoque||0;
+      const locais = p.locais||[];
+      const estoque = estoqueTotal(p);
       const expandido = produtosExpandidos.has(p.id);
+      const locaisHtml = locais.length
+        ? locais.map(l=>`<div class="produto-card-linha"><span>${escapeHtml(l.local||'Sem local indicado')}</span><span class="mono">${l.quantidade||0} un.</span></div>`).join('')
+        : `<div class="produto-card-linha"><span>Local</span><span>—</span></div>`;
       return `
       <div class="produto-card${expandido?' expanded':''}" onclick="toggleProdutoCard('${p.id}')">
         <div class="produto-card-top">
@@ -3730,7 +3788,7 @@ function renderProdutosView(){
         </div>
         <div class="produto-card-extra">
           <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${fmtMT(p.custo)}</span></div>
-          <div class="produto-card-linha"><span>Local</span><span>${escapeHtml(p.local||'—')}</span></div>
+          ${locaisHtml}
           <div class="produto-card-total"><span>Unidades em stock total</span><span class="mono">${estoque}</span></div>
           <div class="row-actions" onclick="event.stopPropagation()" style="margin-top:10px;">
             <button class="icon-btn" onclick="editProduto('${p.id}')" title="Editar">✎</button>
@@ -3743,8 +3801,8 @@ function renderProdutosView(){
 
   // os totais do topo consideram todos os produtos cadastrados, não só os que batem com a busca
   document.getElementById('pvTotalProdutos').textContent = produtosData.length;
-  document.getElementById('pvTotalUnidades').textContent = produtosData.reduce((s,p)=>s+(p.estoque||0),0);
-  document.getElementById('pvTotalValor').textContent = fmtMT(produtosData.reduce((s,p)=>s+(p.custo||0)*(p.estoque||0),0));
+  document.getElementById('pvTotalUnidades').textContent = produtosData.reduce((s,p)=>s+estoqueTotal(p),0);
+  document.getElementById('pvTotalValor').textContent = fmtMT(produtosData.reduce((s,p)=>s+(p.custo||0)*estoqueTotal(p),0));
 }
 
 /* ============ INIT ============ */
@@ -3755,6 +3813,7 @@ loadVendas();
 loadAdSpend();
 loadProdutos();
 loadOperacional();
+renderProdutoLocaisForm();
 renderShopifyMapResumo();
 
 // repara dados já guardados de antes da correção do uid() (Date.now() podia colidir ao importar
