@@ -340,19 +340,27 @@
   .chart-card-title .tag{ font-family:var(--font-mono); font-size:10.5px; font-weight:500; color:var(--sand-dimmer); text-transform:none; margin-left:6px; }
   .chart-canvas-wrap{ position:relative; height:240px; }
 
-  /* catálogo de produtos (stock) */
-  .produto-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:14px; }
+  /* catálogo de produtos (stock) — linha compacta (miniatura + nome + stock), detalhes abrem ao tocar */
+  .produto-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:10px; }
   .produto-card{
-    background:var(--ink-2); border:1px solid var(--panel-line); border-radius:14px; padding:14px;
-    box-shadow:var(--shadow-card-rest); transition:transform .15s ease, box-shadow .15s ease;
+    background:var(--ink-2); border:1px solid var(--panel-line); border-radius:14px; padding:10px 12px;
+    box-shadow:var(--shadow-card-rest); transition:transform .15s ease, box-shadow .15s ease; cursor:pointer;
   }
   .produto-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-card-hover); }
+  .produto-card-top{ display:flex; align-items:center; gap:11px; }
   .produto-card-foto{
-    width:100%; aspect-ratio:1.6; border-radius:9px; background:var(--overlay-2); margin-bottom:10px;
-    display:flex; align-items:center; justify-content:center; overflow:hidden; color:var(--sand-dimmer); font-size:26px;
+    width:44px; height:44px; flex-shrink:0; border-radius:9px; background:var(--overlay-2);
+    display:flex; align-items:center; justify-content:center; overflow:hidden; color:var(--sand-dimmer); font-size:18px;
   }
   .produto-card-foto img{ width:100%; height:100%; object-fit:cover; }
-  .produto-card-nome{ font-family:var(--font-display); font-weight:600; font-size:14.5px; margin-bottom:8px; }
+  .produto-card-headinfo{ flex:1; min-width:0; }
+  .produto-card-nome{ font-family:var(--font-display); font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .produto-card-stock{ font-size:12px; color:var(--sand-dim); margin-top:2px; }
+  .produto-card-stock.zero{ color:var(--red); }
+  .produto-expand-chev{ flex-shrink:0; font-size:11px; color:var(--sand-dimmer); transition:transform .2s; }
+  .produto-card.expanded .produto-expand-chev{ transform:rotate(180deg); }
+  .produto-card-extra{ display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--panel-line); }
+  .produto-card.expanded .produto-card-extra{ display:block; }
   .produto-card-linha{ display:flex; justify-content:space-between; font-size:12px; color:var(--sand-dim); padding:4px 0; }
   .produto-card-linha .mono{ color:var(--sand); }
   .produto-card-total{
@@ -3687,6 +3695,14 @@ function renderGastosView(){
 }
 
 /* ============ CATÁLOGO DE PRODUTOS (stock) ============ */
+// linha recolhida por padrão (só miniatura + nome + stock) — os detalhes abrem ao tocar,
+// senão a lista fica enorme quando há muitos produtos cadastrados
+let produtosExpandidos = new Set();
+function toggleProdutoCard(id){
+  if(produtosExpandidos.has(id)) produtosExpandidos.delete(id); else produtosExpandidos.add(id);
+  renderProdutosView();
+}
+
 function renderProdutosView(){
   const busca = document.getElementById('produtosBusca').value.trim().toLowerCase();
   let list = produtosData.slice().sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -3702,17 +3718,25 @@ function renderProdutosView(){
     grid.innerHTML = list.map(p=>{
       const estoque = p.estoque||0;
       const valorTotal = (p.custo||0) * estoque;
+      const expandido = produtosExpandidos.has(p.id);
       return `
-      <div class="produto-card">
-        <div class="produto-card-foto">${p.foto ? `<img src="${p.foto}">` : '📦'}</div>
-        <div class="produto-card-nome">${escapeHtml(p.nome)}</div>
-        <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${fmtMT(p.custo)}</span></div>
-        <div class="produto-card-linha"><span>Em stock</span><span class="mono">${estoque} un.</span></div>
-        <div class="produto-card-linha"><span>Local</span><span>${escapeHtml(p.local||'—')}</span></div>
-        <div class="produto-card-total"><span>Valor em stock</span><span class="mono">${fmtMT(valorTotal)}</span></div>
-        <div class="row-actions" style="margin-top:10px;">
-          <button class="icon-btn" onclick="editProduto('${p.id}')" title="Editar">✎</button>
-          <button class="icon-btn" onclick="deleteProduto('${p.id}')" title="Apagar">✕</button>
+      <div class="produto-card${expandido?' expanded':''}" onclick="toggleProdutoCard('${p.id}')">
+        <div class="produto-card-top">
+          <div class="produto-card-foto">${p.foto ? `<img src="${p.foto}">` : '📦'}</div>
+          <div class="produto-card-headinfo">
+            <div class="produto-card-nome">${escapeHtml(p.nome)}</div>
+            <div class="produto-card-stock${estoque===0?' zero':''}">${estoque} em stock</div>
+          </div>
+          <span class="produto-expand-chev">▾</span>
+        </div>
+        <div class="produto-card-extra">
+          <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${fmtMT(p.custo)}</span></div>
+          <div class="produto-card-linha"><span>Local</span><span>${escapeHtml(p.local||'—')}</span></div>
+          <div class="produto-card-total"><span>Valor em stock</span><span class="mono">${fmtMT(valorTotal)}</span></div>
+          <div class="row-actions" onclick="event.stopPropagation()" style="margin-top:10px;">
+            <button class="icon-btn" onclick="editProduto('${p.id}')" title="Editar">✎</button>
+            <button class="icon-btn" onclick="deleteProduto('${p.id}')" title="Apagar">✕</button>
+          </div>
         </div>
       </div>`;
     }).join('');
