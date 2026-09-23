@@ -3717,7 +3717,6 @@ function renderProdutosView(){
     empty.style.display='none';
     grid.innerHTML = list.map(p=>{
       const estoque = p.estoque||0;
-      const valorTotal = (p.custo||0) * estoque;
       const expandido = produtosExpandidos.has(p.id);
       return `
       <div class="produto-card${expandido?' expanded':''}" onclick="toggleProdutoCard('${p.id}')">
@@ -3732,7 +3731,7 @@ function renderProdutosView(){
         <div class="produto-card-extra">
           <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${fmtMT(p.custo)}</span></div>
           <div class="produto-card-linha"><span>Local</span><span>${escapeHtml(p.local||'—')}</span></div>
-          <div class="produto-card-total"><span>Valor em stock</span><span class="mono">${fmtMT(valorTotal)}</span></div>
+          <div class="produto-card-total"><span>Unidades em stock total</span><span class="mono">${estoque}</span></div>
           <div class="row-actions" onclick="event.stopPropagation()" style="margin-top:10px;">
             <button class="icon-btn" onclick="editProduto('${p.id}')" title="Editar">✎</button>
             <button class="icon-btn" onclick="deleteProduto('${p.id}')" title="Apagar">✕</button>
