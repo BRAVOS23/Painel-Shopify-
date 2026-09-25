@@ -427,6 +427,17 @@
     padding:0; transition:background .12s;
   }
   .contacto-alternar:hover{ background:var(--brand); color:var(--on-brand); }
+  /* número ativo (dos 2 que o contacto tem) fica destacado no texto — sem isso os ícones trocavam
+     de número mas nada na tela mudava, então não dava pra saber qual dos dois estava selecionado */
+  .tel-ativo{
+    background:var(--brand-soft); color:var(--brand); font-weight:700; padding:1px 6px;
+    border-radius:6px; animation: telAtivoPulse .45s ease;
+  }
+  @keyframes telAtivoPulse{
+    0%{ background:var(--brand); color:var(--on-brand); transform:scale(1.16); }
+    100%{ background:var(--brand-soft); color:var(--brand); transform:scale(1); }
+  }
+  .tel-inativo{ opacity:.4; }
   .pedido-card-actions{ display:flex; gap:6px; flex-wrap:wrap; }
   .pedido-card-actions button{
     border:1px solid var(--panel-line); background:var(--ink); color:var(--sand-dim);
@@ -1224,13 +1235,19 @@ function alternarTelefoneContacto(chave){
 // evita que clicar num ícone dispare outra coisa por cima (ex: o card recolher/expandir no mobile)
 // quando este HTML está dentro de um elemento clicável maior
 function contactoComAcoes(contacto, idEstado){
-  const texto = escapeHtml(contacto || 'Sem contacto');
   const tels = extrairTelefones(contacto);
-  if(tels.length===0) return texto;
+  if(tels.length===0) return escapeHtml(contacto || 'Sem contacto');
   const chave = idEstado || contacto;
   const idx = (telefoneAtivoPorId[chave]||0) % tels.length;
   const tel = tels[idx];
   const intl = telInternacional(tel);
+  // realça o número ativo dentro do próprio texto do contacto (e apaga o outro) — sem isso os
+  // ícones trocavam de número ao clicar em "alternar" mas o texto exibido continuava idêntico,
+  // então não dava pra saber qual dos dois estava selecionado no momento
+  const texto = escapeHtml(contacto || 'Sem contacto').replace(/\+?\d[\d-]{6,}\d/g, m => {
+    const ativo = m.replace(/-/g,'') === tel;
+    return `<span class="${ativo?'tel-ativo':'tel-inativo'}">${m}</span>`;
+  });
   let html = `<span class="contacto-acoes" onclick="event.stopPropagation()">`
     + `<a href="tel:+${intl}" title="Ligar para ${tel}">📞</a>`
     + `<a href="sms:+${intl}" title="Enviar SMS para ${tel}">💬</a>`
