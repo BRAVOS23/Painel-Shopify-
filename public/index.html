@@ -361,7 +361,9 @@
   .produto-card.expanded .produto-expand-chev{ transform:rotate(180deg); }
   .produto-card-extra{ display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--panel-line); }
   .produto-card.expanded .produto-card-extra{ display:block; }
-  .produto-card-linha{ display:flex; justify-content:space-between; font-size:12px; color:var(--sand-dim); padding:4px 0; }
+  .produto-card-linha{ display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--sand-dim); padding:4px 0; }
+  .produto-card-linha span:first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .produto-card-linha span:last-child{ flex-shrink:0; }
   .produto-card-linha .mono{ color:var(--sand); }
   .produto-card-total{
     display:flex; justify-content:space-between; font-size:12.5px; font-weight:600; color:var(--sand);
@@ -428,11 +430,16 @@
   }
   .contacto-alternar:hover{ background:var(--brand); color:var(--on-brand); }
   /* número ativo (dos 2 que o contacto tem) fica destacado no texto — sem isso os ícones trocavam
-     de número mas nada na tela mudava, então não dava pra saber qual dos dois estava selecionado */
+     de número mas nada na tela mudava, então não dava pra saber qual dos dois estava selecionado.
+     ".tel-pulso" é uma classe à parte, só aplicada ao contacto que acabou de trocar — o resto do
+     app faz re-render completo da lista a qualquer mudança (concluir um pedido, adicionar outro…),
+     o que recria estes elementos do zero; se a animação estivesse presa a ".tel-ativo" ela tocaria
+     de novo em TODOS os contactos visíveis toda vez, não só no que a pessoa acabou de tocar */
   .tel-ativo{
     background:var(--brand-soft); color:var(--brand); font-weight:700; padding:1px 6px;
-    border-radius:6px; animation: telAtivoPulse .45s ease;
+    border-radius:6px;
   }
+  .tel-pulso{ animation: telAtivoPulse .45s ease; }
   @keyframes telAtivoPulse{
     0%{ background:var(--brand); color:var(--on-brand); transform:scale(1.16); }
     100%{ background:var(--brand-soft); color:var(--brand); transform:scale(1); }
@@ -886,7 +893,7 @@
       <div class="roi-hero">
         <div class="roi-hero-label">ROI no período <span id="metVendasSub" style="opacity:.75; font-weight:500;"></span></div>
         <div class="roi-hero-value" id="metROI">—</div>
-        <div class="roi-hero-sub">retorno sobre o gasto total (custo do produto + ads + outros + operacional + entrega)</div>
+        <div class="roi-hero-sub" id="metRoiSub">retorno sobre o gasto total (custo do produto + ads + outros + operacional + entrega)</div>
       </div>
 
       <div class="cards4">
@@ -1230,9 +1237,15 @@ function telInternacional(numero){
 // e um botão pra alternar entre eles — guardado por id do registo, não pelo texto do contacto, pra
 // dois pedidos diferentes não interferirem um no outro mesmo que tenham o mesmo texto de contacto
 let telefoneAtivoPorId = {};
+// guarda qual contacto acabou de trocar de número, só pra dar a animação de destaque uma vez —
+// sem isto, o próximo re-render completo (concluir outro pedido, adicionar um novo…) recriava o
+// elemento do zero e a animação tocava de novo em todos os contactos visíveis, não só neste
+let telefoneRecemAlternado = null;
 function alternarTelefoneContacto(chave){
   telefoneAtivoPorId[chave] = (telefoneAtivoPorId[chave]||0) + 1;
+  telefoneRecemAlternado = chave;
   renderVendasAll();
+  telefoneRecemAlternado = null;
 }
 // devolve o texto do contacto já com os ícones de ligar/SMS/WhatsApp ao lado — o stopPropagation
 // evita que clicar num ícone dispare outra coisa por cima (ex: o card recolher/expandir no mobile)
@@ -1247,9 +1260,11 @@ function contactoComAcoes(contacto, idEstado){
   // realça o número ativo dentro do próprio texto do contacto (e apaga o outro) — sem isso os
   // ícones trocavam de número ao clicar em "alternar" mas o texto exibido continuava idêntico,
   // então não dava pra saber qual dos dois estava selecionado no momento
+  const pulsar = chave===telefoneRecemAlternado;
   const texto = escapeHtml(contacto || 'Sem contacto').replace(/\+?\d[\d-]{6,}\d/g, m => {
     const ativo = m.replace(/-/g,'') === tel;
-    return `<span class="${ativo?'tel-ativo':'tel-inativo'}">${m}</span>`;
+    const classe = ativo ? 'tel-ativo'+(pulsar?' tel-pulso':'') : 'tel-inativo';
+    return `<span class="${classe}">${m}</span>`;
   });
   let html = `<span class="contacto-acoes" onclick="event.stopPropagation()">`
     + `<a href="tel:+${intl}" title="Ligar para ${tel}">📞</a>`
@@ -2082,8 +2097,8 @@ function renderHistoricoMesTable(){
 function exportHistoricoMesCSV(){
   const list = getHistoricoFiltrado();
   if(list.length===0){ alert('Não há dados para exportar.'); return; }
-  const header = ['Data','Fonte de Aquisição','Contacto','Local da Entrega','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
-  const rows = list.map(v=>[v.data, v.fonte, v.contacto, v.local, v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, v.comissao||0, STATUS_LABEL[v.status]]);
+  const header = ['Data','Horário','Fonte de Aquisição','Contacto','Local da Entrega','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
+  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, v.comissao||0, STATUS_LABEL[v.status]]);
   downloadCSV(header, rows, 'controle-vendas-'+mesHistoricoSelecionado+'-'+semanaHistoricoSelecionada+'.csv');
 }
 
@@ -2871,6 +2886,7 @@ function importarBackup(){
     adSpendData = backup.adSpendData || [];
     produtosData = backup.produtosData || [];
     operacionaisData = backup.operacionaisData || [];
+    migrarProdutosParaLocais();
     saveFluxo(); saveVendas(); saveAdSpend(); saveProdutos(); saveOperacional();
 
     recalcularMesesAtivos();
@@ -2949,10 +2965,11 @@ function loadAdSpend(){
 }
 function saveAdSpend(){ localStorage.setItem(ADSPEND_KEY, JSON.stringify(adSpendData)); }
 
-function loadProdutos(){
-  try{ produtosData = JSON.parse(localStorage.getItem(PRODUTOS_KEY)) || []; }catch(e){ produtosData = []; }
-  // migração: produtos cadastrados antes de existir "stock por local" tinham um único par
-  // estoque/local — vira uma "locais" com uma linha só, pra não perder o que já estava guardado
+// migração: produtos cadastrados antes de existir "stock por local" tinham um único par
+// estoque/local — vira uma "locais" com uma linha só, pra não perder o que já estava guardado.
+// Chamada tanto ao carregar do localStorage quanto ao restaurar um backup antigo — os dois
+// caminhos podem trazer produtos nesse formato velho.
+function migrarProdutosParaLocais(){
   produtosData.forEach(p=>{
     if(!p.locais){
       p.locais = [{ id: uid(), local: p.local||'', quantidade: p.estoque||0 }];
@@ -2960,6 +2977,10 @@ function loadProdutos(){
       delete p.local;
     }
   });
+}
+function loadProdutos(){
+  try{ produtosData = JSON.parse(localStorage.getItem(PRODUTOS_KEY)) || []; }catch(e){ produtosData = []; }
+  migrarProdutosParaLocais();
 }
 function estoqueTotal(p){
   return (p.locais||[]).reduce((s,l)=> s + (l.quantidade||0), 0);
@@ -3573,6 +3594,9 @@ function renderMetricas(){
   const gastoOutros = somaTipo('outros');
   // gastos operacionais (domínio, mensalidade, apps…) são da loja toda, não de um produto — só entram na visão "Todos os produtos"
   const gastoOperacional = produtoFiltro ? 0 : calcularGastoOperacional(inicio, fim);
+  document.getElementById('metRoiSub').textContent = produtoFiltro
+    ? 'retorno sobre o gasto total (custo do produto + ads + outros + entrega — operacional fica de fora aqui, porque é da loja toda, não deste produto)'
+    : 'retorno sobre o gasto total (custo do produto + ads + outros + operacional + entrega)';
   // valor pago aos entregadores nas vendas concluídas do período — custo real do modelo COD, entra no ROI
   const gastoEntrega = vendasConcluidas.reduce((s,v)=>s+(v.comissao||0), 0);
 
