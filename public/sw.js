@@ -2,7 +2,7 @@
 // de gráfico/PDF, agora servidas pelo próprio Hosting em vez de uma CDN externa) na primeira
 // visita, pra depois abrir e funcionar mesmo sem internet. Suba o número da versão sempre que
 // publicar uma alteração no index.html, senão o telemóvel continua a mostrar a versão antiga.
-const CACHE_VERSION = 'painel-negocio-v11';
+const CACHE_VERSION = 'painel-negocio-v12';
 const PRECACHE_URLS = [
   './',
   './index.html',
