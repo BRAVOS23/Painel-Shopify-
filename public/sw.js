@@ -9,6 +9,7 @@ const PRECACHE_URLS = [
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
   './vendor/chart.umd.min.js',
   './vendor/jspdf.umd.min.js',
   './vendor/fonts/space-grotesk-latin-500-normal.woff2',
@@ -75,7 +76,7 @@ self.addEventListener('fetch', (event) => {
         const copy = resp.clone();
         caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy)).catch(() => {});
         return resp;
-      }).catch(() => cached);
+      });
     })
   );
 });

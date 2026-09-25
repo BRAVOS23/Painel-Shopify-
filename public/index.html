@@ -1200,7 +1200,10 @@ if(typeof Chart !== 'undefined'){
 function normalizarNomeProduto(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
 function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' MT'; }
 function fmtData(d){ return d ? d.split('-').reverse().join('/') : ''; }
-function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+// innerHTML só escapa <, > e & (o que basta dentro de texto solto) — sem isto, um valor usado
+// dentro de um atributo value="..." com aspas duplas (ex: nome de local de stock) quebrava o
+// atributo e corrompia o HTML da linha
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s||''; return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 /* ============ CONTACTO CLICÁVEL (ligar / SMS / WhatsApp) ============ */
 // o campo "contacto" é texto livre (nome + número juntos, ex: "Felizarda 865460006") — não há um
