@@ -96,4 +96,4 @@ Dados `localStorage` pertencem ao domínio do site antigo; o domínio Cloudflare
 
 ## Publicação e estado
 
-Nenhum push, deploy real, alteração de plano ou configuração de segredo foi feito automaticamente. A versão preparada tem de ser enviada para o GitHub e a publicação feita com aprovação do proprietário. A conexão Firebase real e as integrações têm de ser validadas depois de configurar os segredos. Cobrança e assinaturas continuam por implementar.
+A versão preparada foi enviada para a branch `cloudflare-free` do GitHub com aprovação do proprietário. Nenhum deploy real, alteração de plano ou configuração de segredo foi feito. Selecionar essa branch na Cloudflare e publicar com aprovação do proprietário. A conexão Firebase real e as integrações têm de ser validadas depois de configurar os segredos. Cobrança e assinaturas continuam por implementar.
