@@ -64,3 +64,17 @@ test('cancelamento recusado pela Shopify não é tratado como sucesso',async()=>
  const providers=createProviders({shopifyVersion:'2026-07'},async()=>Response.json({data:{orderCancel:{orderCancelUserErrors:[{message:'denied'}]}}}));
  await assert.rejects(providers.shopifyStatus('test.myshopify.com','fixture','1','cancelado'));
 });
+test('produtos preservam stock por local sem aceitar locais inválidos',()=>{
+ const record={id:'stock_product',nome:'Produto',custo:10,foto:'',locais:[{id:'loc_a',local:'Matola',quantidade:4},{id:'loc_b',local:'Maputo',quantidade:2}]};
+ assert.equal(validateRecord('produtos',record),record);
+ assert.throws(()=>validateRecord('produtos',{...record,locais:[{id:'loc_a',local:'Matola',quantidade:-1}]}));
+ assert.throws(()=>validateRecord('produtos',{...record,locais:[record.locais[0],record.locais[0]]}));
+ assert.throws(()=>validateRecord('produtos',{...record,locais:[{id:"bad'",local:'Matola',quantidade:1}]}));
+});
+test('gastos de vários dias são rateados, com lucro líquido e aviso de custo em falta',()=>{
+ const state={vendas:[{id:'sale1',status:'concluido',data:'2026-10-12',produto:'Sem cadastro',quantidade:1,valor:100,comissao:10}],produtos:[],ads:[{id:'ad1',data:'2026-10-10',dataFim:'2026-10-16',tipo:'ads',produto:'',valor:70},{id:'other1',data:'2026-10-01',dataFim:'2026-10-31',nome:'Internet',tipo:'outros',produto:'',valor:31}],operacional:[]};
+ const day=calculateMetrics(state,'2026-10-12','2026-10-12');assert.equal(day.ads,10);assert.equal(day.other,1);assert.equal(day.profit,79);assert.equal(day.missingProductCount,1);
+ const week=calculateMetrics(state,'2026-10-10','2026-10-16');assert.equal(week.ads,70);assert.equal(week.other,7);
+ assert.equal(calculateMetrics(state,'2026-10-17','2026-10-18').ads,0);
+ assert.throws(()=>validateRecord('ads',{id:'bad_range',data:'2026-10-12',dataFim:'2026-10-11',tipo:'ads',produto:'',valor:10}));
+});

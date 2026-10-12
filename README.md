@@ -2,6 +2,8 @@
 
 Aplicação de gestão de negócios com pagamento na entrega (COD), em português de Moçambique. O protótipo de ficheiro único foi ligado a Firebase Authentication e Firestore, com backend Node para desenvolvimento e Cloudflare Workers para publicação. A especificação funcional vem do plano de negócio fornecido pelo proprietário; as funcionalidades são verificadas separadamente, sem assumir que as integrações descritas no documento já funcionavam.
 
+A interface atual vem de `public/index.html` da branch `claude/painel-negocio-validation-ui-j9360b` (commit `f63727163ecd67c6816f6394a959cf1654e25a57`), adaptada ao backend existente. Inclui tema claro/escuro, meses anteriores, contactos clicáveis, PDF de pedidos selecionados, stock por local, gastos por período e lucro líquido. O modo instalável guarda apenas a interface pública; login, consulta e gravação de dados exigem ligação à Internet. Backups desta versão podem ser importados numa conta vazia, sem substituir registos existentes.
+
 ## Desenvolvimento local
 
 Requisitos: Node 22 ou superior e Java 21 (emulador Firestore).
@@ -19,7 +21,7 @@ Não abra o HTML diretamente nem use `python -m http.server` para esta versão: 
 
 ## Cloudflare Workers Free
 
-A adaptação para Workers está preparada e testada localmente. O requisito do proprietário é orçamento zero; não ativar faturação ou upgrades. Consulte [CLOUDFLARE.md](CLOUDFLARE.md) para comandos, configuração segura e limites. A publicação e a ligação de produção ainda não foram feitas.
+A adaptação para Workers está preparada e testada localmente. O requisito do proprietário é orçamento zero; não ativar faturação ou upgrades. Consulte [CLOUDFLARE.md](CLOUDFLARE.md) para comandos, configuração segura e limites. O painel está publicado em https://painel-shopify.lobojose348.workers.dev/. As integrações Shopify e Meta ainda precisam de credenciais e validação com contas reais.
 
 ## Verificação
 

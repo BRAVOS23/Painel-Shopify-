@@ -9,21 +9,28 @@ export function validateRecord(collection, record) {
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
     vendas: ['id','data','horario','fonte','contacto','local','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency'],
-    produtos: ['id','nome','custo','foto'],
-    ads: ['id','data','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate'],
+    produtos: ['id','nome','custo','foto','locais'],
+    ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate'],
     operacional: ['id','nome','valor','data','recorrente']
   }[collection];
   if (!known || Object.keys(record).some(key => !known.includes(key))) throw new Error('Campo de registo não permitido.');
   for (const field of ['valor','custo','comissao','quantidade','sourceValue','conversionRate']) {
     if (field in record && (typeof record[field] !== 'number' || !Number.isFinite(record[field]) || record[field] < 0)) throw new Error('Valor numérico inválido.');
   }
-  for (const field of ['data','mes']) if (record[field] && !new RegExp(field === 'data' ? '^\\d{4}-\\d{2}-\\d{2}$' : '^\\d{4}-\\d{2}$').test(record[field])) throw new Error('Data inválida.');
+  for (const field of ['data','dataFim','mes']) if (record[field] && !new RegExp(field !== 'mes' ? '^\\d{4}-\\d{2}-\\d{2}$' : '^\\d{4}-\\d{2}$').test(record[field])) throw new Error('Data inválida.');
+  if(record.dataFim && record.dataFim<record.data)throw new Error('O fim do período não pode ser anterior ao início.');
   if (collection === 'vendas' && !['pendente','concluido','cancelado','remarcado'].includes(record.status)) throw new Error('Estado inválido.');
   if (collection === 'fluxo' && !['entrada','saida'].includes(record.tipo)) throw new Error('Movimento inválido.');
   if (collection === 'ads' && !['ads','outros'].includes(record.tipo)) throw new Error('Tipo de gasto inválido.');
   if (record.foto && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(record.foto)) throw new Error('Fotografia inválida.');
   for (const [key,value] of Object.entries(record)) {
     if (['valor','custo','comissao','quantidade','sourceValue','conversionRate'].includes(key)) continue;
+    if(key==='locais'){
+      if(collection!=='produtos' || !Array.isArray(value) || value.length>50)throw new Error('Locais de stock inválidos.');
+      const ids=new Set();
+      for(const location of value){if(!location || Object.keys(location).some(field=>!['id','local','quantidade'].includes(field)))throw new Error('Local de stock inválido.');safeId(location.id);if(ids.has(location.id))throw new Error('Local de stock repetido.');ids.add(location.id);if(typeof location.local!=='string' || location.local.length>4000 || !Number.isInteger(location.quantidade) || location.quantidade<0)throw new Error('Quantidade/local de stock inválido.');}
+      continue;
+    }
     if (key === 'recorrente') { if (typeof value !== 'boolean') throw new Error('Recorrência inválida.'); continue; }
     if (typeof value !== 'string' || value.length > (key === 'foto' ? 550_000 : 4000)) throw new Error('Texto inválido.');
   }
@@ -70,12 +77,14 @@ export function metaRecords(rows, products, accountId, sourceCurrency, currency 
 export function calculateMetrics(state, start, end, product = '') {
   const match = p => !product || normalName(p) === normalName(product);
   const sales = state.vendas.filter(v => v.status === 'concluido' && v.data >= start && v.data <= end && match(v.produto));
-  const expenses = state.ads.filter(a => a.data >= start && a.data <= end && match(a.produto));
+  const expenses=state.ads.filter(a=>(a.dataFim || a.data)>=start && a.data<=end && match(a.produto));
+  const days=(first,last)=>Math.round((Date.parse(last+'T00:00:00Z')-Date.parse(first+'T00:00:00Z'))/86400000)+1;
+  const allocated=expense=>expense.valor*days(expense.data>start?expense.data:start,(expense.dataFim || expense.data)<end?(expense.dataFim || expense.data):end)/days(expense.data,expense.dataFim || expense.data);
   const costs = new Map(state.produtos.map(p => [normalName(p.nome), p.custo]));
   const acquisition = sales.reduce((s,v) => s+(costs.get(normalName(v.produto)) || 0)*(v.quantidade || 1),0);
   const delivery = sales.reduce((s,v) => s+(v.comissao || 0),0);
-  const ads = expenses.filter(a => a.tipo === 'ads').reduce((s,a) => s+a.valor,0);
-  const other = expenses.filter(a => a.tipo === 'outros').reduce((s,a) => s+a.valor,0);
+  const ads = expenses.filter(a => a.tipo === 'ads').reduce((s,a) => s+allocated(a),0);
+  const other = expenses.filter(a => a.tipo === 'outros').reduce((s,a) => s+allocated(a),0);
   let operational = 0;
   if (!product) for (const expense of state.operacional) {
     if (!expense.recorrente) { if (expense.data >= start && expense.data <= end) operational += expense.valor; continue; }
@@ -85,6 +94,6 @@ export function calculateMetrics(state, start, end, product = '') {
   }
   const revenue = sales.reduce((s,v) => s+v.valor,0), total=acquisition+delivery+ads+other+operational;
   const orders = new Set(sales.map(v => v.shopifyOrderId || v.id)).size;
-  return { acquisition, delivery, ads, other, operational, total, revenue, orders,
+  return { acquisition, delivery, ads, other, operational, total, revenue, orders, profit:revenue-total, missingProductCount:sales.filter(sale=>sale.produto && !costs.has(normalName(sale.produto))).length,
     cpa:orders ? ads/orders : null, roas:ads ? revenue/ads : null, roi:total ? (revenue-total)/total*100 : null };
 }

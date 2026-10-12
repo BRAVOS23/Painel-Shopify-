@@ -50,6 +50,8 @@ async function flush(){
  finally{busy=false;if(!failure && dirty())void flush();else if(!failure)window.refreshCloudMetrics?.();}
 }
 window.cloudBackend={
+ preferenceKey:key=>`${key}:${auth.currentUser?.uid || "anonymous"}`,
+ async shopifyConnected(){return Boolean((await api("/connections")).shopify.connected);},
  read:name=>clone(desired[name] || []),
  save(name,records){desired[name]=clone(records);mutation++;status('A guardar…');if(!failure)void flush();},
  async reflectStatus(id,status){
@@ -77,19 +79,25 @@ document.getElementById('cloudImport').onclick=()=>{
  try{for(const [name,key] of Object.entries(keys)){const records=JSON.parse(localStorage.getItem(key) || '[]');if(!Array.isArray(records))throw new Error('Formato inválido.');window.cloudBackend.save(name,records);}window.applyCloudState(desired);}
  catch{status('Não foi possível importar. Os dados originais continuam neste navegador.');}
 };
-document.getElementById('cloudBackupFile').onchange=async event=>{
- const input=event.target,file=input.files[0];if(!file)return;
- if(groups.some(name=>desired[name].length)){status('Importe o backup apenas numa conta sem dados, para evitar duplicações.');input.value='';return;}
- try{
-  if(file.size>10*1024*1024)throw new Error('O backup excede 10 MB. É necessária uma migração assistida.');
-  const backup=JSON.parse(await file.text());
-  if(backup.version!==1 || !backup.records || groups.some(name=>!Array.isArray(backup.records[name])))throw new Error('Formato de backup inválido.');
-  if(!confirm('Importar este backup para a conta atual? Confirme que pertence ao seu negócio.'))return;
-  const prepared=Object.fromEntries(groups.map(name=>[name,backup.records[name].map(clean)]));
-  for(const name of groups)window.cloudBackend.save(name,prepared[name]);window.applyCloudState(desired);
- }catch(error){status(error.message || 'Não foi possível ler o backup.');}
- finally{input.value='';}
-};
+async function importBackup(file){
+ if(groups.some(name=>desired[name].length))throw new Error('Importe o backup numa conta sem dados, para preservar os registos que já guardou.');
+ if(file.size>10*1024*1024)throw new Error('O backup excede 10 MB. É necessária uma migração assistida.');
+ const backup=JSON.parse(await file.text());
+ const records=backup.version===1?backup.records:backup.tipo==='painel-negocio-backup' && backup.versao===1?{fluxo:backup.fluxoData || [],vendas:backup.vendasData || [],produtos:backup.produtosData || [],ads:backup.adSpendData || [],operacional:backup.operacionaisData || []}:null;
+ if(!records || groups.some(name=>!Array.isArray(records[name])))throw new Error('Formato de backup inválido.');
+ const prepared=Object.fromEntries(groups.map(name=>[name,records[name].map(record=>{
+  const result=clean(record);
+  if(!/^[A-Za-z0-9_-]{1,180}$/.test(result.id || ''))throw new Error('O backup contém um identificador inválido.');
+  if(result.foto && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(result.foto))throw new Error('Fotografia inválida no backup.');
+  if(name==='produtos' && !result.locais){result.locais=[{id:(result.id+'__local').slice(0,180),local:result.local || '',quantidade:Number(result.estoque || 0)}];delete result.estoque;delete result.local;}
+  if(result.locais && (!Array.isArray(result.locais) || result.locais.some(item=>!item || !/^[A-Za-z0-9_-]{1,180}$/.test(item.id || '') || typeof item.local!=='string' || !Number.isInteger(item.quantidade) || item.quantidade<0)))throw new Error('Locais de stock inválidos no backup.');
+  return result;
+ })]));
+ if(!confirm('Importar este backup para a conta atual? Confirme que pertence ao seu negócio.'))return;
+ for(const name of groups)window.cloudBackend.save(name,prepared[name]);window.applyCloudState(desired);
+}
+window.cloudBackend.importBackup=importBackup;
+document.getElementById('cloudBackupFile').onchange=async event=>{const input=event.target,file=input.files[0];if(!file)return;try{await importBackup(file);}catch(error){status(error.message || 'Não foi possível ler o backup.');}finally{input.value='';}};
 async function refresh(){
  if(!loaded || !user || dirty() || busy || failure)return;const started=mutation;
  try{const snapshot=await api('/state');if(started!==mutation || dirty() || busy)return;if(snapshot && JSON.stringify(snapshot)!==JSON.stringify(baseline)){adopt(snapshot);window.applyCloudState(desired);}if(Date.now()-lastConnectionsCheck>300000)await connections();}
@@ -132,11 +140,13 @@ onAuthStateChanged(auth,async current=>{
  wrap.hidden=true;
  try{
   const snapshot=await api('/state');if(activeSession!==session)return;adopt(snapshot);
-  if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js';script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();loaded=true;}
+  if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js?v='+(document.querySelector('meta[name="painel-build"]')?.content || '');script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();loaded=true;}
   else window.applyCloudState(desired);
   document.getElementById('cloudIdentity').textContent=current.email+(config.emulators?' · Desenvolvimento local':'');
-  login.hidden=true;wrap.hidden=false;status('Dados guardados');await connections();
+  login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');await connections();
  }catch(error){loginMessage(error.message);wrap.hidden=true;login.hidden=false;}
 });
 setInterval(()=>{if(document.visibilityState==='visible')void refresh();},60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refresh();});
+
+if('serviceWorker' in navigator){const register=()=>navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});if(document.readyState==='complete')void register();else window.addEventListener('load',register,{once:true});}

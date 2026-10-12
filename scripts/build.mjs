@@ -1,16 +1,26 @@
-import { build } from 'esbuild';
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
-await mkdir('dist/assets', { recursive: true });
-const source = await readFile('painel-negocio-3.html', 'utf8');
-const match = source.match(/<script>\s*([\s\S]*?)<\/script>\s*<\/body>/);
-if (!match) throw new Error('Script do painel não encontrado.');
-await writeFile('dist/assets/dashboard.js', match[1]);
-await writeFile('dist/index.html', source.replace(match[0], '<script type="module" src="/assets/app.js"></script>\n</body>'));
-await build({ entryPoints: ['web/app.mjs'], bundle: true, outfile: 'dist/assets/app.js', format: 'esm', minify: true });
-await writeFile('dist/_headers', `/*
+import {build} from 'esbuild';
+import {readFile,mkdir,writeFile,cp} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+await mkdir('dist/assets',{recursive:true});
+const source=await readFile('painel-negocio-3.html','utf8'),client=await readFile('web/app.mjs','utf8');
+const match=[...source.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)].at(-1);
+if(!match || !match[1].includes('ESTADO GERAL'))throw new Error('Script principal do painel não encontrado.');
+const version=createHash('sha256').update(source+client).digest('hex').slice(0,12);
+await writeFile('dist/assets/dashboard.js',match[1]);
+const html=(source.slice(0,match.index)+`<script type="module" src="/assets/app.js?v=${version}"></script>`+source.slice(match.index+match[0].length)).replace('</head>',`<meta name="painel-build" content="${version}">\n</head>`);
+await writeFile('dist/index.html',html);
+await build({entryPoints:['web/app.mjs'],bundle:true,outfile:'dist/assets/app.js',format:'esm',minify:true});
+await cp('public','dist',{recursive:true});
+const worker=await readFile('web/sw.template.js','utf8');
+await writeFile('dist/sw.js',worker.replaceAll('__BUILD_VERSION__',version));
+await writeFile('dist/_headers',`/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   X-Frame-Options: DENY
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://127.0.0.1:9099 http://localhost:9099; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+/sw.js
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=0, must-revalidate
 `);
-console.log('Painel e bibliotecas compilados em dist/.');
+console.log('Painel atual, fontes e PWA compilados em dist/.');
