@@ -27,7 +27,7 @@ export function createProviders(config, fetcher = fetch) {
     }),'Shopify',query)).data;
   }
   const fields=`id legacyResourceId createdAt updatedAt cancelledAt displayFulfillmentStatus currencyCode note phone
-    customer { firstName lastName } shippingAddress { name phone address1 city }
+    shippingAddress { name phone address1 city }
     lineItems(first:100) { nodes { id title quantity originalUnitPriceSet { shopMoney { amount } }
       discountAllocations { allocatedAmountSet { shopMoney { amount } } } } pageInfo { hasNextPage } }`;
   const normalize = order => {

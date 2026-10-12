@@ -92,3 +92,12 @@ test('GraphQL informa bloqueio de dados protegidos sem expor resposta de cliente
  const providers=createProviders({shopifyVersion:'2026-07'},async()=>Response.json({errors:[{message:'This app is not approved to access the Order object: private@example.test',extensions:{code:'ACCESS_DENIED'},path:['orders']}] }));
  await assert.rejects(providers.shopifyOrdersPage('fixture.myshopify.com','fixture','2026-10-01','2026-10-12'),error=>error.message.includes('dados protegidos') && error.message.includes('orders') && !error.message.includes('private@example'));
 });
+
+test('importação usa contacto de entrega sem exigir acesso ao perfil Customer',async()=>{
+ const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{
+  const {query}=JSON.parse(options.body);assert(!/customer\s*\{/.test(query));
+  return Response.json({data:{orders:{nodes:[{legacyResourceId:'123',createdAt:'2026-10-12T08:00:00Z',updatedAt:'2026-10-12T09:00:00Z',displayFulfillmentStatus:'UNFULFILLED',currencyCode:'MZN',shippingAddress:{name:'Cliente Entrega',phone:'865123456',address1:'Matola',city:'Maputo'},lineItems:{nodes:[{id:'gid://shopify/LineItem/1',title:'Produto',quantity:1,originalUnitPriceSet:{shopMoney:{amount:'100'}},discountAllocations:[]}],pageInfo:{hasNextPage:false}}}],pageInfo:{hasNextPage:false}}}});
+ });
+ const page=await providers.shopifyOrdersPage('fixture.myshopify.com','fixture','2026-10-01','2026-10-12');
+ const rows=shopifyRecords(page.orders[0]);assert.equal(rows[0].contacto,'Cliente Entrega 865123456');assert.equal(rows[0].local,'Matola, Maputo');assert.equal(rows[0].valor,100);
+});
