@@ -2136,6 +2136,7 @@ function renderPedidos(){
           <div class="pedido-detalhes">${escapeHtml(v.local||'—')}</div>
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
         </div>
+        ${pedidosMensagens.has(v.shopifyOrderId)?`<div role="status" style="font-size:13px;color:var(--gold);margin:8px 0">${escapeHtml(pedidosMensagens.get(v.shopifyOrderId))}</div>`:''}
         ${modoSelecaoPedidos ? '' : `
         <fieldset class="pedido-card-actions" style="border:0;padding:0;margin:0;min-width:0" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''} onclick="event.stopPropagation()">
           <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
@@ -2172,7 +2173,7 @@ function moverPedidoSemana(id, novaSemana){
   showVendaMsg('Pedido movido para ' + nomeNova + '.');
 }
 
-const pedidosAAtualizar=new Set();
+const pedidosAAtualizar=new Set(),pedidosMensagens=new Map();
 async function markStatus(id, status){
   const idx = vendasData.findIndex(v=>v.id===id);
   if(idx===-1) return;
@@ -2180,15 +2181,17 @@ async function markStatus(id, status){
     const orderId=vendasData[idx].shopifyOrderId;
     if(pedidosAAtualizar.has(orderId))return;
     pedidosAAtualizar.add(orderId);
-    renderVendasAll();showVendaMsg(status==='concluido'?'A concluir o pedido na Shopify…':'A cancelar o pedido na Shopify…');
+    pedidosMensagens.set(orderId,status==='concluido'?'A concluir o pedido na Shopify…':'A cancelar o pedido na Shopify…');
+    renderVendasAll();
     try {
       if(await window.cloudBackend.shopifyConnected()){
         const result=await window.cloudBackend.reflectStatus(vendasData[idx].shopifyOrderId,status);
+        pedidosMensagens.set(orderId,result.pending ? 'A Shopify ainda não confirmou a alteração. O pedido mantém o estado anterior até à confirmação.' : 'Pedido atualizado na Shopify.');
         showVendaMsg(result.pending ? result.message : 'Pedido atualizado na Shopify.');
         return;
       }
       if(!confirm('A Shopify não está ligada. Alterar o estado apenas no painel?'))return;
-    } catch(error){ showVendaMsg(error.message); return; }
+    } catch(error){pedidosMensagens.set(orderId,error.message);showVendaMsg(error.message);return;}
     finally{pedidosAAtualizar.delete(orderId);renderVendasAll();}
   }
   vendasData[idx].status = status;

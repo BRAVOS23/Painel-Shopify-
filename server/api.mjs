@@ -74,19 +74,22 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     const wanted=req.method==='POST'?req.body.status:req.query.status;
     if(!/^\d+$/.test(req.params.id) || !['concluido','cancelado'].includes(wanted))return res.status(400).json({error:'Estado de pedido inválido.'});
     const uid=req.user.uid;
-    const owned=await store.records(uid,'vendas').where('record.shopifyOrderId','==',req.params.id).limit(1).get();
+    const owned=await store.records(uid,'vendas').where('record.shopifyOrderId','==',req.params.id).get();
     if(owned.empty)return res.status(404).json({error:'Este pedido não pertence ao seu negócio.'});
+    if(owned.size>100)return res.status(422).json({error:'Este pedido tem mais de 100 registos no painel e precisa de uma atualização assistida.'});
     const snap=await store.connection(uid,'shopify').get();
     if(!snap.exists)return res.status(400).json({error:'Ligue a loja Shopify antes de alterar este pedido.'});
     const release=await store.claim(uid,'shopify');
     if(!release)return res.status(409).json({error:'Aguarde a sincronização Shopify em curso.'});
     try{
       const connection=snap.data(),{token}=decrypt(connection.credentials,config.encryptionKey);
-      const [products,business]=await Promise.all([store.records(uid,'produtos').select('record.nome').get(),store.business(uid).get()]);
       let order=await providers.shopifyOrder(connection.shop,token,req.params.id);
       const done=()=>wanted==='cancelado'?Boolean(order.cancelled_at):order.fulfillment_status==='fulfilled';
       if(req.method==='POST' && !done())order=await providers.shopifyStatus(connection.shop,token,req.params.id,wanted);
-      const records=await store.importedMany(uid,'vendas',shopifyRecords(order,products.docs.map(doc=>doc.data().record),business.data().currency).map(record=>({record,sourceUpdatedAt:order.updated_at})));
+      // CSV/backups antigos têm IDs locais, não os IDs sh_ da sincronização.
+      // Atualizar todos os registos já existentes deste pedido sem criar duplicados nem substituir contactos/valores.
+      const confirmed=order.cancelled_at?'cancelado':order.fulfillment_status==='fulfilled'?'concluido':null;
+      const records=confirmed?await store.importedMany(uid,'vendas',owned.docs.map(doc=>({record:{...doc.data().record,status:confirmed},sourceUpdatedAt:order.updated_at,statusOnly:true}))):owned.docs.map(doc=>({...doc.data().record,_revision:doc.data().revision}));
       const pending=!done();
       res.status(pending?202:200).json({ok:!pending,pending,records,message:pending?'A Shopify está a processar a alteração. A confirmar o estado do pedido…':null});
     }catch(error){await store.connection(uid,'shopify').update({lastError:error.message});res.status(502).json({error:error.message});}

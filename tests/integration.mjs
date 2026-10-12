@@ -73,8 +73,11 @@ try{
  await sync.run(owner,'meta');await sync.run(owner,'meta');current=await store.state(owner);assert.equal(current.ads.length,2);assert.equal(current.ads.reduce((s,a)=>s+a.valor,0),55);pass('Meta não duplica gastos e inclui campanhas sem produto no total');
  const metrics=await request(a,'/api/metrics?start=2026-10-12&end=2026-10-12');assert.equal(metrics.body.delivery,30);assert.equal(metrics.body.total,125);assert.equal(metrics.body.orders,1);pass('métricas executadas no servidor incluem entregador');
  const refused=await request(b,'/api/shopify/orders/991/status',{status:'cancelado'});assert.equal(refused.status,404);assert(!order.cancelled_at);pass('outro negócio não pode cancelar o pedido Shopify');
+ await store.imported(owner,'vendas',{...withoutRevision,id:'legacy_csv_991',contacto:'Cliente do backup',comissao:45});
  const remote=await request(a,'/api/shopify/orders/991/status',{status:'cancelado'});assert.equal(remote.status,200);assert.equal((await store.state(owner)).vendas[0].status,'cancelado');pass('cancelamento Shopify simulado confirmado antes de mudar o estado local');
- assert.equal(remote.body.records[0].status,'cancelado');assert.equal(remote.body.records[0].comissao,30);assert(Number.isInteger(remote.body.records[0]._revision));
+ assert(remote.body.records.every(row=>row.status==='cancelado'));assert.equal(remote.body.records.find(row=>row.id===first.id).comissao,30);assert(Number.isInteger(remote.body.records[0]._revision));
+ assert.equal(remote.body.records.find(row=>row.id==='legacy_csv_991').contacto,'Cliente do backup');assert.equal(remote.body.records.find(row=>row.id==='legacy_csv_991').comissao,45);
+ assert.equal((await store.state(owner)).vendas.length,2);pass('ação Shopify atualiza também IDs de CSV/backup sem criar duplicados ou alterar contactos');
  const originalRead=providers.shopifyOrder,originalChange=providers.shopifyStatus;
  let pendingOrder={...order,id:'992',cancelled_at:null,fulfillment_status:'unfulfilled'},mutations=0;
  await store.imported(owner,'vendas',shopifyRecords(pendingOrder)[0],pendingOrder.updated_at);
