@@ -51,13 +51,25 @@ async function flush(){
 }
 window.cloudBackend={
  preferenceKey:key=>`${key}:${auth.currentUser?.uid || "anonymous"}`,
- async shopifyConnected(){return Boolean((await api("/connections")).shopify.connected);},
+ async shopifyConnected(){if(shopifyConnectionKnown!==null)return shopifyConnectionKnown;await connections();return shopifyConnectionKnown;},
  read:name=>clone(desired[name] || []),
  save(name,records){desired[name]=clone(records);mutation++;status('A guardar…');if(!failure)void flush();},
  async reflectStatus(id,status){
   if(dirty() || busy)throw new Error('Aguarde a gravação dos dados antes de alterar a Shopify.');
-  const result=await api(`/shopify/orders/${id}/status`,{method:'POST',body:JSON.stringify({status})});
-  await refresh();return result;
+  const activeSession=session;let result=await api(`/shopify/orders/${id}/status`,{method:'POST',body:JSON.stringify({status})});
+  const apply=result=>{
+   if(activeSession!==session || dirty() || busy)return;
+   if(!Array.isArray(result.records)){void refresh();return;}
+   const next=new Map(baseline.vendas.map(record=>[record.id,record]));for(const record of result.records)next.set(record.id,record);
+   baseline.vendas=[...next.values()];desired.vendas=baseline.vendas.map(clean);mutation++;window.applyCloudState(desired);window.refreshCloudMetrics?.();
+  };
+  apply(result);
+  for(let attempt=0;result.pending && attempt<5;attempt++){
+   await new Promise(resolve=>setTimeout(resolve,2500));
+   if(activeSession!==session || document.visibilityState!=='visible')break;
+   try{result=await api(`/shopify/orders/${id}/status?status=${encodeURIComponent(status)}`);apply(result);}catch(error){if(error.status!==409)throw error;}
+  }
+  return result;
  },
  async syncShopify(){await syncProvider('shopify');},
  async metrics(start,end,product){const request=++metricsRequest; if(dirty() || busy)return null; const result=await api(`/metrics?${new URLSearchParams({start,end,product})}`);return request===metricsRequest ? result : null;}
@@ -120,9 +132,9 @@ function setupIntegrations(){
  }
  document.getElementById('chooseMetaAccount').onclick=async()=>{try{await api('/meta/account',{method:'POST',body:JSON.stringify({accountId:document.getElementById('metaAccount').value,conversionRate:Number(document.getElementById('metaRate').value)})});await refresh();}catch(error){document.getElementById('metaConnectionMessage').textContent=error.message;}};
 }
-let metaAccountsLoaded=false;
+let metaAccountsLoaded=false,shopifyConnectionKnown=null;
 async function connections(){
- const result=await api('/connections');lastConnectionsCheck=Date.now();
+ const result=await api('/connections');lastConnectionsCheck=Date.now();shopifyConnectionKnown=Boolean(result.shopify.connected);
  for(const provider of ['shopify','meta']){const connection=result[provider],cap=provider==='shopify'?'Shopify':'Meta';
  document.getElementById(provider==='shopify'?'shopifyStatusTag':'metaStatusTag').textContent=connection.connected ? 'Ligada'+(connection.lastSync ? ' · '+new Date(connection.lastSync).toLocaleString('pt-MZ',{timeZone:'Africa/Maputo'}) : '') : 'Não ligada';
  document.getElementById('connect'+cap).disabled=!connection.configured;
@@ -135,7 +147,7 @@ async function connections(){
  document.getElementById('metaAccountControls').hidden=!result.meta.connected;
 }
 onAuthStateChanged(auth,async current=>{
- const activeSession=++session;user=current;stateTag=null;
+ const activeSession=++session;user=current;stateTag=null;shopifyConnectionKnown=null;
  if(!current){login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
  wrap.hidden=true;
  try{

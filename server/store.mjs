@@ -49,19 +49,21 @@ export function createStore(db) {
     if(incoming.length>100)throw new Error('Lote de importação demasiado grande.');
     if(!incoming.length)return;
     if(new Set(incoming.map(item=>item.record.id)).size!==incoming.length)throw new Error('IDs repetidos no lote de importação.');
-    await db.runTransaction(async tx=>{
+    return db.runTransaction(async tx=>{
       const owner=await tx.get(business(uid));
       const refs=incoming.map(item=>records(uid,name).doc(safeId(item.record.id)));
-      const snapshots=await tx.getAll(...refs);let changed=false;
+      const snapshots=await tx.getAll(...refs);let changed=false;const updated=snapshots.map(snap=>snap.exists?{...snap.data().record,_revision:snap.data().revision}:null);
       for(let i=0;i<incoming.length;i++){
         const {record:source,sourceUpdatedAt}=incoming[i],old=snapshots[i].data();
         if(sourceUpdatedAt && old?.sourceUpdatedAt && sourceUpdatedAt<old.sourceUpdatedAt)continue;
         const record=name==='vendas' && old ? {...source,...Object.fromEntries(['horario','delivery','comissao','semana','mes','descricao'].filter(key=>old.record[key]!==undefined).map(key=>[key,old.record[key]])),status:source.status==='pendente'?old.record.status:source.status} : source;
         validateRecord(name,record);
         if(old && recordEqual(old.record,record) && (!sourceUpdatedAt || sourceUpdatedAt===old.sourceUpdatedAt))continue;
+        updated[i]={...record,_revision:(old?.revision || 0)+1};
         tx.set(refs[i],{record,revision:(old?.revision || 0)+1,updatedAt:new Date().toISOString(),...(sourceUpdatedAt?{sourceUpdatedAt}:{})});changed=true;
       }
       if(changed)tx.update(business(uid),{dataVersion:(owner.data()?.dataVersion || 0)+1});
+      return updated.filter(Boolean);
     });
   }
   async function imported(uid,name,record,sourceUpdatedAt=null){await importedMany(uid,name,[{record,sourceUpdatedAt}]);}

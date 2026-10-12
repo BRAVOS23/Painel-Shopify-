@@ -1977,7 +1977,7 @@ function renderHistoricoMesTable(){
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
       <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
       <td data-label="Delivery">${escapeHtml(v.delivery||'—')}</td>
-      <td data-label="Status"><span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span></td>
+      <td data-label="Status"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span></td>
     </tr>`).join('');
 }
 
@@ -2125,7 +2125,7 @@ function renderPedidos(){
         <div class="pedido-card-top">
           <span class="pedido-hora">${v.horario ? '🕒 '+v.horario : 'Sem horário'}</span>
           <span style="display:flex; align-items:center; gap:8px;">
-            <span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span>
+            <span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span>
             ${modoSelecaoPedidos
               ? `<span class="pedido-checkbox${selecionado?' checked':''}">${selecionado?'✓':''}</span>`
               : `<span class="pedido-expand-chev">▾</span>`}
@@ -2137,7 +2137,7 @@ function renderPedidos(){
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
         </div>
         ${modoSelecaoPedidos ? '' : `
-        <div class="pedido-card-actions" onclick="event.stopPropagation()">
+        <fieldset class="pedido-card-actions" style="border:0;padding:0;margin:0;min-width:0" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''} onclick="event.stopPropagation()">
           <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
           <button class="acao-cancelar" onclick="markStatus('${v.id}','cancelado')">✕ Cancelar</button>
           ${v.status!=='remarcado' ? `<button class="acao-remarcar" onclick="markStatus('${v.id}','remarcado')">↻ Remarcar</button>` : ''}
@@ -2148,7 +2148,7 @@ function renderPedidos(){
             <option value="">Mover para…</option>
             ${SEMANAS.filter(s=>s.key!==v.semana).map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}
           </select>
-        </div>`}
+        </fieldset>`}
       </div>`;
     }).join('');
     return `<div class="pedido-group">
@@ -2172,10 +2172,15 @@ function moverPedidoSemana(id, novaSemana){
   showVendaMsg('Pedido movido para ' + nomeNova + '.');
 }
 
+const pedidosAAtualizar=new Set();
 async function markStatus(id, status){
   const idx = vendasData.findIndex(v=>v.id===id);
   if(idx===-1) return;
   if(vendasData[idx].shopifyOrderId && ['concluido','cancelado'].includes(status)){
+    const orderId=vendasData[idx].shopifyOrderId;
+    if(pedidosAAtualizar.has(orderId))return;
+    pedidosAAtualizar.add(orderId);
+    renderVendasAll();showVendaMsg(status==='concluido'?'A concluir o pedido na Shopify…':'A cancelar o pedido na Shopify…');
     try {
       if(await window.cloudBackend.shopifyConnected()){
         const result=await window.cloudBackend.reflectStatus(vendasData[idx].shopifyOrderId,status);
@@ -2184,6 +2189,7 @@ async function markStatus(id, status){
       }
       if(!confirm('A Shopify não está ligada. Alterar o estado apenas no painel?'))return;
     } catch(error){ showVendaMsg(error.message); return; }
+    finally{pedidosAAtualizar.delete(orderId);renderVendasAll();}
   }
   vendasData[idx].status = status;
   saveVendas();
@@ -2208,7 +2214,7 @@ function renderVendaTable(){
         <td class="mono" data-label="Qtd">${v.quantidade}</td>
         <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
         <td data-label="Delivery">${escapeHtml(v.delivery||'—')}</td>
-        <td data-label="Status"><span class="pill st-${v.status}">${STATUS_LABEL[v.status]}</span></td>
+        <td data-label="Status"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span></td>
         <td data-label=""><div class="row-actions">
           <button class="icon-btn" onclick="editVenda('${v.id}')" title="Editar">✎</button>
           <button class="icon-btn" onclick="deleteVenda('${v.id}')" title="Apagar">✕</button>

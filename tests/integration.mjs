@@ -8,6 +8,7 @@ import {createStore} from '../server/store.mjs';
 import {createSync} from '../server/sync.mjs';
 import {createApp} from '../server/app.mjs';
 import {encrypt} from '../server/security.mjs';
+import {shopifyRecords} from '../server/model.mjs';
 process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
 const firebase=initializeApp({projectId:'demo-painel'},'integration'),db=getFirestore(firebase),store=createStore(db);
 const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifyId:'fixture-client',shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta'};
@@ -73,6 +74,19 @@ try{
  const metrics=await request(a,'/api/metrics?start=2026-10-12&end=2026-10-12');assert.equal(metrics.body.delivery,30);assert.equal(metrics.body.total,125);assert.equal(metrics.body.orders,1);pass('métricas executadas no servidor incluem entregador');
  const refused=await request(b,'/api/shopify/orders/991/status',{status:'cancelado'});assert.equal(refused.status,404);assert(!order.cancelled_at);pass('outro negócio não pode cancelar o pedido Shopify');
  const remote=await request(a,'/api/shopify/orders/991/status',{status:'cancelado'});assert.equal(remote.status,200);assert.equal((await store.state(owner)).vendas[0].status,'cancelado');pass('cancelamento Shopify simulado confirmado antes de mudar o estado local');
+ assert.equal(remote.body.records[0].status,'cancelado');assert.equal(remote.body.records[0].comissao,30);assert(Number.isInteger(remote.body.records[0]._revision));
+ const originalRead=providers.shopifyOrder,originalChange=providers.shopifyStatus;
+ let pendingOrder={...order,id:'992',cancelled_at:null,fulfillment_status:'unfulfilled'},mutations=0;
+ await store.imported(owner,'vendas',shopifyRecords(pendingOrder)[0],pendingOrder.updated_at);
+ providers.shopifyOrder=async()=>pendingOrder;providers.shopifyStatus=async()=>{mutations++;return pendingOrder;};
+ const pending=await request(a,'/api/shopify/orders/992/status',{status:'concluido'});assert.equal(pending.status,202);assert.equal(pending.body.pending,true);
+ assert.equal((await request(b,'/api/shopify/orders/992/status?status=concluido')).status,404);
+ pendingOrder={...pendingOrder,fulfillment_status:'fulfilled',updated_at:new Date(Date.now()+1000).toISOString()};
+ const confirmed=await request(a,'/api/shopify/orders/992/status?status=concluido');assert.equal(confirmed.status,200);assert.equal(confirmed.body.records[0].status,'concluido');assert.equal(mutations,1);
+ assert(!JSON.stringify(confirmed.body).includes('credentials'));
+ providers.shopifyOrder=originalRead;providers.shopifyStatus=originalChange;
+ pass('estado devolve registos com revisões, preserva edição e confirma job sem repetir mutação Shopify');
+
  const connections=await request(a,'/api/connections');assert(!JSON.stringify(connections.body).includes('credentials'));assert(!JSON.stringify(connections.body).includes('fixture-secret'));pass('tokens não aparecem na resposta ao navegador');
  await db.doc('shopLinks/fixture.myshopify.com').set({ownerId:owner});
  const payload=JSON.stringify({id:991}),signature=createHmac('sha256',config.shopifySecret).update(payload).digest('base64');

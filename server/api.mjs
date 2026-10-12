@@ -70,25 +70,30 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     if(!['shopify','meta'].includes(req.params.provider)) return res.sendStatus(400);
     res.json(await sync.run(req.user.uid,req.params.provider));
   });
-  app.post('/api/shopify/orders/:id/status',async(req,res)=>{
-    if(!/^\d+$/.test(req.params.id) || !['concluido','cancelado'].includes(req.body.status)) return res.status(400).json({error:'Estado de pedido inválido.'});
-    const uid=req.user.uid,state=await store.state(uid);
-    if(!state.vendas.some(record=>record.shopifyOrderId===req.params.id)) return res.status(404).json({error:'Este pedido não pertence ao seu negócio.'});
+  async function orderStatus(req,res){
+    const wanted=req.method==='POST'?req.body.status:req.query.status;
+    if(!/^\d+$/.test(req.params.id) || !['concluido','cancelado'].includes(wanted))return res.status(400).json({error:'Estado de pedido inválido.'});
+    const uid=req.user.uid;
+    const owned=await store.records(uid,'vendas').where('record.shopifyOrderId','==',req.params.id).limit(1).get();
+    if(owned.empty)return res.status(404).json({error:'Este pedido não pertence ao seu negócio.'});
     const snap=await store.connection(uid,'shopify').get();
-    if(!snap.exists) return res.status(400).json({error:'Ligue a loja Shopify antes de alterar este pedido.'});
+    if(!snap.exists)return res.status(400).json({error:'Ligue a loja Shopify antes de alterar este pedido.'});
     const release=await store.claim(uid,'shopify');
-    if(!release) return res.status(409).json({error:'Aguarde a sincronização Shopify em curso.'});
-    try {
+    if(!release)return res.status(409).json({error:'Aguarde a sincronização Shopify em curso.'});
+    try{
       const connection=snap.data(),{token}=decrypt(connection.credentials,config.encryptionKey);
+      const [products,business]=await Promise.all([store.records(uid,'produtos').select('record.nome').get(),store.business(uid).get()]);
       let order=await providers.shopifyOrder(connection.shop,token,req.params.id);
-      const done=()=>req.body.status==='cancelado' ? Boolean(order.cancelled_at) : order.fulfillment_status==='fulfilled';
-      if(!done()) order=await providers.shopifyStatus(connection.shop,token,req.params.id,req.body.status);
-      for(const record of shopifyRecords(order,state.produtos)) await store.imported(uid,'vendas',record,order.updated_at);
-      if(!done()) return res.status(202).json({pending:true,message:'A alteração foi enviada à Shopify. O painel será atualizado quando a loja confirmar o novo estado.'});
-      res.json({ok:true});
-    } catch(error) {await store.connection(uid,'shopify').update({lastError:error.message});res.status(502).json({error:error.message});}
-    finally {await release();}
-  });
+      const done=()=>wanted==='cancelado'?Boolean(order.cancelled_at):order.fulfillment_status==='fulfilled';
+      if(req.method==='POST' && !done())order=await providers.shopifyStatus(connection.shop,token,req.params.id,wanted);
+      const records=await store.importedMany(uid,'vendas',shopifyRecords(order,products.docs.map(doc=>doc.data().record),business.data().currency).map(record=>({record,sourceUpdatedAt:order.updated_at})));
+      const pending=!done();
+      res.status(pending?202:200).json({ok:!pending,pending,records,message:pending?'A Shopify está a processar a alteração. A confirmar o estado do pedido…':null});
+    }catch(error){await store.connection(uid,'shopify').update({lastError:error.message});res.status(502).json({error:error.message});}
+    finally{await release();}
+  }
+  app.post('/api/shopify/orders/:id/status',orderStatus);
+  app.get('/api/shopify/orders/:id/status',orderStatus);
   app.get('/api/meta/accounts',async(req,res)=>{
     const snap=await store.connection(req.user.uid,'meta').get();
     if(!snap.exists) return res.status(400).json({error:'Ligue a conta Meta primeiro.'});
