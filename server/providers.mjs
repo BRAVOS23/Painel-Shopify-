@@ -88,6 +88,7 @@ export function createProviders(config, fetcher = fetch) {
     metaAccounts:token=>metaPages('me/adaccounts',token,{fields:'id,name,currency,timezone_name',limit:100}),
     metaInsights:(id,token,since,until)=>metaPages(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:500}),
     metaInsightsPage:async(id,token,since,until,after=null)=>{const body=await meta(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:5,...(after?{after}:{})});if(body.paging?.next && !body.paging?.cursors?.after)throw new Error('Meta Ads: paginação sem cursor.');return {rows:body.data,after:body.paging?.next?body.paging.cursors.after:null};},
+    shopifyIdentity:async(shop,token)=>(await shopifyGraphql(shop,token,'query { shop { id myshopifyDomain } }')).shop,
     exchangeShopify:async(shop,code)=>jsonResponse(await fetcher(`https://${shopDomain(shop)}/admin/oauth/access_token`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:config.shopifyId,client_secret:config.shopifySecret,code}),signal:AbortSignal.timeout(30000)}),'Shopify'),
     exchangeMeta:async(code,redirect)=>{
       const url=new URL(`https://graph.facebook.com/${config.metaVersion}/oauth/access_token`);

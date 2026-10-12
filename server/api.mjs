@@ -132,20 +132,28 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       const invalid=message=>Object.assign(new Error(message),{status:400});
       if(!state || state.provider!==provider)throw invalid('Esta tentativa de ligação já foi usada ou não foi iniciada pelo painel. Volte ao painel e clique novamente em Ligar. Não recarregue esta página.');
       if(!Number.isFinite(state.expiresAt) || state.expiresAt<Date.now())throw invalid('A autorização expirou após 10 minutos. Volte ao painel e inicie uma nova ligação.');
-      if(provider==='shopify' && state.shop!==params.get('shop'))throw invalid('A Shopify devolveu um domínio diferente do indicado. Use o domínio original .myshopify.com da loja, em Definições → Domínios, e inicie uma nova ligação.');
       tx.delete(ref); return state;
     });
-    const result=provider==='shopify' ? await providers.exchangeShopify(saved.shop,params.get('code')) : await providers.exchangeMeta(params.get('code'),`${config.baseUrl}/oauth/meta/callback`);
+    const returnedShop=provider==='shopify'?shopDomain(params.get('shop')):null;
+    const result=provider==='shopify' ? await providers.exchangeShopify(returnedShop,params.get('code')) : await providers.exchangeMeta(params.get('code'),`${config.baseUrl}/oauth/meta/callback`);
     if(!result.access_token) throw new Error('A plataforma não devolveu autorização utilizável.');
     const connection={credentials:encrypt({token:result.access_token},config.encryptionKey),connectedAt:new Date().toISOString(),lastError:null,lastSync:null};
     if(provider==='shopify') {
-      connection.shop=saved.shop;
+      let identity;
+      if(saved.shop!==returnedShop){
+        try{
+          identity=await providers.shopifyIdentity(returnedShop,result.access_token);
+          const requested=await providers.shopifyIdentity(saved.shop,result.access_token);
+          if(!identity?.id || identity.id!==requested?.id)throw new Error('different-shop');
+        }catch{throw Object.assign(new Error('Não foi possível confirmar que os dois domínios pertencem à mesma loja. Inicie novamente com o domínio .myshopify.com usado pela Shopify.'),{status:400});}
+      }
+      connection.shop=identity?shopDomain(identity.myshopifyDomain):returnedShop;
       await store.db.runTransaction(async tx=>{
-        const link=store.db.doc(`shopLinks/${saved.shop}`),existing=await tx.get(link);
+        const link=store.db.doc(`shopLinks/${connection.shop}`),existing=await tx.get(link);
         if(existing.exists && existing.data().ownerId!==saved.ownerId) throw Object.assign(new Error('Esta loja já está ligada a outro negócio.'),{status:409});
         tx.set(link,{ownerId:saved.ownerId}); tx.set(store.connection(saved.ownerId,provider),connection);
       });
-      try {await providers.registerWebhooks(saved.shop,result.access_token,`${config.baseUrl}/webhooks/shopify`); await sync.run(saved.ownerId,'shopify');}
+      try {await providers.registerWebhooks(connection.shop,result.access_token,`${config.baseUrl}/webhooks/shopify`); await sync.run(saved.ownerId,'shopify');}
       catch(error) {await store.connection(saved.ownerId,provider).update({lastError:error.message});}
     } else {
       connection.expiresAt=result.expires_in ? Date.now()+Number(result.expires_in)*1000 : null;

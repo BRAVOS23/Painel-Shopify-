@@ -12,7 +12,7 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';process.env.FIRESTORE_E
 const firebase=initializeApp({projectId:'demo-painel'},'integration'),db=getFirestore(firebase),store=createStore(db);
 const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifyId:'fixture-client',shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta'};
 let order={id:'991',created_at:'2026-10-12T08:00:00Z',updated_at:'2026-10-12T09:00:00Z',currency:'MZN',shipping_address:{name:'Integration'},line_items:[{id:'1',title:'Produto A',quantity:2,price:'100',discount_allocations:[]}]};
-const providers={shopifyOrders:async()=>[order],shopifyOrder:async()=>order,shopifyStatus:async(_shop,_token,_id,status)=>{order={...order,updated_at:new Date().toISOString(),...(status==='cancelado'?{cancelled_at:new Date().toISOString()}:{fulfillment_status:'fulfilled'})};return order;},metaInsights:async()=>[{campaign_id:'7',campaign_name:'Produto A',spend:'50',date_start:'2026-10-12'},{campaign_id:'8',campaign_name:'Sem produto',spend:'5',date_start:'2026-10-12'}]};
+const providers={exchangeShopify:async()=>({access_token:'fixture'}),shopifyIdentity:async shop=>({id:shop==='different.myshopify.com'?'gid://shopify/Shop/2':'gid://shopify/Shop/1',myshopifyDomain:'fixture.myshopify.com'}),registerWebhooks:async()=>{},shopifyOrders:async()=>[order],shopifyOrder:async()=>order,shopifyStatus:async(_shop,_token,_id,status)=>{order={...order,updated_at:new Date().toISOString(),...(status==='cancelado'?{cancelled_at:new Date().toISOString()}:{fulfillment_status:'fulfilled'})};return order;},metaInsights:async()=>[{campaign_id:'7',campaign_name:'Produto A',spend:'50',date_start:'2026-10-12'},{campaign_id:'8',campaign_name:'Sem produto',spend:'5',date_start:'2026-10-12'}]};
 const sync=createSync(store,providers,config),server=createApp({store,auth:getAuth(firebase),providers,sync,config}).listen(0,'127.0.0.1');
 await new Promise(resolve=>server.once('listening',resolve));const root=`http://127.0.0.1:${server.address().port}`;
 const users=[];let checks=0;
@@ -33,12 +33,24 @@ try{
  const oauth=await request(a,'/api/oauth/shopify',{shop:'fixture.myshopify.com'});assert.equal(oauth.status,200);assert.equal(new URL(oauth.body.url).hostname,'fixture.myshopify.com');pass('OAuth distingue domínio inválido, chave inválida e autorização utilizável');
  async function callback(stateValue,shop){const params=new URLSearchParams({state:stateValue,shop,code:'fixture-code'});const signed=[...params.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${k}=${v}`).join('&');params.set('hmac',createHmac('sha256',config.shopifySecret).update(signed).digest('hex'));return request(null,'/oauth/shopify/callback?'+params);}
  const oauthState=new URL(oauth.body.url).searchParams.get('state');
- assert.match((await callback(oauthState,'different.myshopify.com')).body.error,/domínio diferente/);
- assert((await db.doc('oauthStates/'+oauthState).get()).exists);
- await db.doc('oauthStates/'+oauthState).update({expiresAt:Date.now()-1000});
+ assert.match((await callback(oauthState,'different.myshopify.com')).body.error,/mesma loja/);
+ assert(!(await store.connection(a.localId,'shopify').get()).exists);
+ await db.doc('oauthStates/'+oauthState).set({ownerId:a.localId,provider:'shopify',shop:'fixture.myshopify.com',expiresAt:Date.now()-1000});
  assert.match((await callback(oauthState,'fixture.myshopify.com')).body.error,/expirou/);
  assert.match((await callback('a'.repeat(64),'fixture.myshopify.com')).body.error,/já foi usada/);
  pass('callback distingue domínio diferente, expiração e tentativa inexistente sem ignorar verificações');
+ const aliasAttempt=await request(b,'/api/oauth/shopify',{shop:'alias.myshopify.com'});
+ const aliasState=new URL(aliasAttempt.body.url).searchParams.get('state');
+ // Inspecionar redirecionamento sem seguir a página HTML autenticada.
+ const params=new URLSearchParams({state:aliasState,shop:'fixture.myshopify.com',code:'fixture-code'});
+ params.set('hmac',createHmac('sha256',config.shopifySecret).update([...params.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${k}=${v}`).join('&')).digest('hex'));
+ const aliasResponse=await fetch(root+'/oauth/shopify/callback?'+params,{redirect:'manual'});
+ assert.equal(aliasResponse.status,302);assert.equal((await store.connection(b.localId,'shopify').get()).data().shop,'fixture.myshopify.com');
+ await store.connection(b.localId,'shopify').delete();await db.doc('shopLinks/fixture.myshopify.com').delete();
+ // A importação da ligação de teste não deve afetar o restante teste de isolamento.
+ for(const doc of (await db.collection('businesses/'+b.localId+'/vendas').get()).docs)await doc.ref.delete();
+ pass('aliases Shopify exigem identidade da mesma loja e guardam domínio canónico');
+
 
  const stateA=await request(a,'/api/state'),stateB=await request(b,'/api/state');assert.equal(stateA.status,200);assert.equal(stateB.status,200);
  const record={id:'manual1',data:'2026-10-12',tipo:'entrada',valor:123.45,descricao:'Negócio A',observacao:''};
