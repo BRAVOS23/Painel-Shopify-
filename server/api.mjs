@@ -113,6 +113,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     const provider=req.params.provider;
     if(!['shopify','meta'].includes(provider)) return res.sendStatus(400);
     if(!config.encryptionKey || !(provider==='shopify' ? config.shopifyId && config.shopifySecret : config.metaId && config.metaSecret)) return res.status(503).json({error:'A integração ainda precisa de configuração pelo administrador. Consulte SETUP.md.'});
+    if(Buffer.from(config.encryptionKey,'base64').length!==32)return res.status(503).json({error:'A INTEGRATION_ENCRYPTION_KEY precisa de 32 bytes em base64. Verifique o Secret na Cloudflare, sem aspas ou espaços adicionais.'});
     if(!config.baseUrl.startsWith('https://')) return res.status(503).json({error:'As integrações reais precisam de um endereço público HTTPS.'});
     const state=randomBytes(32).toString('hex'),shop=provider==='shopify' ? shopDomain(req.body.shop) : null;
     await store.db.doc(`oauthStates/${state}`).create({ownerId:req.user.uid,provider,shop,expiresAt:Date.now()+10*60000});

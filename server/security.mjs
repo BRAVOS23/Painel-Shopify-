@@ -2,7 +2,7 @@ import {Buffer} from 'node:buffer';
 import { createCipheriv, createDecipheriv, randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 export function shopDomain(input) {
   const shop = String(input || '').trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) throw new Error('Use o domínio da loja: nome.myshopify.com.');
+  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) throw Object.assign(new Error('Use apenas o domínio original da loja: nome.myshopify.com, sem https:// ou /admin. Encontra-o nas definições de domínios da Shopify.'),{status:400});
   return shop;
 }
 export function encrypt(value, key) {

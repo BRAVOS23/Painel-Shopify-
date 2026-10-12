@@ -10,7 +10,7 @@ import {createApp} from '../server/app.mjs';
 import {encrypt} from '../server/security.mjs';
 process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
 const firebase=initializeApp({projectId:'demo-painel'},'integration'),db=getFirestore(firebase),store=createStore(db);
-const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta'};
+const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifyId:'fixture-client',shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta'};
 let order={id:'991',created_at:'2026-10-12T08:00:00Z',updated_at:'2026-10-12T09:00:00Z',currency:'MZN',shipping_address:{name:'Integration'},line_items:[{id:'1',title:'Produto A',quantity:2,price:'100',discount_allocations:[]}]};
 const providers={shopifyOrders:async()=>[order],shopifyOrder:async()=>order,shopifyStatus:async(_shop,_token,_id,status)=>{order={...order,updated_at:new Date().toISOString(),...(status==='cancelado'?{cancelled_at:new Date().toISOString()}:{fulfillment_status:'fulfilled'})};return order;},metaInsights:async()=>[{campaign_id:'7',campaign_name:'Produto A',spend:'50',date_start:'2026-10-12'},{campaign_id:'8',campaign_name:'Sem produto',spend:'5',date_start:'2026-10-12'}]};
 const sync=createSync(store,providers,config),server=createApp({store,auth:getAuth(firebase),providers,sync,config}).listen(0,'127.0.0.1');
@@ -28,6 +28,9 @@ function pass(label){checks++;console.log('PASS: '+label);}
 try{
  const a=await signup('owner-a'),b=await signup('owner-b');
  assert.equal((await request(null,'/api/state')).status,401);pass('API exige autenticação');
+ const badShop=await request(a,'/api/oauth/shopify',{shop:'https://fixture.myshopify.com/admin'});assert.equal(badShop.status,400);assert.match(badShop.body.error,/myshopify/);
+ const key=config.encryptionKey;config.encryptionKey='invalid';const badKey=await request(a,'/api/oauth/shopify',{shop:'fixture.myshopify.com'});assert.equal(badKey.status,503);assert.match(badKey.body.error,/INTEGRATION_ENCRYPTION_KEY/);config.encryptionKey=key;
+ const oauth=await request(a,'/api/oauth/shopify',{shop:'fixture.myshopify.com'});assert.equal(oauth.status,200);assert.equal(new URL(oauth.body.url).hostname,'fixture.myshopify.com');pass('OAuth distingue domínio inválido, chave inválida e autorização utilizável');
  const stateA=await request(a,'/api/state'),stateB=await request(b,'/api/state');assert.equal(stateA.status,200);assert.equal(stateB.status,200);
  const record={id:'manual1',data:'2026-10-12',tipo:'entrada',valor:123.45,descricao:'Negócio A',observacao:''};
  const saved=await request(a,'/api/data/fluxo',{changes:[{id:record.id,revision:0,record}]});assert.equal(saved.status,200);assert.equal(saved.body.revisions[0].revision,1);
