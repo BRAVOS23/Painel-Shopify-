@@ -1,0 +1,36 @@
+{
+  "name": "painel-negocio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node server/index.mjs",
+    "dev": "npm run build && node scripts/dev.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:integration": "node tests/integration.mjs",
+    "emulators": "firebase emulators:start --project demo-painel --only auth,firestore",
+    "dev:worker": "npm run build && node scripts/wrangler.mjs dev --env local --port 8787 --test-scheduled",
+    "check:worker": "npm run build && node scripts/wrangler.mjs deploy --dry-run --env=\"\"",
+    "deploy:worker": "npm run build && node scripts/wrangler.mjs deploy --env=\"\"",
+    "test:worker": "node tests/worker-integration.mjs"
+  },
+  "dependencies": {
+    "chart.js": "4.4.4",
+    "express": "5.3.0",
+    "firebase": "13.0.0",
+    "firebase-admin": "14.5.0",
+    "jspdf": "4.2.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "firebase-tools": "15.33.0",
+    "wrangler": "4.149.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.6"
+  }
+}

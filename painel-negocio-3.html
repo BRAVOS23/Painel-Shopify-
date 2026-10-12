@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel do Negócio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+
+
 <style>
   :root{
     --ink:#0D0A14; --ink-2:#1E1729; --panel:#171020; --panel-line: rgba(255,255,255,0.08);
@@ -305,7 +305,7 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" hidden>
 
   <header class="top">
     <div class="brand">
@@ -559,16 +559,9 @@
         </div>
       </div>
 
-      <div class="panel panel-slim">
-        <h2>Sincronizar com a Shopify <span class="tag" id="shopifyStatusTag">não conectado</span></h2>
-        <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
-          Cole aqui o link do seu Apps Script (com <code>?token=...</code>). Isso traz os pedidos reais da Shopify — com produto certinho — e também manda de volta pra Shopify quando você marcar Concluído ou Cancelado no painel.
-        </p>
-        <div class="toolbar">
-          <input type="text" id="shopifyApiUrl" placeholder="https://script.google.com/macros/s/…/exec?token=…" style="flex:1; min-width:260px;">
-          <button class="btn-primary" onclick="syncShopifyAPI()">Sincronizar agora</button>
-        </div>
-        <div id="shopifyMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px;"></div>
+      <div class="panel panel-slim" id="cloudIntegrationsShopify">
+        <h2>Shopify</h2>
+        <p>Ligue a sua loja para importar pedidos automaticamente.</p>
       </div>
 
       <div class="panel panel-slim">
@@ -613,7 +606,7 @@
       <div class="roi-hero">
         <div class="roi-hero-label">ROI no período <span id="metVendasSub" style="opacity:.75; font-weight:500;"></span></div>
         <div class="roi-hero-value" id="metROI">—</div>
-        <div class="roi-hero-sub">retorno sobre o gasto total (aquisição + ads + outros + operacional)</div>
+        <div class="roi-hero-sub">retorno sobre o gasto total (aquisição + entregas + ads + outros + operacional)</div>
       </div>
 
       <div class="cards3" style="grid-template-columns:repeat(3,1fr);">
@@ -623,8 +616,9 @@
       </div>
 
       <div class="metricas-subhead">Custos no período</div>
-      <div class="cards5">
+      <div class="cards5" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
         <div class="card"><span class="k">Aquisição <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoAquisicao">0 MT</span></div>
+        <div class="card"><span class="k">Entregas</span><span class="v mono" id="metGastoDelivery">0 MT</span></div>
         <div class="card"><span class="k">Ads</span><span class="v mono" id="metGastoAds">0 MT</span></div>
         <div class="card"><span class="k">Outros</span><span class="v mono" id="metGastoOutros">0 MT</span></div>
         <div class="card"><span class="k">Operacional</span><span class="v mono" id="metGastoOperacional">0 MT</span></div>
@@ -764,7 +758,7 @@
     </div>
   </section>
 
-  <footer>Os dados ficam guardados apenas neste computador, neste navegador.</footer>
+  <footer>Os dados pertencem ao seu negócio e são guardados no servidor. Consulte o estado de gravação antes de sair.</footer>
 </div>
 
 <script>
@@ -838,9 +832,9 @@ function switchMetricasView(which){
 
 /* ============ FLUXO DE CAIXA ============ */
 function loadFluxo(){
-  try{ fluxoData = JSON.parse(localStorage.getItem(FLUXO_KEY)) || []; }catch(e){ fluxoData = []; }
+  fluxoData = window.cloudBackend.read('fluxo');
 }
-function saveFluxo(){ localStorage.setItem(FLUXO_KEY, JSON.stringify(fluxoData)); }
+function saveFluxo(){ window.cloudBackend.save('fluxo', fluxoData); }
 
 function setTipo(t){
   tipoAtivo = t;
@@ -993,17 +987,17 @@ function renderFluxoAll(){
 
 /* ============ CONTROLE DE VENDAS ============ */
 function loadVendas(){
-  try{ vendasData = JSON.parse(localStorage.getItem(VENDAS_KEY)) || []; }catch(e){ vendasData = []; }
+  vendasData = window.cloudBackend.read('vendas');
   const hoje = new Date();
   const atual = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
   let precisaSalvar = false;
   vendasData.forEach(v=>{ if(!v.mes){ v.mes = atual; precisaSalvar = true; } });
   if(precisaSalvar) saveVendas();
 }
-function saveVendas(){ localStorage.setItem(VENDAS_KEY, JSON.stringify(vendasData)); }
+function saveVendas(){ window.cloudBackend.save('vendas', vendasData); }
 
 /* ---- Importar pedidos da planilha Shopify (via ficheiro CSV local) ---- */
-const SHOPIFY_COUNT_KEY = 'lobo_shopify_synced_count_v1';
+
 
 function parseCSV(text){
   const rows = [];
@@ -1059,11 +1053,18 @@ function importarCSVShopify(){
   showCsvMsg('A ler o ficheiro…');
 
   const reader = new FileReader();
-  reader.onload = function(e){
+  reader.onload = async function(e){
     try{
       const linhas = parseCSV(e.target.result).filter(r=>r.some(c=>String(c).trim()!==''));
-      const jaImportadas = parseInt(localStorage.getItem(SHOPIFY_COUNT_KEY),10) || 0;
-      const novas = linhas.slice(jaImportadas);
+      const occurrences = new Map();
+      const novas = [];
+      for(const cols of linhas){
+        const content=JSON.stringify(cols.map(c=>String(c).trim()));
+        const ordinal=occurrences.get(content)||0; occurrences.set(content,ordinal+1);
+        const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content+'#'+ordinal));
+        const id='csv_'+Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        if(!vendasData.some(v=>v.id===id)) novas.push({cols,id});
+      }
 
       if(novas.length===0){
         showCsvMsg('Nenhum pedido novo neste ficheiro — já foram todos importados antes.');
@@ -1077,7 +1078,7 @@ function importarCSVShopify(){
 
       let importados = 0;
       const naoReconhecidos = new Set();
-      novas.forEach(cols=>{
+      novas.forEach(({cols,id})=>{
         const nome = String(cols[0]||'').trim();
         const telefone = String(cols[1]||'').trim();
         const provincia = String(cols[2]||'').trim();
@@ -1093,7 +1094,7 @@ function importarCSVShopify(){
         if(produtoCru && !nomeCanonicoPorProduto[chave]) naoReconhecidos.add(produtoCru);
         if(!nome && !telefone) return;
         vendasData.push({
-          id: uid(), semana: semanaAtiva, mes: mesAtivoVendas,
+          id, semana: semanaAtiva, mes: mesAtivoVendas,
           data: hojeStr, horario: horario, fonte: '04.SHOPIFY',
           contacto: (nome + ' ' + telefone).trim(),
           local, descricao: '', produto, quantidade, valor,
@@ -1102,7 +1103,6 @@ function importarCSVShopify(){
         importados++;
       });
 
-      localStorage.setItem(SHOPIFY_COUNT_KEY, String(linhas.length));
       saveVendas();
       let msg = importados + (importados===1 ? ' pedido novo importado para "Pedidos da Semana".' : ' pedidos novos importados para "Pedidos da Semana".');
       if(naoReconhecidos.size){
@@ -1119,114 +1119,11 @@ function importarCSVShopify(){
   reader.readAsText(file, 'UTF-8');
 }
 
-/* ---- Sincronização direta com a Shopify (via Apps Script) ---- */
-const SHOPIFY_API_URL_KEY = 'lobo_shopify_api_url_v1';
-const SHOPIFY_IMPORTED_IDS_KEY = 'lobo_shopify_imported_ids_v1';
-
-function jsonpFetch(url){
-  return new Promise((resolve, reject)=>{
-    const cbName = 'shopifyCb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
-    const script = document.createElement('script');
-    let done = false;
-    window[cbName] = function(data){ done = true; resolve(data); cleanup(); };
-    function cleanup(){ delete window[cbName]; if(script.parentNode) script.parentNode.removeChild(script); }
-    script.onerror = function(){ if(!done){ cleanup(); reject(new Error('Falha ao carregar o script.')); } };
-    const sep = url.includes('?') ? '&' : '?';
-    script.src = url + sep + 'callback=' + cbName;
-    document.body.appendChild(script);
-    setTimeout(()=>{ if(!done){ cleanup(); reject(new Error('Tempo esgotado.')); } }, 20000);
-  });
-}
-
-function getImportedShopifyIds(){
-  try{ return JSON.parse(localStorage.getItem(SHOPIFY_IMPORTED_IDS_KEY)) || []; }catch(e){ return []; }
-}
-function saveImportedShopifyIds(ids){ localStorage.setItem(SHOPIFY_IMPORTED_IDS_KEY, JSON.stringify(ids)); }
-
-async function syncShopifyAPI(){
-  const urlInput = document.getElementById('shopifyApiUrl');
-  const url = urlInput.value.trim();
-  if(!url){ showShopifyMsg('Cole o link do Apps Script primeiro.', true); return; }
-  localStorage.setItem(SHOPIFY_API_URL_KEY, url);
-  showShopifyMsg('A buscar pedidos novos na Shopify…');
-
-  try{
-    // 1) buscar pedidos novos (abertos) e importar os que ainda não conhecemos
-    const lista = await jsonpFetch(url);
-    if(lista && lista.error){ showShopifyMsg('Erro: ' + lista.error, true); return; }
-
-    const jaImportados = new Set(getImportedShopifyIds());
-    const custoPorProduto = custoAquisicaoPorProduto();
-    const nomeCanonicoPorProduto = {};
-    produtosData.forEach(p=>{ nomeCanonicoPorProduto[normalizarNomeProduto(p.nome)] = p.nome; });
-    const hojeStr = new Date().toISOString().slice(0,10);
-
-    let importados = 0;
-    (Array.isArray(lista) ? lista : []).forEach(pedido=>{
-      if(jaImportados.has(String(pedido.id))) return;
-      jaImportados.add(String(pedido.id));
-      const itens = (pedido.itens && pedido.itens.length) ? pedido.itens : [{produto:'', quantidade:1, preco: pedido.valor}];
-      itens.forEach(item=>{
-        const produtoCru = String(item.produto||'').trim();
-        const chave = normalizarNomeProduto(produtoCru);
-        const produtoFinal = produtoCru ? (nomeCanonicoPorProduto[chave] || produtoCru) : '';
-        vendasData.push({
-          id: uid(), semana: semanaAtiva, mes: mesAtivoVendas,
-          data: hojeStr, horario: '', fonte: '04.SHOPIFY',
-          contacto: (pedido.nome||'') + ' ' + (pedido.telefone||''),
-          local: pedido.local || '', descricao: '',
-          produto: produtoFinal, quantidade: item.quantidade||1,
-          valor: parseFloat(item.preco||pedido.valor||0) * (item.quantidade||1),
-          delivery: '', comissao: 0, status: 'pendente',
-          shopifyOrderId: String(pedido.id)
-        });
-      });
-      importados++;
-    });
-    saveImportedShopifyIds([...jaImportados]);
-    saveVendas();
-
-    // 2) reconciliar status dos pedidos ainda abertos que vieram da Shopify
-    const abertos = vendasData.filter(v=> v.shopifyOrderId && (v.status==='pendente' || v.status==='remarcado'));
-    let atualizados = 0;
-    if(abertos.length){
-      const ids = [...new Set(abertos.map(v=>v.shopifyOrderId))];
-      const statusResp = await jsonpFetch(url + '&action=status&ids=' + ids.join(','));
-      if(statusResp && !statusResp.error){
-        abertos.forEach(v=>{
-          const st = statusResp[v.shopifyOrderId];
-          if(!st) return;
-          if(st.cancelled_at && v.status!=='cancelado'){ v.status = 'cancelado'; atualizados++; }
-          else if(st.fulfillment_status==='fulfilled' && v.status!=='concluido'){ v.status = 'concluido'; atualizados++; }
-        });
-        saveVendas();
-      }
-    }
-
-    document.getElementById('shopifyStatusTag').textContent = 'última sincronização: ' + new Date().toLocaleTimeString('pt-PT').slice(0,5);
-    showShopifyMsg(importados + ' pedido(s) novo(s) importado(s), ' + atualizados + ' status atualizado(s) a partir da Shopify.');
-    renderVendasAll();
-  } catch(err){
-    showShopifyMsg('Não consegui falar com o Apps Script. Confira o link/token e se o app está implantado.', true);
-  }
-}
-
-// chamado ao marcar Concluído/Cancelado num pedido que veio da Shopify — reflete lá também
-async function refletirNaShopify(v, novoStatus){
-  if(!v.shopifyOrderId) return;
-  const url = localStorage.getItem(SHOPIFY_API_URL_KEY);
-  if(!url) return;
-  const acao = novoStatus==='concluido' ? 'fulfill' : (novoStatus==='cancelado' ? 'cancel' : null);
-  if(!acao) return;
-  try{
-    const resp = await jsonpFetch(url + '&action=' + acao + '&order_id=' + v.shopifyOrderId);
-    if(resp && resp.error){ showShopifyMsg('Aviso: não consegui atualizar esse pedido na Shopify (' + resp.error + ').', true); }
-  } catch(e){
-    showShopifyMsg('Aviso: não consegui contactar a Shopify pra atualizar esse pedido.', true);
-  }
-}
+/* ---- Sincronização com a Shopify através do servidor ---- */
 
 
+async function syncShopifyAPI(){ await window.cloudBackend.syncShopify(); }
+// As alterações da loja passam pela API autenticada do negócio.
 document.getElementById('vendaForm').addEventListener('submit', function(e){
   e.preventDefault();
   const data = document.getElementById('vData').value;
@@ -1472,13 +1369,22 @@ function moverPedidoSemana(id, novaSemana){
   showVendaMsg('Pedido movido para ' + nomeNova + '.');
 }
 
-function markStatus(id, status){
+async function markStatus(id, status){
   const idx = vendasData.findIndex(v=>v.id===id);
   if(idx===-1) return;
+  if(vendasData[idx].shopifyOrderId && ['concluido','cancelado'].includes(status)){
+    const action=status==='concluido' ? 'Concluir' : 'Cancelar';
+    if(!confirm(action+' o pedido inteiro também na Shopify?'+(status==='cancelado'?' O cancelamento repõe o stock e não faz reembolso automático.':''))) return;
+    try {
+      const result=await window.cloudBackend.reflectStatus(vendasData[idx].shopifyOrderId,status);
+      showVendaMsg(result.pending ? result.message : 'Pedido atualizado na Shopify.');
+    } catch(error){ showVendaMsg(error.message); }
+    return;
+  }
   vendasData[idx].status = status;
   saveVendas();
   renderVendasAll();
-  if(vendasData[idx].shopifyOrderId) refletirNaShopify(vendasData[idx], status);
+
 }
 
 function renderVendaTable(){
@@ -1670,19 +1576,19 @@ let periodoMetricas = 'dia';
 let metChart = null;
 
 function loadAdSpend(){
-  try{ adSpendData = JSON.parse(localStorage.getItem(ADSPEND_KEY)) || []; }catch(e){ adSpendData = []; }
+  adSpendData = window.cloudBackend.read('ads');
 }
-function saveAdSpend(){ localStorage.setItem(ADSPEND_KEY, JSON.stringify(adSpendData)); }
+function saveAdSpend(){ window.cloudBackend.save('ads', adSpendData); }
 
 function loadProdutos(){
-  try{ produtosData = JSON.parse(localStorage.getItem(PRODUTOS_KEY)) || []; }catch(e){ produtosData = []; }
+  produtosData = window.cloudBackend.read('produtos');
 }
-function saveProdutos(){ localStorage.setItem(PRODUTOS_KEY, JSON.stringify(produtosData)); }
+function saveProdutos(){ window.cloudBackend.save('produtos', produtosData); }
 
 function loadOperacional(){
-  try{ operacionaisData = JSON.parse(localStorage.getItem(OPERACIONAL_KEY)) || []; }catch(e){ operacionaisData = []; }
+  operacionaisData = window.cloudBackend.read('operacional');
 }
-function saveOperacional(){ localStorage.setItem(OPERACIONAL_KEY, JSON.stringify(operacionaisData)); }
+function saveOperacional(){ window.cloudBackend.save('operacional', operacionaisData); }
 
 /* ---- Produtos ---- */
 let pendingFotoBase64 = null;
@@ -2171,62 +2077,25 @@ function getMetricasRange(){
   }
 }
 
-function renderMetricas(){
+async function renderMetricas(){
   const range = getMetricasRange();
   const produtoFiltro = document.getElementById('metProduto').value.trim();
-
-  if(!range){
-    ['metGastoAquisicao','metGastoAds','metGastoOutros','metGastoOperacional','metGastoTotal','metReceita'].forEach(id=>document.getElementById(id).textContent='0 MT');
-    document.getElementById('metVendasSub').textContent = '';
-    document.getElementById('metCPA').textContent = '—';
-    document.getElementById('metROAS').textContent = '—';
-    document.getElementById('metROI').textContent = '—';
-    return;
-  }
+  if(!range) return;
   const [inicio, fim] = range;
-  const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(p)===normalizarNomeProduto(produtoFiltro);
-
-  const gastos = adSpendData.filter(a=> a.data>=inicio && a.data<=fim && matchProduto(a.produto));
-  const vendasConcluidas = vendasData.filter(v=> v.status==='concluido' && v.data>=inicio && v.data<=fim && matchProduto(v.produto));
-
-  const custoPorProduto = custoAquisicaoPorProduto();
-  const gastoAquisicao = vendasConcluidas.reduce((s,v)=>{
-    const custo = custoPorProduto[normalizarNomeProduto(v.produto)] || 0;
-    return s + custo * (v.quantidade||1);
-  }, 0);
-
-  const somaTipo = (tipo) => gastos.filter(a=>a.tipo===tipo).reduce((s,a)=>s+a.valor,0);
-  const gastoAds = somaTipo('ads');
-  const gastoOutros = somaTipo('outros');
-  // gastos operacionais (domínio, mensalidade, apps…) são da loja toda, não de um produto — só entram na visão "Todos os produtos"
-  const gastoOperacional = produtoFiltro ? 0 : calcularGastoOperacional(inicio, fim);
-
-  const totalGasto = gastoAquisicao + gastoAds + gastoOutros + gastoOperacional;
-  const totalReceita = vendasConcluidas.reduce((s,v)=>s+(v.valor||0),0);
-  const nVendas = vendasConcluidas.length;
-
-  document.getElementById('metGastoAquisicao').textContent = fmtMT(gastoAquisicao);
-  document.getElementById('metGastoAds').textContent = fmtMT(gastoAds);
-  document.getElementById('metGastoOutros').textContent = fmtMT(gastoOutros);
-  document.getElementById('metGastoOperacional').textContent = fmtMT(gastoOperacional);
-  document.getElementById('metGastoTotal').textContent = fmtMT(totalGasto);
-  document.getElementById('metReceita').textContent = fmtMT(totalReceita);
-  document.getElementById('metVendasSub').textContent = '(' + nVendas + (nVendas===1 ? ' venda)' : ' vendas)');
-  document.getElementById('metCPA').textContent = nVendas>0 ? fmtMT(gastoAds/nVendas) : '—';
-  document.getElementById('metROAS').textContent = gastoAds>0 ? (totalReceita/gastoAds).toFixed(2) + 'x' : '—';
-
-  const roiEl = document.getElementById('metROI');
-  if(totalGasto>0){
-    const roi = ((totalReceita-totalGasto)/totalGasto)*100;
-    roiEl.textContent = roi.toFixed(1) + '%';
-    roiEl.style.color = roi>=0 ? 'var(--green)' : 'var(--red)';
-  } else {
-    roiEl.textContent = '—';
-    roiEl.style.color = 'var(--sand)';
-  }
-
-  renderMetChart(inicio, fim, produtoFiltro);
+  try {
+    const result = await window.cloudBackend.metrics(inicio, fim, produtoFiltro);
+    if(!result) return;
+    const fields = {metGastoAquisicao:'acquisition',metGastoDelivery:'delivery',metGastoAds:'ads',metGastoOutros:'other',metGastoOperacional:'operational',metGastoTotal:'total',metReceita:'revenue'};
+    Object.entries(fields).forEach(([id,key])=>document.getElementById(id).textContent=fmtMT(result[key]));
+    document.getElementById('metVendasSub').textContent = '('+result.orders+(result.orders===1?' venda)':' vendas)');
+    document.getElementById('metCPA').textContent = result.cpa===null ? '—' : fmtMT(result.cpa);
+    document.getElementById('metROAS').textContent = result.roas===null ? '—' : result.roas.toFixed(2)+'x';
+    document.getElementById('metROI').textContent = result.roi===null ? '—' : result.roi.toFixed(1)+'%';
+    document.getElementById('metROI').style.color = result.roi===null ? 'var(--sand)' : result.roi>=0 ? 'var(--green)' : 'var(--red)';
+    renderMetChart(inicio, fim, produtoFiltro);
+  } catch(error) { document.getElementById('metVendasSub').textContent = 'Não foi possível atualizar as métricas.'; }
 }
+window.refreshCloudMetrics = renderMetricas;
 
 
 function renderMetChart(inicio, fim, produtoFiltro){
@@ -2244,7 +2113,8 @@ function renderMetChart(inicio, fim, produtoFiltro){
     const aquisicao = vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto))
       .reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
     const operacional = produtoFiltro ? 0 : calcularGastoOperacional(d, d);
-    return adsOutros + aquisicao + operacional;
+    const entregas = vendasData.filter(v=>v.status==='concluido' && v.data===d && matchProduto(v.produto)).reduce((sum,v)=>sum+(v.comissao||0),0);
+    return adsOutros + aquisicao + entregas + operacional;
   });
   const receitaPorDia = dias.map(d=>
     vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
@@ -2314,11 +2184,14 @@ renderFluxoAll();
 renderVendasAll();
 populateProdutosMetricas();
 
-const savedShopifyApiUrl = localStorage.getItem(SHOPIFY_API_URL_KEY);
-if(savedShopifyApiUrl){
-  document.getElementById('shopifyApiUrl').value = savedShopifyApiUrl;
-  document.getElementById('shopifyStatusTag').textContent = 'conectado';
-}
+window.applyCloudState = function(state){
+  fluxoData = structuredClone(state.fluxo || []);
+  vendasData = structuredClone(state.vendas || []);
+  produtosData = structuredClone(state.produtos || []);
+  adSpendData = structuredClone(state.ads || []);
+  operacionaisData = structuredClone(state.operacional || []);
+  renderFluxoAll(); renderVendasAll(); renderProdutosAll(); renderOpAll(); renderAdAll();
+};
 </script>
 </body>
 </html>

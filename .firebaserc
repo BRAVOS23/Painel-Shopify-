@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "demo-painel",
+    "production": "painel-cash-on-delivery"
+  }
+}
