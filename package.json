@@ -16,7 +16,8 @@
     "dev:worker": "npm run build && node scripts/wrangler.mjs dev --env local --port 8787 --test-scheduled",
     "check:worker": "npm run build && node scripts/wrangler.mjs deploy --dry-run --env=\"\"",
     "deploy:worker": "npm run build && node scripts/wrangler.mjs deploy --env=\"\"",
-    "test:worker": "node tests/worker-integration.mjs"
+    "test:worker": "node tests/worker-integration.mjs",
+    "test:worker:crypto": "node tests/worker-crypto.mjs"
   },
   "dependencies": {
     "chart.js": "4.4.4",

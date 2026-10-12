@@ -32,6 +32,7 @@ npm run test:integration
 # Com emuladores e npm run dev:worker em execução:
 npm run test:worker
 npm run check:worker
+npm run test:worker:crypto
 ```
 
 Os testes unitários cobrem assinatura/cifragem, normalização dos dados, moedas, descontos, paginação e cálculo de rentabilidade. Os testes de integração usam Auth e Firestore reais nos emuladores, com respostas Shopify/Meta simuladas. Verificam isolamento entre contas, revisões concorrentes, importações repetidas, proteção de credenciais e webhooks. Nenhum teste automatizado altera lojas ou contas de anúncios reais.

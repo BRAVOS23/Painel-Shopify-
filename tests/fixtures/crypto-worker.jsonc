@@ -1,0 +1,1 @@
+{"name":"test-crypto-only","main":"crypto-worker.mjs","compatibility_date":"2026-10-12","compatibility_flags":["nodejs_compat"]}

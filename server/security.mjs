@@ -9,7 +9,7 @@ export function encrypt(value, key) {
   const bytes = Buffer.from(key || '', 'base64');
   if (bytes.length !== 32) throw new Error('A chave de proteção das integrações não foi configurada.');
   const iv = randomBytes(12), cipher = createCipheriv('aes-256-gcm', bytes, iv);
-  const data = Buffer.concat([cipher.update(JSON.stringify(value)), cipher.final()]);
+  const data = Buffer.concat([cipher.update(JSON.stringify(value),'utf8'), cipher.final()]);
   return { iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') };
 }
 export function decrypt(value, key) {
