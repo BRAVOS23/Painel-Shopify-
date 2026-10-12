@@ -1,9 +1,22 @@
 import { createHmac } from 'node:crypto';
 import { shopDomain } from './security.mjs';
-async function jsonResponse(response, provider) {
+function graphqlDiagnostic(errors,query){
+ // Expor apenas códigos e identificadores presentes na consulta estática, nunca a resposta integral.
+ const names=new Set([...(query.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []),'callbackUrl','format','uri']);
+ return errors.slice(0,3).map(error=>{
+  const code=String(error.extensions?.code || 'GRAPHQL_ERROR');
+  const safeCode=/^[A-Za-z_]{1,60}$/.test(code)?code:'GRAPHQL_ERROR';
+  const fields=[error.extensions?.fieldName,error.extensions?.argumentName,error.extensions?.name,...(Array.isArray(error.path)?error.path:[])].filter(value=>typeof value==='string' && names.has(value));
+  const protectedData=/protected customer|not approved to access|customer data/i.test(String(error.message || ''));
+  const hint=protectedData?'O aplicativo precisa de autorização para dados protegidos de clientes.':safeCode==='ACCESS_DENIED'?'Verifique os escopos e a autorização da loja.':safeCode==='THROTTLED'?'Aguarde antes de repetir a sincronização.':'';
+  return `${safeCode}${fields.length?' · '+[...new Set(fields)].join(', '):''}${hint?' · '+hint:''}`;
+ }).join('; ');
+}
+async function jsonResponse(response, provider,query='') {
   let body;
   try { body=await response.json(); } catch { throw Object.assign(new Error(`${provider}: resposta inválida.`),{status:502}); }
-  if (!response.ok || body.error || body.errors) throw Object.assign(new Error(`${provider}: pedido recusado (HTTP ${response.status}). Verifique as credenciais do aplicativo, o callback e as permissões.`),{status:502});
+  if(response.ok && Array.isArray(body.errors) && body.errors.length && query)throw Object.assign(new Error(`${provider}: ${graphqlDiagnostic(body.errors,query)}`),{status:502});
+  if (!response.ok || body.error || (body.errors && (!Array.isArray(body.errors) || body.errors.length))) throw Object.assign(new Error(`${provider}: pedido recusado (HTTP ${response.status}). Verifique as credenciais do aplicativo, o callback e as permissões.`),{status:502});
   return body;
 }
 export function createProviders(config, fetcher = fetch) {
@@ -11,7 +24,7 @@ export function createProviders(config, fetcher = fetch) {
     return (await jsonResponse(await fetcher(`https://${shopDomain(shop)}/admin/api/${config.shopifyVersion}/graphql.json`, {
       method:'POST', headers:{'Content-Type':'application/json','X-Shopify-Access-Token':token},
       body:JSON.stringify({query,variables}), signal:AbortSignal.timeout(30000)
-    }),'Shopify')).data;
+    }),'Shopify',query)).data;
   }
   const fields=`id legacyResourceId createdAt updatedAt cancelledAt displayFulfillmentStatus currencyCode note phone
     customer { firstName lastName } shippingAddress { name phone address1 city }
@@ -63,7 +76,7 @@ export function createProviders(config, fetcher = fetch) {
   async function registerWebhooks(shop,token,callbackUrl) {
     // Uma atualização pode disparar vários tópicos. A importação é idempotente.
     for (const topic of ['ORDERS_CREATE','ORDERS_UPDATED','ORDERS_CANCELLED','APP_UNINSTALLED']) {
-      const data=await shopifyGraphql(shop,token,`mutation($topic:WebhookSubscriptionTopic!,$input:WebhookSubscriptionInput!){webhookSubscriptionCreate(topic:$topic,webhookSubscription:$input){webhookSubscription{id}userErrors{message}}}`,{topic,input:{callbackUrl,format:'JSON'}});
+      let data;try{data=await shopifyGraphql(shop,token,`mutation($topic:WebhookSubscriptionTopic!,$input:WebhookSubscriptionInput!){webhookSubscriptionCreate(topic:$topic,webhookSubscription:$input){webhookSubscription{id}userErrors{message}}}`,{topic,input:{callbackUrl,format:'JSON'}});}catch(error){throw Object.assign(new Error(`Registo de webhook ${topic}: ${error.message}`),{status:error.status || 502});}
       if (data.webhookSubscriptionCreate.userErrors.length) throw new Error('A Shopify recusou o registo de webhooks. Verifique a URL pública HTTPS.');
     }
   }
