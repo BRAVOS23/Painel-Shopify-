@@ -538,14 +538,14 @@
 
   <header class="top">
     <div class="brand">
-      <span class="eyebrow">Painel do Negócio</span>
-      <h1>Fluxo de Caixa &amp; Controle de Vendas</h1>
+      <span class="eyebrow">Gestão de vendas</span>
+      <h1>Painel do Negócio</h1>
     </div>
     <div class="header-tabs-row">
       <div class="maintabs">
-        <button id="tabBtnFluxo" class="active" onclick="switchMain('fluxo')">Fluxo de Caixa</button>
-        <button id="tabBtnVendas" onclick="switchMain('vendas')">Controle de Vendas</button>
-        <button id="tabBtnMetricas" onclick="switchMain('metricas')">CPA / ROI / ROAS</button>
+        <button id="tabBtnResumo" class="active" onclick="switchMain('resumo')">Resumo</button><button id="tabBtnFluxo" hidden onclick="switchMain('resumo')">Movimentos antigos</button>
+        <button id="tabBtnVendas" onclick="switchMain('vendas')">Pedidos</button>
+        <button id="tabBtnMetricas" onclick="switchMain('metricas')">Resultados</button>
       </div>
       <button type="button" class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
         <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
@@ -554,8 +554,23 @@
     </div>
   </header>
 
-  <!-- ================= FLUXO DE CAIXA ================= -->
-  <section id="secFluxo" class="section active">
+  <section id="secResumo" class="section active">
+    <div class="section-heading"><div><h2>O teu negócio num relance</h2><p>Pedidos, entregas e resultados. Tudo o que precisa da tua atenção.</p></div><label class="period-control" for="summaryMonth">Período<input type="month" id="summaryMonth"></label></div>
+    <div class="summary-grid">
+      <div class="summary-stat accent"><span class="stat-label">Pedidos em aberto</span><strong id="summaryOpen">0</strong><small>Pendentes e remarcados</small></div>
+      <div class="summary-stat"><span class="stat-label">Entregas concluídas</span><strong id="summaryDone">0</strong><small>No mês selecionado</small></div>
+      <div class="summary-stat"><span class="stat-label">Receita de entregas</span><strong id="summaryRevenue">—</strong><small>Apenas pedidos concluídos</small></div>
+      <div class="summary-stat"><span class="stat-label">Lucro estimado</span><strong id="summaryProfit">—</strong><small>Após custos e gastos registados</small></div>
+    </div>
+    <div id="summaryNotice" class="notice-inline" hidden></div>
+    <div class="summary-columns">
+      <div class="panel"><h2>Próximas entregas</h2><div id="summaryOrders" class="summary-list"></div><p id="summaryMetricsNote" class="summary-note" role="status"></p></div>
+      <div class="panel"><h2>O que queres fazer?</h2><button class="summary-action" id="summaryNewOrder"><span>Registar um pedido</span><span>＋</span></button><button class="summary-action" id="summaryReschedule"><span>Organizar pedidos remarcados</span><span>→</span></button><button class="summary-action" id="summaryProducts"><span>Ver produtos e stock</span><span>→</span></button><button class="summary-action" id="summaryConnections"><span>Gerir Shopify e Meta Ads</span><span>→</span></button><p class="summary-note" id="summaryConnectionState"></p></div>
+    </div>
+  </section>
+
+  <!-- Histórico de caixa preservado para backups; retirado da navegação principal. -->
+  <section id="secFluxo" class="section" aria-hidden="true">
 
     <div class="panel">
       <h2>Novo lançamento <span class="tag" id="fluxoMesAtivoTag"></span></h2>
@@ -629,7 +644,7 @@
       <button id="subnavVendasPedidos" class="active" onclick="switchVendasView('pedidos')">Pedidos</button>
       <button id="subnavVendasRelatorios" onclick="switchVendasView('relatorios')">Relatórios</button>
       <button id="subnavVendasMeses" onclick="switchVendasView('meses')">Meses Anteriores</button>
-      <button id="subnavVendasConfig" onclick="switchVendasView('config')">Configurações</button>
+      <button id="subnavVendasConfig" hidden onclick="switchVendasView('config')">Configurações</button>
     </div>
 
     <div id="vendasViewPedidos" class="subview active">
@@ -637,9 +652,8 @@
         <h2>Mês <span class="tag" id="mesVendasAtivoTag"></span></h2>
         <div class="toolbar">
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            <input type="month" id="mesVendasEditor" style="background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:8px 10px; border-radius:8px; font-size:13px;">
-            <button class="btn-ghost" onclick="definirMesVendas()">Definir como mês ativo</button>
-            <button class="btn-ghost" onclick="iniciarNovoMesVendas()">Iniciar novo mês →</button>
+            <input type="month" id="mesVendasEditor" aria-label="Mês dos pedidos" onchange="definirMesVendas()" style="background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:8px 10px; border-radius:8px; font-size:13px;">
+            <button class="btn-ghost" onclick="iniciarNovoMesVendas()">Próximo mês →</button>
           </div>
         </div>
       </div>
@@ -732,6 +746,7 @@
             <button type="button" class="btn-ghost" style="padding:8px 14px; font-size:12.5px;" onclick="cancelarModoSelecaoPedidos()">Cancelar</button>
           </div>
         </div>
+        <div id="carryNotice" class="notice-inline" hidden></div>
         <div id="pedidosBody"></div>
         <div class="empty" id="pedidosEmpty" style="display:none;">Nenhum pedido em aberto nesta semana.</div>
       </div>
@@ -800,7 +815,7 @@
 
     <div id="vendasViewMeses" class="subview">
       <div class="panel">
-        <h2>Meses Anteriores <span class="tag">pedidos de meses já fechados, só para consulta</span></h2>
+        <h2>Meses Anteriores <span class="tag">consulta e reagendamento de pedidos</span></h2>
         <div class="subtabs" id="mesesPassadosTabs"></div>
         <div class="subtabs" id="semanaHistTabs"></div>
         <div class="toolbar">
@@ -808,7 +823,7 @@
           <button class="btn-ghost" onclick="exportHistoricoMesCSV()">Exportar CSV</button>
         </div>
         <table class="responsive-table">
-          <thead><tr><th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th></tr></thead>
+          <thead><tr><th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th><th></th></tr></thead>
           <tbody id="histTableBody"></tbody>
         </table>
         <div class="empty" id="histEmpty" style="display:none;">Nenhum registo neste mês/semana.</div>
@@ -862,14 +877,14 @@
 
     <div class="subnav">
       <button id="subnavMetResultados" class="active" onclick="switchMetricasView('resultados')">Resultados</button>
-      <button id="subnavMetCadastros" onclick="switchMetricasView('cadastros')">Cadastros</button>
+      <button id="subnavMetCadastros" onclick="switchMetricasView('cadastros')">Registar gastos</button>
       <button id="subnavMetProdutos" onclick="switchMetricasView('produtos')">Produtos</button>
-      <button id="subnavMetGastos" onclick="switchMetricasView('gastos')">Histórico de Gastos</button>
+      <button id="subnavMetGastos" onclick="switchMetricasView('gastos')">Gastos</button>
     </div>
 
     <div id="metricasViewResultados" class="subview active">
     <div class="panel">
-      <h2>Calcular CPA / ROI / ROAS</h2>
+      <h2>Rentabilidade do negócio</h2>
       <div class="toolbar">
         <div class="filters">
           <div id="drMetricas"></div>
@@ -1294,12 +1309,16 @@ function refreshChartsForTheme(){
 }
 
 function switchMain(which){
+  if(which==='fluxo')which='resumo';
+  document.getElementById('secResumo').classList.toggle('active',which==='resumo');
+  document.getElementById('tabBtnResumo').classList.toggle('active',which==='resumo');
   document.getElementById('secFluxo').classList.toggle('active', which==='fluxo');
   document.getElementById('secVendas').classList.toggle('active', which==='vendas');
   document.getElementById('secMetricas').classList.toggle('active', which==='metricas');
   document.getElementById('tabBtnFluxo').classList.toggle('active', which==='fluxo');
   document.getElementById('tabBtnVendas').classList.toggle('active', which==='vendas');
   document.getElementById('tabBtnMetricas').classList.toggle('active', which==='metricas');
+  if(which==='resumo')window.renderExperience?.();
   if(which==='metricas'){
     if(opHistAberto) renderOpTable();
     renderAdAll();
@@ -1889,18 +1908,19 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
 
   if(vendaEditId){
     const idx = vendasData.findIndex(v=>v.id===vendaEditId);
-    if(idx>-1) vendasData[idx] = {...vendasData[idx], data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: vendasData[idx].mes};
+    if(idx>-1) vendasData[idx] = {...vendasData[idx], data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: data.slice(0,7)};
     showVendaMsg('Registo atualizado.');
     vendaEditId = null;
     document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
     document.getElementById('vendaCancelEdit').style.display = 'none';
   } else {
-    vendasData.push({id:uid(), semana:semanaAtiva, mes:mesAtivoVendas, data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status});
+    vendasData.push({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status});
     showVendaMsg('Contacto adicionado.');
   }
+  mesAtivoVendas=data.slice(0,7);guardarMesPreferido();
   saveVendas();
   document.getElementById('vendaForm').reset();
-  dpVData.setValue(drISO(new Date()));
+  dpVData.setValue(mesAtivoVendas===drISO(new Date()).slice(0,7)?drISO(new Date()):mesAtivoVendas+'-01');
   document.getElementById('vQuantidade').value = 1;
   renderVendasAll();
 });
@@ -1920,7 +1940,7 @@ function definirMesVendas(){
   const v = document.getElementById('mesVendasEditor').value;
   if(!v){ return; }
   mesAtivoVendas = v;
-  renderVendasAll();
+  guardarMesPreferido();renderVendasAll();
 }
 
 let historicoMesesAberto = false;
@@ -1928,7 +1948,7 @@ let mesHistoricoSelecionado = '';
 let semanaHistoricoSelecionada = 'semana1';
 
 function getMesesPassados(){
-  const set = new Set(vendasData.map(v=>v.mes));
+  const set = new Set(vendasData.flatMap(v=>[v.mes,...(v.reagendamentos || []).map(item=>item.de.slice(0,7))]));
   return [...set].filter(m=>m && m < mesAtivoVendas).sort().reverse();
 }
 
@@ -1956,7 +1976,7 @@ function selecionarSemanaHistorico(key){ semanaHistoricoSelecionada = key; rende
 function getHistoricoFiltrado(){
   if(!mesHistoricoSelecionado) return [];
   const busca = document.getElementById('histBusca').value.trim().toLowerCase();
-  return vendasData.filter(v=>v.mes===mesHistoricoSelecionado && v.semana===semanaHistoricoSelecionada)
+  return vendasData.filter(v=>(v.mes===mesHistoricoSelecionado && v.semana===semanaHistoricoSelecionada) || (v.reagendamentos || []).some(item=>item.de.slice(0,7)===mesHistoricoSelecionado && item.semanaAnterior===semanaHistoricoSelecionada))
     .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca))
     .sort((a,b)=> b.data.localeCompare(a.data));
 }
@@ -1969,7 +1989,7 @@ function renderHistoricoMesTable(){
   empty.style.display='none';
   tbody.innerHTML = list.map(v=>`
     <tr>
-      <td class="mono" data-label="Data">${fmtData(v.data)}</td>
+      <td class="mono" data-label="Data">${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</td>
       <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
       <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}</td>
       <td data-label="Local">${escapeHtml(v.local||'—')}</td>
@@ -1977,7 +1997,8 @@ function renderHistoricoMesTable(){
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
       <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
       <td data-label="Delivery">${escapeHtml(v.delivery||'—')}</td>
-      <td data-label="Status"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span></td>
+      <td data-label="Status"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span>${v.mes!==mesHistoricoSelecionado?`<small class="order-schedule-note">Entrega em ${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</small>`:''}</td>
+      <td class="history-actions" data-label="Ações">${['pendente','remarcado'].includes(v.status)?`<button class="btn-ghost" onclick="window.openReschedule('${v.id}')">Reagendar</button>`:''}</td>
     </tr>`).join('');
 }
 
@@ -1990,20 +2011,13 @@ function exportHistoricoMesCSV(){
 }
 
 function iniciarNovoMesVendas(){
-  const atualLbl = monthLabel(mesAtivoVendas);
-  const [y,m] = mesAtivoVendas.split('-').map(Number);
-  let ny = y, nm = m+1;
-  if(nm>12){ nm = 1; ny += 1; }
-  const novoMes = ny + '-' + String(nm).padStart(2,'0');
-  const novoLbl = monthLabel(novoMes);
-  if(!confirm(`Iniciar ${novoLbl}? Os pedidos remarcados de ${atualLbl} passam para ${novoLbl} sem alterações, e ${atualLbl} fica guardado no histórico.`)) return;
-  vendasData.forEach(v=>{
-    if(v.mes===mesAtivoVendas && v.status==='remarcado') v.mes = novoMes;
-  });
-  saveVendas();
-  mesAtivoVendas = novoMes;
-  renderVendasAll();
+  const [year,month]=mesAtivoVendas.split('-').map(Number);
+  mesAtivoVendas=new Date(Date.UTC(year,month,1)).toISOString().slice(0,7);
+  guardarMesPreferido();renderVendasAll();
 }
+function guardarMesPreferido(){try{localStorage.setItem(window.cloudBackend.preferenceKey('painel_mes_vendas'),mesAtivoVendas);}catch{}}
+window.navigateOrders=function(month,week){if(month)mesAtivoVendas=month;if(week)semanaAtiva=week;guardarMesPreferido();switchMain('vendas');switchVendasView('pedidos');renderVendasAll();};
+window.openNewOrder=function(month){window.navigateOrders(month);if(!vendaEditId){const today=drISO(new Date());const date=mesAtivoVendas===today.slice(0,7)?today:mesAtivoVendas+'-01';dpVData.setValue(date);semanaAtiva=semanaPorDia(date);renderVendasAll();}abrirVendaForm();document.getElementById('vContacto').focus();};
 
 function renderSemanaTabs(){
   document.getElementById('semanaTabs').innerHTML = SEMANAS.map(s=>{
@@ -2135,13 +2149,14 @@ function renderPedidos(){
           <div class="pedido-contacto">${contactoComAcoes(v.contacto, v.id)}</div>
           <div class="pedido-detalhes">${escapeHtml(v.local||'—')}</div>
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
+          ${v.dataPedido && v.dataPedido!==v.data?`<div class="order-schedule-note">Pedido de ${fmtData(v.dataPedido)} · entrega reagendada para ${fmtData(v.data)}</div>`:''}
         </div>
         ${pedidosMensagens.has(v.shopifyOrderId)?`<div role="status" style="font-size:13px;color:var(--gold);margin:8px 0">${escapeHtml(pedidosMensagens.get(v.shopifyOrderId))}</div>`:''}
         ${modoSelecaoPedidos ? '' : `
         <fieldset class="pedido-card-actions" style="border:0;padding:0;margin:0;min-width:0" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''} onclick="event.stopPropagation()">
           <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
           <button class="acao-cancelar" onclick="markStatus('${v.id}','cancelado')">✕ Cancelar</button>
-          ${v.status!=='remarcado' ? `<button class="acao-remarcar" onclick="markStatus('${v.id}','remarcado')">↻ Remarcar</button>` : ''}
+          <button class="acao-remarcar" onclick="window.openReschedule('${v.id}')">↻ Reagendar</button>
           <button onclick="editVenda('${v.id}')">✎ Editar</button>
           <button onclick="deleteVenda('${v.id}')">🗑 Apagar</button>
           <button onclick="gerarPDFPedido('${v.id}')">📄 PDF</button>
@@ -2722,6 +2737,7 @@ function renderVendasAll(){
   renderVendaTable();
   renderOverview();
   if(historicoMesesAberto) renderHistoricoMeses();
+  window.renderExperience?.();
 }
 
 /* ============ CSV HELPER ============ */
@@ -2743,7 +2759,8 @@ function recalcularMesesAtivos(){
   const hoje = new Date();
   mesAtivo = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
   const mesesVendasExistentes = [...new Set(vendasData.map(v=>v.mes))].filter(Boolean).sort();
-  mesAtivoVendas = mesesVendasExistentes.length ? mesesVendasExistentes[mesesVendasExistentes.length-1] : mesAtivo;
+  let preferred='';try{preferred=localStorage.getItem(window.cloudBackend.preferenceKey('painel_mes_vendas')) || '';}catch{}
+  mesAtivoVendas=/^\d{4}-\d{2}$/.test(preferred)?preferred:mesAtivo;
 }
 
 function showBackupMsg(t, isError){
@@ -3451,7 +3468,7 @@ async function renderMetricas(){
   renderMetChart(inicio,fim,produtoFiltro);renderMetCostChart(result.acquisition,result.ads,result.other,result.operational,result.delivery);
  }catch(error){document.getElementById('metVendasSub').textContent='Não foi possível atualizar as métricas.';}
 }
-window.refreshCloudMetrics=renderMetricas;
+window.refreshCloudMetrics=()=>{if(document.getElementById('secResumo').classList.contains('active'))window.renderExperience?.();else if(document.getElementById('secMetricas').classList.contains('active'))renderMetricas();};
 
 
 function renderMetChart(inicio, fim, produtoFiltro){

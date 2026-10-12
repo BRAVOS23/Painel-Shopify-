@@ -1,3 +1,4 @@
+import {initAccountMenu,initExperience} from './experience.mjs';
 import {initializeApp} from 'firebase/app';
 import {getAuth,connectAuthEmulator,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,sendEmailVerification,sendPasswordResetEmail} from 'firebase/auth';
 import Chart from 'chart.js/auto';
@@ -16,8 +17,8 @@ const login=document.createElement('section');login.className='cloud-login';logi
 <h1>Painel do Negócio</h1><p>Entre para gerir os pedidos, custos e resultados do seu negócio.</p>
 <form id="cloudLoginForm"><label for="cloudEmail">Email</label><input id="cloudEmail" type="email" autocomplete="username" required><label for="cloudPassword">Palavra-passe</label><input id="cloudPassword" type="password" minlength="8" autocomplete="current-password" required><button class="btn-primary" type="submit">Entrar</button></form>
 <div class="cloud-actions"><button class="btn-ghost" id="cloudSignup">Criar conta</button><button class="btn-ghost" id="cloudReset">Recuperar acesso</button></div><div id="cloudLoginMessage" class="cloud-message" role="status"></div>`;document.body.prepend(login);
-const bar=document.createElement('div');bar.className='cloud-status';bar.innerHTML=`<span id="cloudIdentity"></span><span id="cloudSaveStatus" role="status">A carregar…</span><div class="cloud-actions"><button class="btn-ghost" id="cloudImport">Importar dados deste navegador</button><label class="btn-ghost" for="cloudBackupFile" style="cursor:pointer;">Importar backup JSON</label><input id="cloudBackupFile" type="file" accept="application/json,.json" hidden><button class="btn-ghost" id="cloudRetry" hidden>Tentar guardar novamente</button><button class="btn-ghost" id="cloudLogout">Sair</button></div>`;wrap.prepend(bar);
-const status=text=>document.getElementById('cloudSaveStatus').textContent=text;
+initAccountMenu();
+const status=text=>{const element=document.getElementById('cloudSaveStatus');element.textContent=text;element.dataset.state=text==='Dados guardados'?'saved':text==='A guardar…' || text==='A carregar…'?'saving':'error';const label=document.getElementById('accountSaveLabel');if(label)label.textContent=text==='Dados guardados'?'Guardado automaticamente':text;};
 function loginMessage(text){document.getElementById('cloudLoginMessage').textContent=text;}
 function authMessage(error){return ({'auth/invalid-credential':'Email ou palavra-passe incorretos.','auth/email-already-in-use':'Este email já tem uma conta.','auth/weak-password':'Use uma palavra-passe com pelo menos 8 caracteres.','auth/too-many-requests':'Aguarde alguns minutos antes de tentar novamente.','auth/network-request-failed':'Não foi possível contactar o serviço de login.'})[error.code] || 'Não foi possível entrar. Verifique os dados e a ligação.';}
 async function api(path,options={}){
@@ -144,15 +145,15 @@ async function connections(){
  }
  if(result.meta.connected && !metaAccountsLoaded){const response=await api('/meta/accounts');const select=document.getElementById('metaAccount');select.replaceChildren(...response.accounts.map(account=>{const option=document.createElement('option');option.value=account.id;option.textContent=`${account.name} (${account.currency})`;return option;}));select.value=result.meta.accountId || select.options[0]?.value || '';metaAccountsLoaded=true;}
  if(!result.meta.connected)metaAccountsLoaded=false;
- document.getElementById('metaAccountControls').hidden=!result.meta.connected;
+ document.getElementById('metaAccountControls').hidden=!result.meta.connected;window.updateConnectionSummary?.();
 }
 onAuthStateChanged(auth,async current=>{
  const activeSession=++session;user=current;stateTag=null;shopifyConnectionKnown=null;
- if(!current){login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
+ if(!current){document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
  wrap.hidden=true;
  try{
   const snapshot=await api('/state');if(activeSession!==session)return;adopt(snapshot);
-  if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js?v='+(document.querySelector('meta[name="painel-build"]')?.content || '');script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();loaded=true;}
+  if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js?v='+(document.querySelector('meta[name="painel-build"]')?.content || '');script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();initExperience();loaded=true;}
   else window.applyCloudState(desired);
   document.getElementById('cloudIdentity').textContent=current.email+(config.emulators?' · Desenvolvimento local':'');
   login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');await connections();

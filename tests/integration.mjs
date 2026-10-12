@@ -9,6 +9,7 @@ import {createSync} from '../server/sync.mjs';
 import {createApp} from '../server/app.mjs';
 import {encrypt} from '../server/security.mjs';
 import {shopifyRecords} from '../server/model.mjs';
+import {scheduleOrder} from '../web/orders.mjs';
 process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
 const firebase=initializeApp({projectId:'demo-painel'},'integration'),db=getFirestore(firebase),store=createStore(db);
 const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifyId:'fixture-client',shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta'};
@@ -67,11 +68,13 @@ try{
  await sync.run(owner,'shopify');await sync.run(owner,'shopify');
  let current=await store.state(owner);assert.equal(current.vendas.length,1);assert.equal(current.vendas[0].valor,200);pass('sincronização repetida Shopify não duplica pedidos');
  const first=current.vendas[0],{_revision,...withoutRevision}=first;
- await store.patch(owner,'vendas',[{id:first.id,revision:_revision,record:{...withoutRevision,delivery:'Entregador',comissao:30,semana:'semana3'}}]);
+ const scheduled=scheduleOrder(withoutRevision,{date:'2026-11-03',time:'14:00'});await store.patch(owner,'vendas',[{id:first.id,revision:_revision,record:scheduled}]);await sync.run(owner,'shopify');const afterSchedule=(await store.state(owner)).vendas[0];assert.equal(afterSchedule.data,'2026-11-03');assert.equal(afterSchedule.mes,'2026-11');assert.equal(afterSchedule.dataPedido,withoutRevision.data);assert.equal(afterSchedule.reagendamentos.length,1);pass('reagendamento atravessa meses e mantém histórico após sincronização Shopify');
+
+ await store.patch(owner,'vendas',[{id:first.id,revision:afterSchedule._revision,record:{...scheduleOrder(withoutRevision,{date:'2026-11-03',time:'14:00'}),delivery:'Entregador',comissao:30,semana:'semana3'}}]);
  order={...order,updated_at:'2026-10-12T10:00:00Z',fulfillment_status:'fulfilled'};await sync.run(owner,'shopify');current=await store.state(owner);
  assert.equal(current.vendas[0].delivery,'Entregador');assert.equal(current.vendas[0].comissao,30);assert.equal(current.vendas[0].semana,'semana3');assert.equal(current.vendas[0].status,'concluido');pass('atualização Shopify preserva dados operacionais e reconcilia estado');
  await sync.run(owner,'meta');await sync.run(owner,'meta');current=await store.state(owner);assert.equal(current.ads.length,2);assert.equal(current.ads.reduce((s,a)=>s+a.valor,0),55);pass('Meta não duplica gastos e inclui campanhas sem produto no total');
- const metrics=await request(a,'/api/metrics?start=2026-10-12&end=2026-10-12');assert.equal(metrics.body.delivery,30);assert.equal(metrics.body.total,125);assert.equal(metrics.body.orders,1);pass('métricas executadas no servidor incluem entregador');
+ const metrics=await request(a,'/api/metrics?start=2026-11-03&end=2026-11-03');assert.equal(metrics.body.delivery,30);assert.equal(metrics.body.total,70);assert.equal(metrics.body.orders,1);pass('métricas executadas no servidor incluem entregador');
  const refused=await request(b,'/api/shopify/orders/991/status',{status:'cancelado'});assert.equal(refused.status,404);assert(!order.cancelled_at);pass('outro negócio não pode cancelar o pedido Shopify');
  await store.imported(owner,'vendas',{...withoutRevision,id:'legacy_csv_991',contacto:'Cliente do backup',comissao:45});
  const remote=await request(a,'/api/shopify/orders/991/status',{status:'cancelado'});assert.equal(remote.status,200);assert.equal((await store.state(owner)).vendas[0].status,'cancelado');pass('cancelamento Shopify simulado confirmado antes de mudar o estado local');

@@ -1,6 +1,6 @@
 // Cache apenas da interface pública. Nunca guardar respostas autenticadas nem tokens.
 const VERSION='painel-cloud-__BUILD_VERSION__';
-const SHELL=['/','/manifest.json','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-512-maskable.png','/assets/app.js?v=__BUILD_VERSION__','/assets/dashboard.js?v=__BUILD_VERSION__'];
+const SHELL=['/','/manifest.json','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-512-maskable.png','/assets/experience.css?v=__BUILD_VERSION__','/assets/app.js?v=__BUILD_VERSION__','/assets/dashboard.js?v=__BUILD_VERSION__'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(VERSION);
  await Promise.all(SHELL.map(async path=>{try{const response=await fetch(path,{cache:'reload'});if(response.ok)await cache.put(path,response);}catch{}}));

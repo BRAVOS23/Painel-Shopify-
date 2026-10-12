@@ -56,7 +56,7 @@ export function createStore(db) {
       for(let i=0;i<incoming.length;i++){
         const {record:source,sourceUpdatedAt,statusOnly}=incoming[i],old=snapshots[i].data();
         if(sourceUpdatedAt && old?.sourceUpdatedAt && sourceUpdatedAt<old.sourceUpdatedAt)continue;
-        const record=statusOnly && old?{...old.record,status:source.status}:name==='vendas' && old ? {...source,...Object.fromEntries(['horario','delivery','comissao','semana','mes','descricao'].filter(key=>old.record[key]!==undefined).map(key=>[key,old.record[key]])),status:source.status==='pendente'?old.record.status:source.status} : source;
+        const record=statusOnly && old?{...old.record,status:source.status}:name==='vendas' && old ? {...source,...Object.fromEntries(['horario','delivery','comissao','semana','mes','descricao','data','dataPedido','reagendamentos'].filter(key=>old.record[key]!==undefined).map(key=>[key,old.record[key]])),status:source.status==='pendente'?old.record.status:source.status} : source;
         validateRecord(name,record);
         if(old && recordEqual(old.record,record) && (!sourceUpdatedAt || sourceUpdatedAt===old.sourceUpdatedAt))continue;
         updated[i]={...record,_revision:(old?.revision || 0)+1};

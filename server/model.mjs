@@ -8,7 +8,7 @@ export function validateRecord(collection, record) {
   if (Object.keys(record).some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) throw new Error('Campo inválido.');
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
-    vendas: ['id','data','horario','fonte','contacto','local','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency'],
+    vendas: ['id','data','horario','fonte','contacto','local','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos'],
     produtos: ['id','nome','custo','foto','locais'],
     ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate'],
     operacional: ['id','nome','valor','data','recorrente']
@@ -17,7 +17,7 @@ export function validateRecord(collection, record) {
   for (const field of ['valor','custo','comissao','quantidade','sourceValue','conversionRate']) {
     if (field in record && (typeof record[field] !== 'number' || !Number.isFinite(record[field]) || record[field] < 0)) throw new Error('Valor numérico inválido.');
   }
-  for (const field of ['data','dataFim','mes']) if (record[field] && !new RegExp(field !== 'mes' ? '^\\d{4}-\\d{2}-\\d{2}$' : '^\\d{4}-\\d{2}$').test(record[field])) throw new Error('Data inválida.');
+  for (const field of ['data','dataFim','dataPedido','mes']) if (record[field] && !new RegExp(field !== 'mes' ? '^\\d{4}-\\d{2}-\\d{2}$' : '^\\d{4}-\\d{2}$').test(record[field])) throw new Error('Data inválida.');
   if(record.dataFim && record.dataFim<record.data)throw new Error('O fim do período não pode ser anterior ao início.');
   if (collection === 'vendas' && !['pendente','concluido','cancelado','remarcado'].includes(record.status)) throw new Error('Estado inválido.');
   if (collection === 'fluxo' && !['entrada','saida'].includes(record.tipo)) throw new Error('Movimento inválido.');
@@ -25,6 +25,16 @@ export function validateRecord(collection, record) {
   if (record.foto && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(record.foto)) throw new Error('Fotografia inválida.');
   for (const [key,value] of Object.entries(record)) {
     if (['valor','custo','comissao','quantidade','sourceValue','conversionRate'].includes(key)) continue;
+    if(key==='reagendamentos'){
+      if(collection!=='vendas' || !Array.isArray(value) || value.length>20)throw new Error('Histórico de reagendamentos inválido.');
+      for(const item of value){
+        if(!item || Object.keys(item).some(field=>!['de','para','semanaAnterior','semanaNova','horario','alteradoEm'].includes(field)))throw new Error('Reagendamento inválido.');
+        for(const field of ['de','para'])if(!/^\d{4}-\d{2}-\d{2}$/.test(item[field] || '') || !Number.isFinite(Date.parse(item[field]+'T12:00:00Z')) || new Date(item[field]+'T12:00:00Z').toISOString().slice(0,10)!==item[field])throw new Error('Data de reagendamento inválida.');
+        for(const field of ['semanaAnterior','semanaNova'])if(!['semana1','semana2','semana3','semana4','remarketing','provincias'].includes(item[field]))throw new Error('Grupo de reagendamento inválido.');
+        if(typeof item.horario!=='string' || (item.horario && !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.horario)) || typeof item.alteradoEm!=='string' || !/^\d{4}-\d{2}-\d{2}T/.test(item.alteradoEm) || !Number.isFinite(Date.parse(item.alteradoEm)))throw new Error('Horário de reagendamento inválido.');
+      }
+      continue;
+    }
     if(key==='locais'){
       if(collection!=='produtos' || !Array.isArray(value) || value.length>50)throw new Error('Locais de stock inválidos.');
       const ids=new Set();

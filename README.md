@@ -4,6 +4,8 @@ Aplicação de gestão de negócios com pagamento na entrega (COD), em portuguê
 
 A interface atual vem de `public/index.html` da branch `claude/painel-negocio-validation-ui-j9360b` (commit `f63727163ecd67c6816f6394a959cf1654e25a57`), adaptada ao backend existente. Inclui tema claro/escuro, meses anteriores, contactos clicáveis, PDF de pedidos selecionados, stock por local, gastos por período e lucro líquido. O modo instalável guarda apenas a interface pública; login, consulta e gravação de dados exigem ligação à Internet. Backups desta versão podem ser importados numa conta vazia, sem substituir registos existentes.
 
+A navegação principal agora é Resumo, Pedidos e Resultados. Conta, aparência, integrações e backups ficam no menu de utilizador (⋯). O resumo substitui o formulário de caixa; os movimentos antigos continuam no backup. Reagendamentos podem atravessar meses, individualmente ou em lote, preservando o ID, a data original e as últimas 20 mudanças. A sincronização Shopify preserva a data de entrega reagendada e o histórico local. Meses anteriores permitem consultar o percurso e reagendar pedidos ainda em aberto.
+
 ## Desenvolvimento local
 
 Requisitos: Node 22 ou superior e Java 21 (emulador Firestore).
