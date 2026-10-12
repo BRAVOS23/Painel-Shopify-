@@ -31,6 +31,15 @@ try{
  const badShop=await request(a,'/api/oauth/shopify',{shop:'https://fixture.myshopify.com/admin'});assert.equal(badShop.status,400);assert.match(badShop.body.error,/myshopify/);
  const key=config.encryptionKey;config.encryptionKey='invalid';const badKey=await request(a,'/api/oauth/shopify',{shop:'fixture.myshopify.com'});assert.equal(badKey.status,503);assert.match(badKey.body.error,/INTEGRATION_ENCRYPTION_KEY/);config.encryptionKey=key;
  const oauth=await request(a,'/api/oauth/shopify',{shop:'fixture.myshopify.com'});assert.equal(oauth.status,200);assert.equal(new URL(oauth.body.url).hostname,'fixture.myshopify.com');pass('OAuth distingue domínio inválido, chave inválida e autorização utilizável');
+ async function callback(stateValue,shop){const params=new URLSearchParams({state:stateValue,shop,code:'fixture-code'});const signed=[...params.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${k}=${v}`).join('&');params.set('hmac',createHmac('sha256',config.shopifySecret).update(signed).digest('hex'));return request(null,'/oauth/shopify/callback?'+params);}
+ const oauthState=new URL(oauth.body.url).searchParams.get('state');
+ assert.match((await callback(oauthState,'different.myshopify.com')).body.error,/domínio diferente/);
+ assert((await db.doc('oauthStates/'+oauthState).get()).exists);
+ await db.doc('oauthStates/'+oauthState).update({expiresAt:Date.now()-1000});
+ assert.match((await callback(oauthState,'fixture.myshopify.com')).body.error,/expirou/);
+ assert.match((await callback('a'.repeat(64),'fixture.myshopify.com')).body.error,/já foi usada/);
+ pass('callback distingue domínio diferente, expiração e tentativa inexistente sem ignorar verificações');
+
  const stateA=await request(a,'/api/state'),stateB=await request(b,'/api/state');assert.equal(stateA.status,200);assert.equal(stateB.status,200);
  const record={id:'manual1',data:'2026-10-12',tipo:'entrada',valor:123.45,descricao:'Negócio A',observacao:''};
  const saved=await request(a,'/api/data/fluxo',{changes:[{id:record.id,revision:0,record}]});assert.equal(saved.status,200);assert.equal(saved.body.revisions[0].revision,1);

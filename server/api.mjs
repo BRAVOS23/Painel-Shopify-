@@ -129,7 +129,10 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     if(provider==='shopify' && !validShopifyOAuth(params,config.shopifySecret)) return res.sendStatus(401);
     const saved=await store.db.runTransaction(async tx=>{
       const ref=store.db.doc(`oauthStates/${params.get('state')}`),snapshot=await tx.get(ref),state=snapshot.data();
-      if(!state || state.provider!==provider || state.expiresAt<Date.now() || (provider==='shopify' && state.shop!==params.get('shop'))) throw Object.assign(new Error('Autorização expirada ou inválida. Tente ligar novamente.'),{status:400});
+      const invalid=message=>Object.assign(new Error(message),{status:400});
+      if(!state || state.provider!==provider)throw invalid('Esta tentativa de ligação já foi usada ou não foi iniciada pelo painel. Volte ao painel e clique novamente em Ligar. Não recarregue esta página.');
+      if(!Number.isFinite(state.expiresAt) || state.expiresAt<Date.now())throw invalid('A autorização expirou após 10 minutos. Volte ao painel e inicie uma nova ligação.');
+      if(provider==='shopify' && state.shop!==params.get('shop'))throw invalid('A Shopify devolveu um domínio diferente do indicado. Use o domínio original .myshopify.com da loja, em Definições → Domínios, e inicie uma nova ligação.');
       tx.delete(ref); return state;
     });
     const result=provider==='shopify' ? await providers.exchangeShopify(saved.shop,params.get('code')) : await providers.exchangeMeta(params.get('code'),`${config.baseUrl}/oauth/meta/callback`);
