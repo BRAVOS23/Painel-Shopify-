@@ -1,3 +1,4 @@
+import {initUsability} from './usability.mjs';
 import {scheduleOrder} from './orders.mjs';
 const $=id=>document.getElementById(id);
 const escape=value=>String(value || '').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -74,6 +75,6 @@ export function initExperience(){
  function carryNotice(){const month=$('mesVendasEditor').value,previous=window.cloudBackend.read('vendas').filter(row=>row.status==='remarcado' && row.mes<month);$('carryNotice').hidden=!previous.length;$('carryNotice').innerHTML=previous.length?`<span>${previous.length} pedido(s) remarcado(s) em meses anteriores.</span><button class="btn-ghost" id="carryOrdersButton">Trazer para este mês</button>`:'';if(previous.length)$('carryOrdersButton').onclick=()=>window.openCarryRescheduled(month);}
  window.renderExperience=()=>{carryNotice();void renderSummary();};
  window.updateConnectionSummary=()=>{const shop=$('shopifyStatusTag').textContent,meta=$('metaStatusTag').textContent;$('summaryConnectionState').textContent=`Shopify: ${shop.startsWith('Ligada')?'ligada':'não ligada'} · Meta Ads: ${meta.startsWith('Ligada')?'ligado':'não ligado'}`;};
- window.switchMain('resumo');window.renderExperience();
+ initUsability();window.switchMain('resumo');window.renderExperience();
 }
 function toast(message){let element=$('experienceToast');if(!element){element=document.createElement('div');element.id='experienceToast';element.className='toast-message';element.setAttribute('role','status');document.body.append(element);}element.textContent=message;element.hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>element.hidden=true,4500);}

@@ -4,7 +4,12 @@ import {getAuth,connectAuthEmulator,onAuthStateChanged,signInWithEmailAndPasswor
 import Chart from 'chart.js/auto';
 import {jsPDF} from 'jspdf';
 window.Chart=Chart; window.jspdf={jsPDF};
-const config=await (await fetch('/api/config')).json(),auth=getAuth(initializeApp(config.firebase));
+const startup=document.createElement('section');startup.className='panel';startup.setAttribute('role','status');startup.style.cssText='max-width:440px;margin:12vh auto;padding:26px';startup.textContent='A abrir o painel…';document.body.prepend(startup);
+let config=null;
+try{const response=await fetch('/api/config',{signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error('config');config=await response.json();if(!config.firebase?.projectId)config=null;}catch{}
+if(!config){startup.replaceChildren();const heading=document.createElement('h1');heading.textContent='Não foi possível abrir o painel';heading.style.fontSize='22px';const text=document.createElement('p');text.textContent='Verifica a ligação à internet e tenta novamente.';text.style.cssText='margin:16px 0;color:var(--sand-dim)';const retry=document.createElement('button');retry.type='button';retry.className='btn-primary';retry.textContent='Tentar novamente';retry.onclick=()=>location.reload();startup.append(heading,text,retry);}
+else{
+startup.remove();const auth=getAuth(initializeApp(config.firebase));
 if(config.emulators)connectAuthEmulator(auth,`http://${location.hostname}:9099`,{disableWarnings:true});
 const groups=['fluxo','vendas','produtos','ads','operacional'];
 const clean=record=>Object.fromEntries(Object.entries(record).filter(([key])=>key!=='_revision'));
@@ -22,6 +27,7 @@ const status=text=>{const element=document.getElementById('cloudSaveStatus');ele
 function loginMessage(text){document.getElementById('cloudLoginMessage').textContent=text;}
 function authMessage(error){return ({'auth/invalid-credential':'Email ou palavra-passe incorretos.','auth/email-already-in-use':'Este email já tem uma conta.','auth/weak-password':'Use uma palavra-passe com pelo menos 8 caracteres.','auth/too-many-requests':'Aguarde alguns minutos antes de tentar novamente.','auth/network-request-failed':'Não foi possível contactar o serviço de login.'})[error.code] || 'Não foi possível entrar. Verifique os dados e a ligação.';}
 async function api(path,options={}){
+ if(!navigator.onLine)throw new Error('Sem ligação à internet. Volta a tentar quando a ligação regressar.');
  const token=await auth.currentUser?.getIdToken();if(!token)throw new Error('Entre novamente na sua conta.');
  const response=await fetch('/api'+path,{...options,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,...(path==='/state' && stateTag?{'If-None-Match':stateTag}:{}),...options.headers},signal:AbortSignal.timeout(60000)});
  if(response.status===304)return null;
@@ -139,6 +145,8 @@ async function connections(){
  for(const provider of ['shopify','meta']){const connection=result[provider],cap=provider==='shopify'?'Shopify':'Meta';
  document.getElementById(provider==='shopify'?'shopifyStatusTag':'metaStatusTag').textContent=connection.connected ? 'Ligada'+(connection.lastSync ? ' · '+new Date(connection.lastSync).toLocaleString('pt-MZ',{timeZone:'Africa/Maputo'}) : '') : 'Não ligada';
  document.getElementById('connect'+cap).disabled=!connection.configured;
+ document.getElementById('connect'+cap).textContent=connection.connected?'Reautorizar':provider==='shopify'?'Ligar Shopify':'Ligar Meta Ads';
+ if(provider==='shopify' && connection.shop && !document.getElementById('cloudShop').value)document.getElementById('cloudShop').value=connection.shop;
  document.getElementById('sync'+cap).disabled=!connection.connected;
  document.getElementById('disconnect'+cap).hidden=!connection.connected;
  document.getElementById(provider+'ConnectionMessage').textContent=!connection.configured ? 'A integração precisa de configuração pelo administrador antes de poder ser ligada.' : connection.lastError || (connection.unmatchedCampaigns?.length ? 'Campanhas sem produto: '+connection.unmatchedCampaigns.join(', ') : '');
@@ -163,3 +171,5 @@ setInterval(()=>{if(document.visibilityState==='visible')void refresh();},60000)
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refresh();});
 
 if('serviceWorker' in navigator){const register=()=>navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});if(document.readyState==='complete')void register();else window.addEventListener('load',register,{once:true});}
+
+}

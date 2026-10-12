@@ -46,7 +46,7 @@ Verifique `/api/health`, faça login com email verificado e teste dois negócios
 2. Configure a URL base e o callback exato `https://SEU_DOMINIO/oauth/shopify/callback`.
 3. Configure as permissões `read_orders`, `write_orders`, `read_merchant_managed_fulfillment_orders` e `write_merchant_managed_fulfillment_orders`. Acesso aos dados protegidos dos clientes requer as autorizações aplicáveis da Shopify. Processamento por prestadores/locais de terceiros pode exigir permissões e tratamento adicionais.
 4. Configure `SHOPIFY_CLIENT_ID` e `SHOPIFY_CLIENT_SECRET` no servidor. A versão GraphQL padrão é `2026-07`; confirme o suporte e mantenha-a atualizada com testes.
-5. No painel, em Vendas → Configurações, indique `nomedaloja.myshopify.com` e clique em Ligar Shopify. A loja pede autorização diretamente na Shopify.
+5. No painel, no menu ⋯ → Integrações, indique `nomedaloja.myshopify.com` e clique em Ligar Shopify. A loja pede autorização diretamente na Shopify.
 
 O callback guarda o token cifrado, associa a loja ao negócio e regista webhooks `orders/create`, `orders/updated`, `orders/cancelled` e `app/uninstalled` no endpoint `/webhooks/shopify`. A importação inicial cobre 59 dias; o acesso a pedidos antigos requer permissões adicionais e não está implementado nesta fase. Uma loja não pode ficar ligada simultaneamente a dois negócios neste servidor.
 
@@ -67,6 +67,6 @@ Compare com o Ads Manager um dia fechado, respeitando a moeda e o fuso da conta;
 
 Destinos necessários em produção: a loja `*.myshopify.com`, `www.facebook.com`, `graph.facebook.com`, `identitytoolkit.googleapis.com`, `securetoken.googleapis.com` e os endpoints Google usados pela identidade/Firestore (`firestore.googleapis.com`, `oauth2.googleapis.com`, `www.googleapis.com`, `accounts.google.com`). Use os destinos mínimos da infraestrutura escolhida. Para instalar os emuladores, a CLI descarrega artefactos verificados de `storage.googleapis.com`; dependências Node vêm de `registry.npmjs.org`.
 
-Configure logs sem tokens, alertas para falhas de sincronização, retenção/limpeza da fila e estados OAuth, recuperação dos jobs que esgotaram tentativas e backups do banco. Esta versão conserva jobs falhados para diagnóstico; não tem consola administrativa de reprocessamento. Os erros de integração aparecem nas Configurações do painel.
+Configure logs sem tokens, alertas para falhas de sincronização, retenção/limpeza da fila e estados OAuth, recuperação dos jobs que esgotaram tentativas e backups do banco. Esta versão conserva jobs falhados para diagnóstico; não tem consola administrativa de reprocessamento. Os erros de integração aparecem no menu ⋯ → Integrações.
 
 A cobrança ainda não existe. O serviço **não está pronto para aceitar assinaturas pagas** até os requisitos comerciais indicados em README.md serem implementados e as ligações reais validadas.

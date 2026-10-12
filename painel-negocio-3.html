@@ -6,7 +6,7 @@
 <title>Painel do Negócio</title>
 <!-- Aplicação instalável; dados do negócio guardados no servidor autenticado. -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0D0A14">
+<meta name="theme-color" content="#101512">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -59,7 +59,7 @@
   }
   :root[data-theme="light"]{
     color-scheme: light;
-    --ink:#F6F7F4; --ink-2:#EEF0EB; --panel:#FFFFFF; --panel-line: rgba(15,20,10,0.10);
+    --ink:#F5F7F5; --ink-2:#EEF0EB; --panel:#FFFFFF; --panel-line: rgba(15,20,10,0.10);
     --sand:#14171A; --sand-dim: rgba(20,23,26,0.62); --sand-dimmer: rgba(20,23,26,0.38);
     --brand:#3F7A1B; --brand-soft: rgba(63,122,27,0.12); --brand-deep:#2E5A12; --on-brand:#FFFFFF;
     --clay:#4338CA; --clay-soft: rgba(67,56,202,0.12);
@@ -542,7 +542,7 @@
       <h1>Painel do Negócio</h1>
     </div>
     <div class="header-tabs-row">
-      <div class="maintabs">
+      <div class="maintabs" role="navigation" aria-label="Navegação principal">
         <button id="tabBtnResumo" class="active" onclick="switchMain('resumo')">Resumo</button><button id="tabBtnFluxo" hidden onclick="switchMain('resumo')">Movimentos antigos</button>
         <button id="tabBtnVendas" onclick="switchMain('vendas')">Pedidos</button>
         <button id="tabBtnMetricas" onclick="switchMain('metricas')">Resultados</button>
@@ -675,13 +675,13 @@
             <input type="time" id="vHorario">
           </div>
           <div class="field span2">
-            <label for="vFonte">Fonte de Aquisição</label>
+            <label for="vFonte">Origem do pedido</label>
             <select id="vFonte">
-              <option value="01.WHATSAPP">01.WHATSAPP</option>
-              <option value="02.SITE">02.SITE</option>
-              <option value="03.WARM CALLING">03.WARM CALLING</option>
-              <option value="04.SHOPIFY">04.SHOPIFY</option>
-              <option value="05.OUTRO">05.OUTRO</option>
+              <option value="01.WHATSAPP">WhatsApp</option>
+              <option value="02.SITE">Site</option>
+              <option value="03.WARM CALLING">Telefone</option>
+              <option value="04.SHOPIFY">Shopify</option>
+              <option value="05.OUTRO">Outro</option>
             </select>
           </div>
           <div class="field span3">
@@ -709,7 +709,7 @@
             <input type="number" id="vValor" min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="field span2">
-            <label for="vDelivery">Nome do Delivery</label>
+            <label for="vDelivery">Nome do entregador</label>
             <input type="text" id="vDelivery" placeholder="Ex: Dulcídio">
           </div>
           <div class="field span2">
@@ -717,7 +717,7 @@
             <input type="number" id="vComissao" min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="field span2">
-            <label for="vStatus">Status</label>
+            <label for="vStatus">Estado do pedido</label>
             <select id="vStatus">
               <option value="pendente" selected>PENDENTE</option>
               <option value="concluido">CONCLUÍDO</option>
@@ -805,7 +805,7 @@
         </div>
         <table class="responsive-table">
           <thead><tr>
-            <th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th><th></th>
+            <th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Entregador</th><th>Estado</th><th></th>
           </tr></thead>
           <tbody id="vendaTableBody"></tbody>
         </table>
@@ -823,7 +823,7 @@
           <button class="btn-ghost" onclick="exportHistoricoMesCSV()">Exportar CSV</button>
         </div>
         <table class="responsive-table">
-          <thead><tr><th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Delivery</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Data</th><th>Fonte</th><th>Contacto</th><th>Local</th><th>Produto</th><th>Qtd</th><th>Valor</th><th>Entregador</th><th>Estado</th><th></th></tr></thead>
           <tbody id="histTableBody"></tbody>
         </table>
         <div class="empty" id="histEmpty" style="display:none;">Nenhum registo neste mês/semana.</div>
@@ -832,9 +832,9 @@
 
     <div id="vendasViewConfig" class="subview">
       <div class="panel panel-slim">
-        <h2>Backup dos Dados <span class="tag">salvar uma cópia de segurança ou restaurar a partir de um ficheiro</span></h2>
+        <h2>Cópia de segurança</h2>
         <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
-          Os dados ficam associados à sua conta no servidor. Pode exportar uma cópia para guardar num lugar seguro ou importar os dados do painel anterior para uma conta vazia.
+          Exporta uma cópia dos teus dados ou importa um backup do teu negócio para uma conta vazia.
         </p>
         <div class="toolbar">
           <button class="btn-primary" onclick="exportarBackup()">⬇ Exportar backup (.json)</button>
@@ -902,20 +902,20 @@
 
       <div class="cards4">
         <div class="card"><span class="k">Receita</span><span class="v mono" id="metReceita">0 MT</span></div>
-        <div class="card"><span class="k">Lucro Líquido <span style="opacity:.6;">(receita − custos)</span></span><span class="v mono" id="metLucroLiquido">0 MT</span></div>
-        <div class="card"><span class="k">CPA <span style="opacity:.6;">(blended)</span></span><span class="v mono" id="metCPA">—</span></div>
-        <div class="card"><span class="k">ROAS <span style="opacity:.6;">(blended)</span></span><span class="v mono" id="metROAS">—</span></div>
+        <div class="card"><span class="k">Lucro estimado</span><span class="v mono" id="metLucroLiquido">0 MT</span></div>
+        <div class="card"><span class="k">Custo por pedido (CPA)</span><span class="v mono" id="metCPA">—</span></div>
+        <div class="card"><span class="k">Receita / anúncios (ROAS)</span><span class="v mono" id="metROAS">—</span></div>
       </div>
       <div class="metricas-nota">CPA e ROAS somados sobre todas as vendas concluídas no período — não só as vindas de Ads. O painel ainda não liga cada venda a uma campanha específica, então trate os dois como uma leitura "blended", não como o retorno exclusivo dos anúncios.</div>
 
       <div class="metricas-subhead">Custos no período</div>
       <div id="metAvisoProduto" class="metricas-aviso" style="display:none;"></div>
       <div class="cards6">
-        <div class="card"><span class="k">Produto <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoAquisicao">0 MT</span></div>
-        <div class="card"><span class="k">Ads</span><span class="v mono" id="metGastoAds">0 MT</span></div>
+        <div class="card"><span class="k">Mercadoria</span><span class="v mono" id="metGastoAquisicao">0 MT</span></div>
+        <div class="card"><span class="k">Anúncios</span><span class="v mono" id="metGastoAds">0 MT</span></div>
         <div class="card"><span class="k">Outros</span><span class="v mono" id="metGastoOutros">0 MT</span></div>
-        <div class="card"><span class="k">Operacional</span><span class="v mono" id="metGastoOperacional">0 MT</span></div>
-        <div class="card"><span class="k">Entrega <span style="opacity:.6;">(auto)</span></span><span class="v mono" id="metGastoEntrega">0 MT</span></div>
+        <div class="card"><span class="k">Loja</span><span class="v mono" id="metGastoOperacional">0 MT</span></div>
+        <div class="card"><span class="k">Entregas</span><span class="v mono" id="metGastoEntrega">0 MT</span></div>
         <div class="card destaque"><span class="k">Total de Custos</span><span class="v mono" id="metGastoTotal">0 MT</span></div>
       </div>
 
@@ -938,7 +938,7 @@
 
     <div id="metricasViewCadastros" class="subview">
     <div class="panel">
-      <h2>Gastos com Ads <span class="tag">a receita já vem das vendas concluídas</span></h2>
+      <h2>Gasto com anúncios</h2>
       <form id="adForm">
         <div class="field span2">
           <label for="adData">Período do gasto</label>
@@ -949,7 +949,7 @@
           <input type="number" id="adValor" min="0" step="0.01" placeholder="0.00" required>
         </div>
         <div class="field span2">
-          <label for="adProduto">Produto <span style="text-transform:none; opacity:.7;">(deixe em branco se for gasto geral)</span></label>
+          <label for="adProduto">Produto (opcional)</label>
           <input type="text" id="adProduto" list="produtosExistentes" placeholder="Ex: Selante — ou deixe vazio">
         </div>
         <div class="field span3" style="flex-direction:row; align-items:center; gap:10px;">
@@ -972,7 +972,7 @@
     </div>
 
     <div class="panel">
-      <h2>Outros Gastos <span class="tag">qualquer despesa que não seja Ads — entra sempre como "Outros" na métrica</span></h2>
+      <h2>Outro gasto</h2>
       <form id="outroForm">
         <div class="field span3">
           <label for="outroNome">Nome do gasto</label>
@@ -1006,7 +1006,7 @@
     </div>
 
     <div class="panel panel-slim">
-      <h2>Gastos Operacionais da Loja <span class="tag">domínio, mensalidade, apps… conta no ROI geral</span></h2>
+      <h2>Gasto da loja</h2>
       <form id="opForm">
         <div class="field span3">
           <label for="opNome">Nome do gasto</label>
@@ -1034,7 +1034,7 @@
         <div id="opMsg" style="font-size:12px; color:var(--gold); margin-top:8px; min-height:14px; grid-column:1/-1;"></div>
       </form>
       <p style="font-size:12px; color:var(--sand-dimmer); margin-top:10px; line-height:1.5;" id="opAjuda">
-        Gasto único conta só na data marcada. Gasto mensal (ex: assinatura da Shopify) é dividido pelos dias do mês — se você olhar um dia, entra só a fatia daquele dia; se olhar a semana toda, entra a fatia dos 7 dias.
+        Um gasto único conta na data indicada. Um gasto mensal é distribuído pelos dias de cada mês, a partir da data escolhida.
       </p>
 
       <div class="historico-toggle" id="opHistToggle" onclick="toggleOpHist()">
@@ -1052,7 +1052,7 @@
 
     <div id="metricasViewGastos" class="subview">
     <div class="panel">
-      <h2>Todos os Gastos <span class="tag">ads, outros e operacionais juntos — do mais recente pro mais antigo</span></h2>
+      <h2>Histórico de gastos</h2>
       <div class="toolbar">
         <div class="filters">
           <select id="gastosFiltroTipo" onchange="renderGastosView()">
@@ -1085,11 +1085,11 @@
           <datalist id="produtosExistentes"></datalist>
         </div>
         <div class="field span2">
-          <label for="pCusto">Custo de aquisição (MT/unidade)</label>
+          <label for="pCusto">Custo por unidade (MT)</label>
           <input type="number" id="pCusto" min="0" step="0.01" placeholder="0.00" required>
         </div>
         <div class="field" style="align-items:flex-start; min-width:0;">
-          <label for="pFoto">Foto</label>
+          <label for="pFoto">Foto (opcional)</label>
           <div style="display:flex; align-items:center; gap:8px; min-width:0; max-width:100%;">
             <img id="pFotoPreview" style="display:none; width:38px; height:38px; object-fit:cover; border-radius:8px; border:1px solid var(--panel-line); flex-shrink:0;">
             <input type="file" accept="image/*" id="pFoto" style="font-size:12px; color:var(--sand-dim); min-width:0; max-width:100%;">
@@ -1112,14 +1112,14 @@
     </div>
 
     <div class="panel">
-      <h2>Catálogo de Produtos <span class="tag">stock e valor total em mercadoria</span></h2>
+      <h2>Produtos e stock</h2>
       <div class="toolbar">
         <div class="filters">
           <input type="text" id="produtosBusca" placeholder="Buscar produto…" oninput="renderProdutosView()">
         </div>
       </div>
       <div class="cards3" style="margin-bottom:18px;">
-        <div class="card"><span class="k">Produtos cadastrados</span><span class="v mono" id="pvTotalProdutos">0</span></div>
+        <div class="card"><span class="k">Produtos</span><span class="v mono" id="pvTotalProdutos">0</span></div>
         <div class="card"><span class="k">Unidades em stock</span><span class="v mono" id="pvTotalUnidades">0</span></div>
         <div class="card destaque"><span class="k">Valor total em mercadoria</span><span class="v mono" id="pvTotalValor">0 MT</span></div>
       </div>
@@ -1129,7 +1129,7 @@
     </div>
   </section>
 
-  <footer>Os dados pertencem ao seu negócio e são guardados no servidor. Consulte o estado de gravação antes de sair.</footer>
+  <footer>Painel do Negócio</footer>
 </div>
 
 <script>
@@ -1181,7 +1181,7 @@ const SEMANAS = [
   {key:'remarketing', label:'Remarketing'},
   {key:'provincias', label:'Províncias'}
 ];
-const STATUS_LABEL = {pendente:'PENDENTE', concluido:'CONCLUÍDO', cancelado:'CANCELADO', remarcado:'REMARCADO'};
+const STATUS_LABEL = {pendente:'Pendente', concluido:'Concluído', cancelado:'Cancelado', remarcado:'Remarcado'};
 
 // contador que só cresce, junto do timestamp+aleatório — sem ele, importar/gerar muitos registos
 // na mesma tarefa síncrona (ex: importar um CSV com 40+ pedidos de uma vez) pode gerar o mesmo
@@ -1318,6 +1318,7 @@ function switchMain(which){
   document.getElementById('tabBtnFluxo').classList.toggle('active', which==='fluxo');
   document.getElementById('tabBtnVendas').classList.toggle('active', which==='vendas');
   document.getElementById('tabBtnMetricas').classList.toggle('active', which==='metricas');
+  ['Resumo','Vendas','Metricas'].forEach((key,index)=>document.getElementById('tabBtn'+key).setAttribute('aria-pressed',String(which===['resumo','vendas','metricas'][index])));
   if(which==='resumo')window.renderExperience?.();
   if(which==='metricas'){
     if(opHistAberto) renderOpTable();
@@ -1404,7 +1405,7 @@ document.getElementById('fluxoForm').addEventListener('submit', function(e){
 function showFluxoMsg(t){
   const el = document.getElementById('fluxoMsg');
   el.textContent = t;
-  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 7000);
 }
 
 function toggleHistorico(){
@@ -1928,7 +1929,7 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
 function showVendaMsg(t){
   const el = document.getElementById('vendaMsg');
   el.textContent = t;
-  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 7000);
 }
 
 function renderMesVendasTag(){
@@ -1996,8 +1997,8 @@ function renderHistoricoMesTable(){
       <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
       <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
-      <td data-label="Delivery">${escapeHtml(v.delivery||'—')}</td>
-      <td data-label="Status"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span>${v.mes!==mesHistoricoSelecionado?`<small class="order-schedule-note">Entrega em ${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</small>`:''}</td>
+      <td data-label="Entregador">${escapeHtml(v.delivery||'—')}</td>
+      <td data-label="Estado"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span>${v.mes!==mesHistoricoSelecionado?`<small class="order-schedule-note">Entrega em ${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</small>`:''}</td>
       <td class="history-actions" data-label="Ações">${['pendente','remarcado'].includes(v.status)?`<button class="btn-ghost" onclick="window.openReschedule('${v.id}')">Reagendar</button>`:''}</td>
     </tr>`).join('');
 }
@@ -2046,7 +2047,10 @@ function getVendasFiltradas(){
 }
 
 function getPedidosAtivos(){
-  return vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'));
+  const query=(document.getElementById('pedidosBusca')?.value || '').trim().toLowerCase();
+  const state=document.getElementById('pedidosEstado')?.value || '';
+  return vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'))
+    .filter(v=>!state || v.status===state).filter(v=>!query || [v.contacto,v.local,v.produto].some(value=>String(value || '').toLowerCase().includes(query)));
 }
 
 // no mobile o cartão do pedido começa recolhido (só o essencial); guarda quais estão abertos aqui
@@ -2110,6 +2114,7 @@ function renderPedidos(){
   if(list.length===0){
     cont.innerHTML = '';
     empty.style.display = 'block';
+    empty.textContent=(document.getElementById('pedidosBusca')?.value || document.getElementById('pedidosEstado')?.value)?'Nenhum pedido corresponde à pesquisa ou ao estado escolhido.':'Não há pedidos em aberto nesta semana.';
     tag.textContent = '';
     return;
   }
@@ -2142,12 +2147,13 @@ function renderPedidos(){
             <span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span>
             ${modoSelecaoPedidos
               ? `<span class="pedido-checkbox${selecionado?' checked':''}">${selecionado?'✓':''}</span>`
-              : `<span class="pedido-expand-chev">▾</span>`}
+              : `<button type="button" class="pedido-expand-chev" aria-expanded="${expandido}" aria-label="Mostrar ações do pedido" onclick="event.stopPropagation();togglePedidoCard('${v.id}')">⌄</button>`}
           </span>
         </div>
         <div class="pedido-card-main">
           <div class="pedido-contacto">${contactoComAcoes(v.contacto, v.id)}</div>
-          <div class="pedido-detalhes">${escapeHtml(v.local||'—')}</div>
+          <div class="pedido-detalhes">${escapeHtml(v.local||'Local não indicado')}</div>
+          ${v.data<drISO(new Date())?'<div class="order-overdue">Entrega em atraso · escolhe uma nova data</div>':''}
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
           ${v.dataPedido && v.dataPedido!==v.data?`<div class="order-schedule-note">Pedido de ${fmtData(v.dataPedido)} · entrega reagendada para ${fmtData(v.data)}</div>`:''}
         </div>
@@ -2157,6 +2163,7 @@ function renderPedidos(){
           <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
           <button class="acao-cancelar" onclick="markStatus('${v.id}','cancelado')">✕ Cancelar</button>
           <button class="acao-remarcar" onclick="window.openReschedule('${v.id}')">↻ Reagendar</button>
+          <details class="order-more"><summary>Mais opções</summary><div class="order-secondary-actions">
           <button onclick="editVenda('${v.id}')">✎ Editar</button>
           <button onclick="deleteVenda('${v.id}')">🗑 Apagar</button>
           <button onclick="gerarPDFPedido('${v.id}')">📄 PDF</button>
@@ -2164,6 +2171,7 @@ function renderPedidos(){
             <option value="">Mover para…</option>
             ${SEMANAS.filter(s=>s.key!==v.semana).map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}
           </select>
+          </div></details>
         </fieldset>`}
       </div>`;
     }).join('');
@@ -2231,8 +2239,8 @@ function renderVendaTable(){
         <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
         <td class="mono" data-label="Qtd">${v.quantidade}</td>
         <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
-        <td data-label="Delivery">${escapeHtml(v.delivery||'—')}</td>
-        <td data-label="Status"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span></td>
+        <td data-label="Entregador">${escapeHtml(v.delivery||'—')}</td>
+        <td data-label="Estado"><span class="pill st-${v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':STATUS_LABEL[v.status]}</span></td>
         <td data-label=""><div class="row-actions">
           <button class="icon-btn" onclick="editVenda('${v.id}')" title="Editar">✎</button>
           <button class="icon-btn" onclick="deleteVenda('${v.id}')" title="Apagar">✕</button>
@@ -2283,7 +2291,7 @@ function editVenda(id){
   switchVendasView('pedidos');
   if(v.semana && v.semana!==semanaAtiva){ semanaAtiva = v.semana; }
   renderVendasAll();
-  abrirVendaForm();
+  abrirVendaForm();if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=true;
   dpVData.setValue(v.data);
   document.getElementById('vHorario').value = v.horario||'';
   document.getElementById('vFonte').value = v.fonte;
@@ -2379,6 +2387,7 @@ function createDateRangePicker(container, opts){
   const trigger = container.querySelector('.daterange-trigger');
   const label = container.querySelector('.daterange-trigger-label');
   const panel = container.querySelector('.daterange-panel');
+  panel.id=container.id+'-calendar';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Escolher data ou período');trigger.setAttribute('aria-controls',panel.id);trigger.setAttribute('aria-expanded','false');
   const presetsEl = container.querySelector('.daterange-presets');
   const monthEl = container.querySelector('.daterange-cal-month');
   const gridEl = container.querySelector('.daterange-cal-grid');
@@ -2449,7 +2458,7 @@ function createDateRangePicker(container, opts){
     // deixar o navegador desenhar o painel na posição não-corrigida.
     const vw = document.documentElement.clientWidth;
     let shift = 0;
-    if(vw > 640){
+    if(vw > 1023){
       const margin = 10;
       const contRect = container.getBoundingClientRect();
       const panelWidth = Math.min(560, vw - 40);
@@ -2459,9 +2468,9 @@ function createDateRangePicker(container, opts){
     }
     panel.style.transform = shift ? `translateX(${shift}px)` : '';
     panel.classList.add('open');
-    container.classList.add('open');
+    container.classList.add('open');trigger.setAttribute('aria-expanded','true');
   }
-  function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
+  function close(){ panel.classList.remove('open'); container.classList.remove('open');trigger.setAttribute('aria-expanded','false'); }
   function toggle(){ panel.classList.contains('open') ? close() : open(); }
 
   trigger.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
@@ -2540,6 +2549,7 @@ function createSingleDatePicker(container, opts){
   const trigger = container.querySelector('.daterange-trigger');
   const label = container.querySelector('.daterange-trigger-label');
   const panel = container.querySelector('.daterange-panel');
+  panel.id=container.id+'-calendar';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Escolher data ou período');trigger.setAttribute('aria-controls',panel.id);trigger.setAttribute('aria-expanded','false');
   const presetsEl = container.querySelector('.daterange-presets');
   const monthEl = container.querySelector('.daterange-cal-month');
   const gridEl = container.querySelector('.daterange-cal-grid');
@@ -2596,7 +2606,7 @@ function createSingleDatePicker(container, opts){
     // (medir o painel já aberto/largo demais faz o navegador mobile "grudar" um viewport expandido)
     const vw = document.documentElement.clientWidth;
     let shift = 0;
-    if(vw > 640){
+    if(vw > 1023){
       const margin = 10;
       const contRect = container.getBoundingClientRect();
       const panelWidth = Math.min(430, vw - 40);
@@ -2606,9 +2616,9 @@ function createSingleDatePicker(container, opts){
     }
     panel.style.transform = shift ? `translateX(${shift}px)` : '';
     panel.classList.add('open');
-    container.classList.add('open');
+    container.classList.add('open');trigger.setAttribute('aria-expanded','true');
   }
-  function close(){ panel.classList.remove('open'); container.classList.remove('open'); }
+  function close(){ panel.classList.remove('open'); container.classList.remove('open');trigger.setAttribute('aria-expanded','false'); }
   function toggle(){ panel.classList.contains('open') ? close() : open(); }
 
   trigger.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
@@ -2649,7 +2659,7 @@ function initDateRangePickers(){
   });
   drMetricas = createDateRangePicker(document.getElementById('drMetricas'), {
     presets: drMetricasPresets(),
-    initialPresetKey: 'hoje',
+    initialPresetKey: 'este_mes',
     onApply: renderMetricas
   });
   drFluxo = createDateRangePicker(document.getElementById('drFluxo'), {
@@ -2980,13 +2990,13 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
   preview.src = '';
   produtoLocaisForm = [novaLinhaLocalProduto()];
   renderProdutoLocaisForm();
-  renderProdutosAll();
+  renderProdutosAll();window.closeProductEditor?.();
 });
 
 function showProdutoMsg(t){
   const el = document.getElementById('produtoMsg');
   el.textContent = t;
-  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 7000);
 }
 
 
@@ -3006,7 +3016,7 @@ function editProduto(id){
   produtoEditId = id;
   document.getElementById('produtoSubmitBtn').textContent = 'Atualizar';
   document.getElementById('produtoCancelEdit').style.display = 'inline-block';
-  window.scrollTo({top: document.getElementById('produtoForm').offsetTop - 20, behavior:'smooth'});
+  window.openProductEditor?.(true);
 }
 function cancelProdutoEdit(){
   produtoEditId = null;
@@ -3161,7 +3171,7 @@ document.getElementById('opForm').addEventListener('submit', function(e){
 function showOpMsg(t){
   const el = document.getElementById('opMsg');
   el.textContent = t;
-  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 7000);
 }
 
 function toggleOpHist(){
@@ -3196,7 +3206,7 @@ function editOp(id){
   const o = operacionaisData.find(x=>x.id===id);
   if(!o) return;
   switchMain('metricas');
-  switchMetricasView('cadastros');
+  switchMetricasView('cadastros');window.chooseExpenseType?.('operacional');
   document.getElementById('opNome').value = o.nome;
   document.getElementById('opValor').value = o.valor;
   dpOpData.setValue(o.data);
@@ -3253,7 +3263,7 @@ document.getElementById('adForm').addEventListener('submit', function(e){
 function showAdMsg(t){
   const el = document.getElementById('adMsg');
   el.textContent = t;
-  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 7000);
 }
 
 function toggleAdHist(){
@@ -3293,7 +3303,7 @@ document.getElementById('outroForm').addEventListener('submit', function(e){
 function showOutroMsg(t){
   const el = document.getElementById('outroMsg');
   el.textContent = t;
-  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 2600);
+  if(t) setTimeout(()=>{ if(el.textContent===t) el.textContent=''; }, 7000);
 }
 
 function toggleOutroHist(){
@@ -3308,7 +3318,7 @@ function toggleOutroHist(){
 const TIPO_GASTO_LABEL = {aquisicao:'Aquisição', ads:'Ads', outros:'Outros'};
 // nome de exibição de um gasto qualquer (ads/outros/operacional), usado na lista unificada "Histórico de Gastos"
 function nomeGasto(a){
-  if(a.tipo==='ads') return a.produto ? ('Ads — '+a.produto) : 'Ads (geral)';
+  if(a.tipo==='ads') return a.produto ? ('Anúncios — '+a.produto) : 'Anúncios (geral)';
   if(a.tipo==='outros') return a.nome || 'Outros';
   return a.nome || 'Gasto';
 }
@@ -3353,7 +3363,7 @@ function editAd(id){
   const a = adSpendData.find(x=>x.id===id);
   if(!a) return;
   switchMain('metricas');
-  switchMetricasView('cadastros');
+  switchMetricasView('cadastros');window.chooseExpenseType?.('ads');
   dpAdData.setRange([a.data, adSpendFim(a)], null);
   document.getElementById('adProduto').value = a.produto||'';
   document.getElementById('adValor').value = a.valor;
@@ -3398,7 +3408,7 @@ function editOutro(id){
   const a = adSpendData.find(x=>x.id===id);
   if(!a) return;
   switchMain('metricas');
-  switchMetricasView('cadastros');
+  switchMetricasView('cadastros');window.chooseExpenseType?.('outros');
   dpOutroData.setRange([a.data, adSpendFim(a)], null);
   document.getElementById('outroNome').value = a.nome||'';
   document.getElementById('outroValor').value = a.valor;
@@ -3463,9 +3473,9 @@ async function renderMetricas(){
   document.getElementById('metROAS').textContent=result.roas===null?'—':result.roas.toFixed(2)+'x';
   document.getElementById('metROI').textContent=result.roi===null?'—':result.roi.toFixed(1)+'%';
   document.getElementById('metROI').style.color=result.roi===null?'var(--sand)':result.roi>=0?'var(--green)':'var(--red)';
-  document.getElementById('metRoiSub').textContent=produtoFiltro?'retorno sobre o gasto total (custo do produto + ads + outros + entrega — operacional é da loja toda)':'retorno sobre o gasto total (custo do produto + ads + outros + operacional + entrega)';
+  document.getElementById('metRoiSub').textContent=produtoFiltro?'Custos do produto e das entregas, anúncios e outros gastos.':'Receita menos custos, em percentagem dos custos.';
   const aviso=document.getElementById('metAvisoProduto');aviso.style.display=result.missingProductCount?'flex':'none';aviso.textContent=result.missingProductCount+' venda(s) concluída(s) com produto sem custo cadastrado. Cadastre o produto para corrigir o ROI.';
-  renderMetChart(inicio,fim,produtoFiltro);renderMetCostChart(result.acquisition,result.ads,result.other,result.operational,result.delivery);
+  window.updateMetricsPresentation?.(result);renderMetChart(inicio,fim,produtoFiltro);renderMetCostChart(result.acquisition,result.ads,result.other,result.operational,result.delivery);
  }catch(error){document.getElementById('metVendasSub').textContent='Não foi possível atualizar as métricas.';}
 }
 window.refreshCloudMetrics=()=>{if(document.getElementById('secResumo').classList.contains('active'))window.renderExperience?.();else if(document.getElementById('secMetricas').classList.contains('active'))renderMetricas();};
@@ -3538,10 +3548,10 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
   const canvas = document.getElementById('metCostChart');
   const emptyEl = document.getElementById('metCostChartEmpty');
   const partes = [
-    {label:'Produto (COGS)', valor:aquisicao, cor: cssVar('--cat-1')},
-    {label:'Ads', valor:ads, cor: cssVar('--cat-2')},
+    {label:'Mercadoria', valor:aquisicao, cor: cssVar('--cat-1')},
+    {label:'Anúncios', valor:ads, cor: cssVar('--cat-2')},
     {label:'Outros', valor:outros, cor: cssVar('--cat-3')},
-    {label:'Operacional', valor:operacional, cor: cssVar('--cat-4')},
+    {label:'Loja', valor:operacional, cor: cssVar('--cat-4')},
     {label:'Entrega', valor:entrega, cor: cssVar('--cat-5')}
   ].filter(p=>p.valor>0);
 
@@ -3604,7 +3614,7 @@ function renderGastosView(){
   }
   empty.style.display='none';
   const TIPO_BADGE = {ads:'tipo-ads', outros:'tipo-outros', operacional:'tipo-aquisicao'};
-  const TIPO_NOME = {ads:'Ads', outros:'Outros', operacional:'Operacional'};
+  const TIPO_NOME = {ads:'Anúncios', outros:'Outros', operacional:'Loja'};
   const EDIT_FN = {ads:'editAd', outros:'editOutro', operacional:'editOp'};
   const DEL_FN = {ads:'deleteAd', outros:'deleteOutro', operacional:'deleteOp'};
   tbody.innerHTML = itens.map(i=>`
@@ -3657,7 +3667,7 @@ function renderProdutosView(){
             <div class="produto-card-nome">${escapeHtml(p.nome)}</div>
             <div class="produto-card-stock${estoque===0?' zero':''}">${estoque} em stock</div>
           </div>
-          <span class="produto-expand-chev">▾</span>
+          <button type="button" class="produto-expand-chev" aria-label="Ver stock por local" aria-expanded="${expandido}" onclick="event.stopPropagation();toggleProdutoCard('${p.id}')">⌄</button>
         </div>
         <div class="produto-card-extra">
           <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${fmtMT(p.custo)}</span></div>
