@@ -2,8 +2,8 @@ import { createHmac } from 'node:crypto';
 import { shopDomain } from './security.mjs';
 async function jsonResponse(response, provider) {
   let body;
-  try { body=await response.json(); } catch { throw new Error(`${provider}: resposta inválida.`); }
-  if (!response.ok || body.error || body.errors) throw new Error(`${provider}: pedido recusado (${response.status}). Verifique acesso e permissões.`);
+  try { body=await response.json(); } catch { throw Object.assign(new Error(`${provider}: resposta inválida.`),{status:502}); }
+  if (!response.ok || body.error || body.errors) throw Object.assign(new Error(`${provider}: pedido recusado (HTTP ${response.status}). Verifique as credenciais do aplicativo, o callback e as permissões.`),{status:502});
   return body;
 }
 export function createProviders(config, fetcher = fetch) {

@@ -78,3 +78,8 @@ test('gastos de vários dias são rateados, com lucro líquido e aviso de custo 
  assert.equal(calculateMetrics(state,'2026-10-17','2026-10-18').ads,0);
  assert.throws(()=>validateRecord('ads',{id:'bad_range',data:'2026-10-12',dataFim:'2026-10-11',tipo:'ads',produto:'',valor:10}));
 });
+
+test('recusa da plataforma apresenta HTTP sem expor resposta com segredos',async()=>{
+ const providers=createProviders({shopifyId:'client',shopifySecret:'secret'},async()=>Response.json({error:'private-token-do-not-display'},{status:400}));
+ await assert.rejects(providers.exchangeShopify('fixture.myshopify.com','code'),error=>error.status===502 && error.message.includes('HTTP 400') && !error.message.includes('private-token'));
+});

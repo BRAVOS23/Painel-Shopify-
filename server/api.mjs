@@ -124,6 +124,8 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     res.json({url:url.toString()});
   });
   app.get('/oauth/:provider/callback',async(req,res)=>{
+    let stage='validar a tentativa de autorização';
+    try{
     const provider=req.params.provider,params=new URL(req.originalUrl,config.baseUrl).searchParams;
     if(!['shopify','meta'].includes(provider) || !/^[a-f0-9]{64}$/.test(params.get('state') || '') || !params.get('code')) return res.status(400).send('Autorização inválida ou recusada. Volte ao painel.');
     if(provider==='shopify' && !validShopifyOAuth(params,config.shopifySecret)) return res.sendStatus(401);
@@ -135,8 +137,10 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       tx.delete(ref); return state;
     });
     const returnedShop=provider==='shopify'?shopDomain(params.get('shop')):null;
+    stage='trocar o código de autorização com a plataforma';
     const result=provider==='shopify' ? await providers.exchangeShopify(returnedShop,params.get('code')) : await providers.exchangeMeta(params.get('code'),`${config.baseUrl}/oauth/meta/callback`);
     if(!result.access_token) throw new Error('A plataforma não devolveu autorização utilizável.');
+    stage='proteger o token com INTEGRATION_ENCRYPTION_KEY';
     const connection={credentials:encrypt({token:result.access_token},config.encryptionKey),connectedAt:new Date().toISOString(),lastError:null,lastSync:null};
     if(provider==='shopify') {
       let identity;
@@ -148,18 +152,22 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
         }catch{throw Object.assign(new Error('Não foi possível confirmar que os dois domínios pertencem à mesma loja. Inicie novamente com o domínio .myshopify.com usado pela Shopify.'),{status:400});}
       }
       connection.shop=identity?shopDomain(identity.myshopifyDomain):returnedShop;
+      stage='guardar a ligação da loja no Firestore';
       await store.db.runTransaction(async tx=>{
         const link=store.db.doc(`shopLinks/${connection.shop}`),existing=await tx.get(link);
         if(existing.exists && existing.data().ownerId!==saved.ownerId) throw Object.assign(new Error('Esta loja já está ligada a outro negócio.'),{status:409});
         tx.set(link,{ownerId:saved.ownerId}); tx.set(store.connection(saved.ownerId,provider),connection);
       });
+      stage='registar webhooks e iniciar a importação';
       try {await providers.registerWebhooks(connection.shop,result.access_token,`${config.baseUrl}/webhooks/shopify`); await sync.run(saved.ownerId,'shopify');}
       catch(error) {await store.connection(saved.ownerId,provider).update({lastError:error.message});}
     } else {
+      stage='guardar a ligação Meta no Firestore';
       connection.expiresAt=result.expires_in ? Date.now()+Number(result.expires_in)*1000 : null;
       await store.connection(saved.ownerId,provider).set(connection);
     }
     res.redirect('/?connection='+provider);
+    }catch(error){if(error.status)throw error;throw Object.assign(new Error('Falha ao '+stage+'. Inicie uma nova ligação. Se persistir, consulte os logs do Worker sem partilhar credenciais.'),{status:502});}
   });
   if(framework.static) app.use(framework.static('dist',{index:'index.html',etag:true}));
   app.get('/painel-negocio-3.html',(_req,res)=>res.redirect('/'));
