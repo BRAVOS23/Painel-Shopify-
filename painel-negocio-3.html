@@ -2178,8 +2178,6 @@ async function markStatus(id, status){
   if(vendasData[idx].shopifyOrderId && ['concluido','cancelado'].includes(status)){
     try {
       if(await window.cloudBackend.shopifyConnected()){
-        const action=status==='concluido' ? 'Concluir' : 'Cancelar';
-        if(!confirm(action+' o pedido inteiro também na Shopify?'+(status==='cancelado'?' O cancelamento repõe o stock e não faz reembolso automático.':''))) return;
         const result=await window.cloudBackend.reflectStatus(vendasData[idx].shopifyOrderId,status);
         showVendaMsg(result.pending ? result.message : 'Pedido atualizado na Shopify.');
         return;
