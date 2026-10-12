@@ -1,6 +1,6 @@
 # Publicar no Cloudflare Workers Free
 
-Esta versão foi compilada com Wrangler e testada no Workerd local, com Firebase emulado. Ainda não foi publicada nem validada com o projeto Firebase real, Shopify ou Meta. Não comprar domínio, não ativar Workers Paid e não mudar o Firebase Spark para Blaze: o requisito do proprietário é orçamento zero.
+Esta versão foi compilada com Wrangler e testada no Workerd local, com Firebase emulado. O proprietário publicou a branch main na Cloudflare (build e24ff08b, conforme screenshot) e forneceu a URL https://painel-shopify.lobojose348.workers.dev. A verificação HTTP pelo ambiente foi bloqueada pela política de rede. A ligação ao Firestore real e as integrações Shopify/Meta ainda não foram validadas. Não comprar domínio, não ativar Workers Paid e não mudar o Firebase Spark para Blaze: o requisito do proprietário é orçamento zero.
 
 ## Ficheiros e comandos preparados
 
@@ -43,7 +43,7 @@ Só prosseguir depois de enviar a versão testada para o GitHub e confirmar a br
 | Campo | Valor |
 | --- | --- |
 | Repositório | `BRAVOS23/Painel-Shopify-` |
-| Branch | A branch que contém `wrangler.jsonc` e `worker/` |
+| Branch | `main` (já atualizada com a versão testada) |
 | Project name | `painel-shopify` |
 | Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy --env=""` |
@@ -96,4 +96,4 @@ Dados `localStorage` pertencem ao domínio do site antigo; o domínio Cloudflare
 
 ## Publicação e estado
 
-A versão preparada foi enviada para a branch `cloudflare-free` do GitHub com aprovação do proprietário. Nenhum deploy real, alteração de plano ou configuração de segredo foi feito. Selecionar essa branch na Cloudflare e publicar com aprovação do proprietário. A conexão Firebase real e as integrações têm de ser validadas depois de configurar os segredos. Cobrança e assinaturas continuam por implementar.
+A versão preparada foi enviada para a branch `cloudflare-free` do GitHub com aprovação do proprietário. O deploy da main foi realizado pelo proprietário na Cloudflare. Não foi feita alteração de plano ou configuração de segredo pelo agente. Selecionar essa branch na Cloudflare e publicar com aprovação do proprietário. A conexão Firebase real e as integrações têm de ser validadas depois de configurar os segredos. Cobrança e assinaturas continuam por implementar.

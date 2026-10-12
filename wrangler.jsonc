@@ -16,6 +16,7 @@
     "FIREBASE_PROJECT_ID": "painel-cash-on-delivery",
     "FIREBASE_WEB_API_KEY": "AIzaSyC8vdVHyNgk4IDWNvwoMqzspCEvp-Mz5Mg",
     "FIREBASE_AUTH_DOMAIN": "painel-cash-on-delivery.firebaseapp.com",
+    "APP_BASE_URL": "https://painel-shopify.lobojose348.workers.dev",
     "SHOPIFY_API_VERSION": "2026-07",
     "META_API_VERSION": "v24.0"
   },
