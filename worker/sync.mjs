@@ -10,7 +10,7 @@ export function createFreeSync(store,providers,config){
    const business=(await store.business(uid).get()).data();
    const productSnapshot=await store.records(uid,'produtos').select('record.nome').get(),products=productSnapshot.docs.map(doc=>doc.data().record);
    const until=new Date().toISOString();
-   const progress=connection.progress || {since:provider==='shopify'?(connection.lastSync?new Date(Date.parse(connection.lastSync)-86400000).toISOString():new Date(Date.now()-59*86400000).toISOString()):new Date(Date.now()-30*86400000).toISOString().slice(0,10),until:provider==='shopify'?until:until.slice(0,10),after:null,offset:0,unmatched:[]};
+   const progress=connection.progress || {since:provider==='shopify'?(connection.lastSync?new Date(Date.parse(connection.lastSync)-5*60000).toISOString():new Date(Date.now()-59*86400000).toISOString()):new Date(Date.now()-30*86400000).toISOString().slice(0,10),until:provider==='shopify'?until:until.slice(0,10),after:null,offset:0,unmatched:[]};
    let items,nextAfter,offset=0,more=false,orderProgress={},unmatched=progress.unmatched || [];
    if(provider==='shopify'){
     const page=progress.orderId?{orders:[await providers.shopifyOrder(connection.shop,token,progress.orderId)],after:progress.orderNextAfter}:await providers.shopifyOrdersPage(connection.shop,token,progress.since,progress.until,progress.after);

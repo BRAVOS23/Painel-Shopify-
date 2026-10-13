@@ -1,6 +1,6 @@
 import { collections, validateRecord } from './model.mjs';
 import { safeId } from './security.mjs';
-export function createStore(db) {
+export function createStore(db,{stateCache=null}={}) {
   const business = uid => db.doc(`businesses/${uid}`);
   const records = (uid, name) => business(uid).collection(name);
   const connection = (uid, provider) => business(uid).collection('connections').doc(provider);
@@ -13,9 +13,18 @@ export function createStore(db) {
       if(snapshot.data().ownerId!==uid)throw new Error('Acesso ao negócio recusado.');return snapshot.data();
     });
   }
-  async function state(uid) {
+  async function state(uid,version) {
+    const key=uid+':'+version,cacheable=stateCache && Number.isSafeInteger(version);
+    const cached=cacheable?stateCache.get(key):null;
+    if(cached && cached.expires>Date.now())return structuredClone(cached.value);
     const groups = await Promise.all(collections.map(name => records(uid,name).get()));
-    return Object.fromEntries(collections.map((name,index) => [name,groups[index].docs.map(doc => ({ ...doc.data().record, _revision:doc.data().revision }))]));
+    const value=Object.fromEntries(collections.map((name,index) => [name,groups[index].docs.map(doc => ({ ...doc.data().record, _revision:doc.data().revision }))]));
+    if(cacheable){
+      for(const [oldKey,entry] of stateCache)if(oldKey.startsWith(uid+':') || entry.expires<=Date.now())stateCache.delete(oldKey);
+      const bytes=JSON.stringify(value).length*2;
+      if(bytes<=2000000){while(stateCache.size && ([...stateCache.values()].reduce((sum,entry)=>sum+entry.bytes,0)+bytes>8000000 || stateCache.size>=20))stateCache.delete(stateCache.keys().next().value);stateCache.set(key,{value:structuredClone(value),bytes,expires:Date.now()+300000});}
+    }
+    return value;
   }
   async function patch(uid, name, changes) {
     if (!collections.includes(name) || !Array.isArray(changes) || changes.length < 1 || changes.length > 100) throw Object.assign(new Error('Alteração inválida (máximo de 100 registos por pedido).'),{ status:400 });

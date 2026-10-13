@@ -46,3 +46,15 @@ test('falhas Firestore distinguem quota, permissões e indisponibilidade sem exp
   await assert.rejects(db.doc('businesses/test').get(),error=>error.status===status && error.diagnosticCode===diagnosticCode && !error.message.includes('private-provider-details'));
  }
 });
+
+test('cache do estado reduz leituras e invalida por revisão sem misturar negócios',async()=>{
+ const {createStore}=await import('../server/store.mjs');let reads=0;
+ const db={doc:path=>({collection:name=>({get:async()=>{reads++;return {docs:[{data:()=>({record:{id:path+'/'+name},revision:reads})}]};}})})};
+ const cache=new Map(),store=createStore(db,{stateCache:cache});
+ const first=await store.state('a',1);const count=reads;first.vendas[0].id='changed';
+ const again=await store.state('a',1);assert.equal(reads,count);assert.notEqual(again.vendas[0].id,'changed');
+ await store.state('a',2);assert.equal(reads,count*2);assert(!cache.has('a:1'));
+ await store.state('b',2);assert.equal(reads,count*3);
+ for(const entry of cache.values())entry.expires=0;
+ await store.state('a',2);assert.equal(reads,count*4);
+});

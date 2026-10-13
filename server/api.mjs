@@ -48,13 +48,13 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     const tag='"'+req.user.uid+':'+(req.business.dataVersion || 0)+'"';
     res.set('ETag',tag);res.set('Cache-Control','private, no-cache');
     if(req.get('If-None-Match')===tag)return res.status(304).end();
-    res.json(await store.state(req.user.uid));
+    res.json(await store.state(req.user.uid,req.business.dataVersion || 0));
   });
   app.post('/api/data/:collection',async(req,res)=>res.json({revisions:await store.patch(req.user.uid,req.params.collection,req.body.changes)}));
   app.get('/api/metrics',async(req,res)=>{
     const {start,end,product=''}=req.query;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start>end || Date.parse(end)-Date.parse(start)>366*86400000) return res.status(400).json({error:'Selecione um período até 366 dias.'});
-    res.json(calculateMetrics(await store.state(req.user.uid),start,end,product));
+    res.json(calculateMetrics(await store.state(req.user.uid,req.business.dataVersion || 0),start,end,product));
   });
   app.get('/api/connections',async(req,res)=>{
     const shop=(await store.connection(req.user.uid,'shopify').get()).data(),meta=(await store.connection(req.user.uid,'meta').get()).data();

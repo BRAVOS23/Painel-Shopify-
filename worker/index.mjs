@@ -6,6 +6,7 @@ import {createGoogle} from './google.mjs';
 import {createFirestore} from './firestore.mjs';
 import {createFreeSync} from './sync.mjs';
 const limits=new Map();
+const stateCaches=new Map();
 export function createRuntime(env,fetcher=fetch){
  let calls=0;
  const boundedFetch=(url,options)=>{if(++calls>40)throw Object.assign(new Error('O lote atingiu o limite de chamadas da versão gratuita. Aguarde a próxima execução.'),{status:503});return fetcher(url,options);};
@@ -16,7 +17,9 @@ export function createRuntime(env,fetcher=fetch){
   shopifyId:env.SHOPIFY_CLIENT_ID || '',shopifySecret:env.SHOPIFY_CLIENT_SECRET || '',shopifyVersion:env.SHOPIFY_API_VERSION || '2026-07',
   metaId:env.META_APP_ID || '',metaSecret:env.META_APP_SECRET || '',metaVersion:env.META_API_VERSION || 'v24.0'};
  const google=createGoogle(env,boundedFetch),db=createFirestore({project:config.projectId,accessToken:google.accessToken,emulator:emulators,fetcher:boundedFetch});
- const store=createStore(db),providers=createProviders(config,boundedFetch),sync=createFreeSync(store,providers,config);
+ const cacheKey=config.projectId+':'+emulators;
+ if(!stateCaches.has(cacheKey))stateCaches.set(cacheKey,new Map());
+ const store=createStore(db,{stateCache:stateCaches.get(cacheKey)}),providers=createProviders(config,boundedFetch),sync=createFreeSync(store,providers,config);
  return {api:createApi({store,auth:google,providers,sync,config,framework,limits}),sync,store,config};
 }
 function localOnly(env,url){if(env.USE_FIREBASE_EMULATORS==='true' && !['localhost','127.0.0.1'].includes(new URL(url).hostname))throw new Error('Os emuladores só podem ser usados localmente.');}
