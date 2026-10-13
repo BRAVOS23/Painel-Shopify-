@@ -24,7 +24,6 @@ export function initUsability(){
  for(const [key,label]of choices)types.append(button(label,()=>window.chooseExpenseType(key),'expense-type'));
  window.chooseExpenseType('ads');
  window.openExpenseEntry=(type='ads')=>{window.switchMain('metricas');window.switchMetricasView('cadastros');window.chooseExpenseType(type);$(type==='ads'?'adValor':type==='outros'?'outroNome':'opNome').focus();};
- const addExpense=button('Registar gasto',()=>window.openExpenseEntry($('gastosFiltroTipo').value || 'ads'),'btn-primary');$('metricasViewGastos').querySelector('.toolbar').append(addExpense);
  // O catálogo é a entrada de Produtos; criar/editar usa o mesmo formulário num diálogo.
  const productPanel=$('produtoForm').closest('.panel'),productDialog=document.createElement('dialog');productDialog.id='productDialog';productDialog.className='app-dialog product-dialog';productDialog.setAttribute('aria-labelledby','productDialogTitle');productDialog.innerHTML='<div class="dialog-head"><h2 id="productDialogTitle">Novo produto</h2><button type="button" class="dialog-close" aria-label="Fechar produto">×</button></div><div class="dialog-body"></div>';
  productDialog.querySelector('.dialog-body').append(productPanel);document.body.append(productDialog);
