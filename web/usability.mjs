@@ -1,5 +1,5 @@
 import {initShopifyCatalog} from './shopify-catalog.mjs';
-import {initManualCleanup} from './manual-cleanup.mjs';
+import {initManualBackupRestore} from './manual-cleanup.mjs';
 import {initReconciliation} from './reconcile.mjs';
 const $=id=>document.getElementById(id);
 const button=(text,handler,className='btn-ghost')=>{const node=document.createElement('button');node.type='button';node.className=className;node.textContent=text;node.onclick=handler;return node;};
@@ -49,6 +49,6 @@ export function initUsability(){
  // Recolher/abrir formulários e históricos também funciona com teclado.
  document.querySelectorAll('div.historico-toggle').forEach(node=>{node.setAttribute('role','button');node.tabIndex=0;node.onkeydown=event=>{if(event.key==='Enter' || event.key===' '){event.preventDefault();node.click();}};});
  document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;const picker=document.querySelector('.daterange.open');if(picker){picker.classList.remove('open');picker.querySelector('.daterange-panel')?.classList.remove('open');picker.querySelector('.daterange-trigger')?.setAttribute('aria-expanded','false');picker.querySelector('.daterange-trigger')?.focus();}});
- initReconciliation();initShopifyCatalog();initManualCleanup();
+ initReconciliation();initShopifyCatalog();initManualBackupRestore();
  document.querySelectorAll('.daterange-nav').forEach(node=>node.setAttribute('aria-label',node.dataset.nav==='-1'?'Mês anterior':'Mês seguinte'));
 }
