@@ -5,7 +5,7 @@ await mkdir('dist/assets',{recursive:true});
 const source=await readFile('painel-negocio-3.html','utf8'),client=await readFile('web/app.mjs','utf8');
 const match=[...source.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)].at(-1);
 if(!match || !match[1].includes('ESTADO GERAL'))throw new Error('Script principal do painel não encontrado.');
-const extra=await Promise.all(['web/experience.mjs','web/orders.mjs','web/experience.css','web/usability.mjs','web/install.mjs','web/catalog.mjs','web/reconcile.mjs','web/shopify-catalog.mjs','web/manual-cleanup.mjs','web/record-schema.mjs','server/providers.mjs','server/api.mjs','web/sales.mjs'].map(path=>readFile(path,'utf8')));
+const extra=await Promise.all(['web/experience.mjs','web/orders.mjs','web/experience.css','web/usability.mjs','web/install.mjs','web/catalog.mjs','web/reconcile.mjs','web/shopify-catalog.mjs','web/manual-cleanup.mjs','web/record-schema.mjs','server/providers.mjs','server/api.mjs','web/sales.mjs','web/order-reports.mjs'].map(path=>readFile(path,'utf8')));
 const version=createHash('sha256').update(source+client+extra.join('')).digest('hex').slice(0,12);
 await writeFile('dist/assets/experience.css',extra[2]);
 await writeFile('dist/assets/dashboard.js',match[1]);

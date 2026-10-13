@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {orderSummary,sourceCounts,orderSeries} from '../web/order-reports.mjs';
+const rows=[{id:'a1',shopifyOrderId:'1',fonte:'04.SHOPIFY',data:'2026-10-02',status:'concluido',panelConfirmed:true,valor:100},{id:'a2',shopifyOrderId:'1',fonte:'04.SHOPIFY',data:'2026-10-02',status:'concluido',panelConfirmed:true,valor:50},{id:'manual',fonte:'05.OUTRO',data:'2026-10-03',status:'remarcado',valor:80},{id:'cancel',fonte:'04.SHOPIFY',data:'2026-10-04',status:'cancelado',valor:200},{id:'legacy',shopifyOrderId:'2',fonte:'04.SHOPIFY',data:'2026-10-05',status:'concluido',valor:300}];
+test('relatórios contam pedidos únicos por fonte e excluem receita não confirmada',()=>{
+ assert.deepEqual(sourceCounts(rows),{'04.SHOPIFY':3,'05.OUTRO':1});
+ assert.deepEqual(orderSummary(rows),{total:4,done:1,open:1,review:1,cancelled:1,rescheduled:1,revenue:150});
+});
+test('evolução diária inclui dias vazios sem acumular receita ou contar itens como pedidos',()=>{
+ const series=orderSeries(rows,'2026-10-01','2026-10-05');assert.equal(series.unit,'dia');assert.deepEqual(series.labels,['01/10','02/10','03/10','04/10','05/10']);assert.deepEqual(series.orders,[0,1,1,1,1]);assert.deepEqual(series.done,[0,1,0,0,0]);assert.deepEqual(series.revenue,[0,150,0,0,0]);
+ assert.equal(orderSeries(rows,'2026-10-03','2026-10-05').revenue.reduce((sum,value)=>sum+value,0),0);
+});
+test('períodos longos agrupam por semana ou mês preservando os totais',()=>{
+ const weekly=orderSeries(rows,'2026-10-01','2027-01-01'),monthly=orderSeries(rows,'2026-01-01','2026-12-31');assert.equal(weekly.unit,'semana');assert.equal(monthly.unit,'mês');for(const series of [weekly,monthly]){assert.equal(series.orders.reduce((sum,value)=>sum+value,0),4);assert.equal(series.revenue.reduce((sum,value)=>sum+value,0),150);}
+ assert.deepEqual(orderSeries([],null,null).labels,[]);
+});

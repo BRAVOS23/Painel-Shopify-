@@ -1,4 +1,5 @@
 import {validateRecord} from './record-schema.mjs';
+import {sourceCounts} from './order-reports.mjs';
 import {countOrders,csvOrderStatus,completedSale} from './sales.mjs';
 import {productResolver,effectiveExpenseProduct,metaProductResolver} from './catalog.mjs';
 import {initAccountMenu,initExperience} from './experience.mjs';
@@ -8,7 +9,7 @@ import Chart from 'chart.js/auto';
 import {jsPDF} from 'jspdf';
 window.resolveExpenseProduct=effectiveExpenseProduct;
 window.resolveProductName=(value,products)=>productResolver(products)(value);
-window.completedSale=completedSale;window.countOrders=countOrders;window.csvOrderStatus=csvOrderStatus;
+window.sourceCounts=sourceCounts;window.completedSale=completedSale;window.countOrders=countOrders;window.csvOrderStatus=csvOrderStatus;
 window.Chart=Chart; window.jspdf={jsPDF};
 const startup=document.createElement('section');startup.className='panel';startup.setAttribute('role','status');startup.style.cssText='max-width:440px;margin:12vh auto;padding:26px';startup.textContent='A abrir o painel…';document.body.prepend(startup);
 let config=null;
