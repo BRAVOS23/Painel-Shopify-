@@ -183,7 +183,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     const status=error.status || (error.type==='entity.too.large' ? 413 : 500);
     // Não imprimir requisições, tokens, URLs OAuth ou respostas integrais das plataformas.
     console.error(`Pedido ${req.method} falhou (${status}).`);
-    res.status(status).json({error:status===500 ? 'Não foi possível concluir a operação. Tente novamente e consulte o estado da integração.' : error.message});
+    res.status(status).json({error:status===500 ? 'Não foi possível concluir a operação no servidor. Tente novamente.' : error.message});
   });
   return app;
 }

@@ -22,6 +22,9 @@ const login=document.createElement('section');login.className='cloud-login';logi
 <h1>Painel do Negócio</h1><p>Entre para gerir os pedidos, custos e resultados do seu negócio.</p>
 <form id="cloudLoginForm"><label for="cloudEmail">Email</label><input id="cloudEmail" type="email" autocomplete="username" required><label for="cloudPassword">Palavra-passe</label><input id="cloudPassword" type="password" minlength="8" autocomplete="current-password" required><button class="btn-primary" type="submit">Entrar</button></form>
 <div class="cloud-actions"><button class="btn-ghost" id="cloudSignup">Criar conta</button><button class="btn-ghost" id="cloudReset">Recuperar acesso</button></div><div id="cloudLoginMessage" class="cloud-message" role="status"></div>`;document.body.prepend(login);
+const sessionNotice=document.createElement('section');sessionNotice.className='cloud-login';sessionNotice.hidden=true;sessionNotice.innerHTML='<h1>A abrir a tua conta</h1><p id="sessionLoadMessage" role="status">A carregar os dados do negócio…</p><div class="cloud-actions"><button type="button" class="btn-primary" id="sessionLoadRetry" hidden>Tentar novamente</button><button type="button" class="btn-ghost" id="sessionSwitchAccount">Entrar noutra conta</button></div>';login.after(sessionNotice);
+document.getElementById('sessionLoadRetry').onclick=()=>{if(auth.currentUser)void loadSession(auth.currentUser);};
+document.getElementById('sessionSwitchAccount').onclick=()=>signOut(auth);
 initAccountMenu();
 const status=text=>{const element=document.getElementById('cloudSaveStatus');element.textContent=text;element.dataset.state=text==='Dados guardados'?'saved':text==='A guardar…' || text==='A carregar…'?'saving':'error';const label=document.getElementById('accountSaveLabel');if(label)label.textContent=text==='Dados guardados'?'Guardado automaticamente':text;};
 function loginMessage(text){document.getElementById('cloudLoginMessage').textContent=text;}
@@ -155,19 +158,20 @@ async function connections(){
  if(!result.meta.connected)metaAccountsLoaded=false;
  document.getElementById('metaAccountControls').hidden=!result.meta.connected;window.updateConnectionSummary?.();
 }
-onAuthStateChanged(auth,async current=>{
+async function loadSession(current){
  const activeSession=++session;user=current;stateTag=null;shopifyConnectionKnown=null;
- if(!current){document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
- wrap.hidden=true;
+ if(!current){sessionNotice.hidden=true;loginMessage('');document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
+ wrap.hidden=true;login.hidden=true;sessionNotice.hidden=false;document.getElementById('sessionLoadMessage').textContent='A carregar os dados do negócio…';document.getElementById('sessionLoadRetry').hidden=true;
  try{
   const snapshot=await api('/state');if(activeSession!==session)return;adopt(snapshot);
   if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js?v='+(document.querySelector('meta[name="painel-build"]')?.content || '');script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();initExperience();loaded=true;}
   else window.applyCloudState(desired);
   document.getElementById('cloudIdentity').textContent=current.email+(config.emulators?' · Desenvolvimento local':'');
-  login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');
+  sessionNotice.hidden=true;loginMessage('');login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');
   try{await connections();}catch{document.getElementById('shopifyConnectionMessage').textContent='Não foi possível atualizar o estado das integrações. Tenta novamente no menu de utilizador.';}
- }catch(error){loginMessage(error.message);wrap.hidden=true;login.hidden=false;}
-});
+ }catch(error){if(activeSession!==session)return;wrap.hidden=true;login.hidden=true;sessionNotice.hidden=false;document.getElementById('sessionLoadMessage').textContent=error.status===401?'A sessão expirou. Entra novamente na tua conta.':error.status===403?error.message:'A tua sessão foi reconhecida, mas não foi possível carregar os dados do negócio. Tenta novamente.';document.getElementById('sessionLoadRetry').hidden=false;}
+}
+onAuthStateChanged(auth,current=>void loadSession(current));
 setInterval(()=>{if(document.visibilityState==='visible')void refresh();},60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void refresh();});
 
