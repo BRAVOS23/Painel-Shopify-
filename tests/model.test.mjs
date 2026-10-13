@@ -112,3 +112,14 @@ test('Meta reconhece datas finais sem confundir números ou campanhas de vários
  const again=metaRecords(rows,products,'act_1','MZN');assert.deepEqual(again.records.map(row=>row.id),result.records.map(row=>row.id));
  assert.equal(metaRecords(rows,[{nome:'Selante'},{nome:'SELANTE'}],'act_1','MZN').records[0].produto,'');
 });
+
+test('nomes associados preservam custos e filtros após renomear sem mudar o histórico',()=>{
+ const products=[{id:'cutter',nome:'Cortador 14 em 1',custo:20,aliases:['Cortador de Vegetais 14 em 1']}];
+ const sale={id:'legacy',produto:'Cortador de Vegetais 14 em 1',data:'2026-10-13',valor:100,quantidade:2,comissao:5,status:'concluido'};
+ const expense={id:'meta_act_1_1_2026-10-13',source:'meta',campaignName:'Cortador 14 em 1 31/08/2026',produto:'',tipo:'ads',data:'2026-10-13',valor:10};
+ const state={produtos:products,vendas:[sale],ads:[expense],operacional:[]};const before=structuredClone(state);
+ const result=calculateMetrics(state,'2026-10-13','2026-10-13','Cortador 14 em 1');
+ assert.equal(result.revenue,100);assert.equal(result.acquisition,40);assert.equal(result.ads,10);assert.equal(result.profit,45);assert.equal(result.missingProductCount,0);assert.deepEqual(state,before);
+ assert.equal(shopifyRecords({...order,line_items:[{id:'1',title:sale.produto,price:'100',quantity:1,discount_allocations:[]}]},products)[0].produto,'Cortador 14 em 1');
+ validateRecord('produtos',products[0]);assert.throws(()=>validateRecord('produtos',{...products[0],aliases:['']}));
+});

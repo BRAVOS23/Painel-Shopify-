@@ -1208,7 +1208,7 @@ if(typeof Chart !== 'undefined'){
   Chart.defaults.font.size = 12;
 }
 // normaliza nome de produto pra comparar (ignora maiúsculas/minúsculas e espaços extras)
-function normalizarNomeProduto(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function normalizarNomeProduto(s){ return (window.resolveProductName?.(s,typeof produtosData==='undefined'?[]:produtosData) || s || '').trim().toLowerCase().replace(/\s+/g,' '); }
 function fmtMT(n){ return (Number(n)||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' MT'; }
 function fmtData(d){ return d ? d.split('-').reverse().join('/') : ''; }
 // innerHTML só escapa <, > e & (o que basta dentro de texto solto) — sem isto, um valor usado
@@ -2957,11 +2957,12 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
     .map(r=>({ id:r.id, local:(r.local||'').trim(), quantidade: parseInt(r.quantidade,10)||0 }))
     .filter(r=> r.local || r.quantidade>0);
   if(!nome){ showProdutoMsg('Preencha o nome do produto.'); return; }
+  if(produtoEditId && produtosData.some(p=>p.id!==produtoEditId && normalizarNomeProduto(p.nome)===normalizarNomeProduto(nome))){showProdutoMsg('Este nome já pertence a outro produto. Escolhe outro nome.');return;}
   const foto = pendingFotoBase64;
 
   if(produtoEditId){
     const idx = produtosData.findIndex(p=>p.id===produtoEditId);
-    if(idx>-1) produtosData[idx] = {...produtosData[idx], nome, custo, locais, foto: foto || produtosData[idx].foto || ''};
+    if(idx>-1){const old=produtosData[idx];produtosData[idx]={...old,nome,custo,locais,foto:foto || old.foto || '',aliases:[...new Set([...(old.aliases || []),...(old.nome!==nome?[old.nome]:[])])].slice(-50)};}
     showProdutoMsg('Produto atualizado.');
     produtoEditId = null;
     document.getElementById('produtoSubmitBtn').textContent = 'Guardar';
@@ -3307,7 +3308,7 @@ function toggleOutroHist(){
 const TIPO_GASTO_LABEL = {aquisicao:'Aquisição', ads:'Ads', outros:'Outros'};
 // nome de exibição de um gasto qualquer (ads/outros/operacional), usado na lista unificada "Histórico de Gastos"
 function nomeGasto(a){
-  if(a.tipo==='ads') return a.produto ? ('Anúncios — '+a.produto) : 'Anúncios (geral)';
+  if(a.tipo==='ads'){const product=window.resolveExpenseProduct?.(a,produtosData) || a.produto;return a.source==='meta'?'Meta Ads — '+(a.campaignName || product || 'Campanha'):product?'Anúncios — '+product:'Anúncios (geral)';}
   if(a.tipo==='outros') return a.nome || 'Outros';
   return a.nome || 'Gasto';
 }
@@ -3421,18 +3422,16 @@ function deleteOutro(id){
 }
 
 function populateProdutosMetricas(){
-  const setP = new Set();
-  vendasData.forEach(v=>{ if(v.produto) setP.add(v.produto.trim()); });
-  adSpendData.forEach(a=>{ if(a.produto) setP.add(a.produto.trim()); });
-  produtosData.forEach(p=>{ if(p.nome) setP.add(p.nome.trim()); });
-  const produtos = [...setP].sort();
-
-  document.getElementById('produtosExistentes').innerHTML = produtos.map(p=>`<option value="${escapeHtml(p)}"></option>`).join('');
-
-  const sel = document.getElementById('metProduto');
-  const atual = sel.value;
-  sel.innerHTML = '<option value="">Todos os produtos</option>' + produtos.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-  if(produtos.includes(atual)) sel.value = atual;
+ const raw=[...new Set([...vendasData,...adSpendData].map(row=>row.produto?.trim()).filter(Boolean))];
+ const registered=[...new Set(produtosData.map(p=>p.nome.trim()))].sort();
+ const resolve=value=>window.resolveProductName?.(value,produtosData) || value;
+ const unknown=[...new Set(raw.map(resolve).filter(value=>!registered.some(name=>normalizarNomeProduto(name)===normalizarNomeProduto(value))))].sort();
+ document.getElementById('produtosExistentes').innerHTML=[...registered,...unknown].map(p=>`<option value="${escapeHtml(p)}"></option>`).join('');
+ const sel=document.getElementById('metProduto'),atual=resolve(sel.value);
+ const options=values=>values.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+ sel.innerHTML='<option value="">Todos os produtos</option>'+`<optgroup label="Produtos cadastrados (${registered.length})">${options(registered)}</optgroup>`+(unknown.length?`<optgroup label="Nomes sem associação (${unknown.length})">${options(unknown)}</optgroup>`:'');
+ if([...registered,...unknown].includes(atual))sel.value=atual;
+ window.updateCatalogNotice?.();
 }
 
 function toISODate(d){
@@ -3487,7 +3486,7 @@ function renderMetChart(inicio, fim, produtoFiltro){
   const custoPorProduto = custoAquisicaoPorProduto();
   const gastoPorDia = dias.map(d=>{
     // gasto de vários dias entra fatiado por dia (valor total / dias do período), não inteiro num só dia
-    const adsOutros = adSpendData.filter(a=> a.data<=d && adSpendFim(a)>=d && matchProduto(a.produto)).reduce((s,a)=>s+a.valor/adSpendDiasTotal(a),0);
+    const adsOutros = adSpendData.filter(a=> a.data<=d && adSpendFim(a)>=d && matchProduto(window.resolveExpenseProduct?.(a,produtosData) || a.produto)).reduce((s,a)=>s+a.valor/adSpendDiasTotal(a),0);
     const vendasDoDia = vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto));
     const aquisicao = vendasDoDia.reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
     const entrega = vendasDoDia.reduce((s,v)=> s + (v.comissao||0), 0);
@@ -3585,7 +3584,7 @@ function renderGastosView(){
   const tipoFiltro = document.getElementById('gastosFiltroTipo').value;
   const busca = document.getElementById('gastosBusca').value.trim().toLowerCase();
   let itens = [
-    ...adSpendData.map(a=>({tipo:a.tipo, nome:nomeGasto(a), periodo:fmtAdPeriodo(a), valor:a.valor, data:a.data, id:a.id})),
+    ...adSpendData.map(a=>({tipo:a.tipo, nome:nomeGasto(a), periodo:fmtAdPeriodo(a), valor:a.valor, data:a.data, id:a.id, source:a.source})),
     ...operacionaisData.map(o=>({tipo:'operacional', nome:o.nome, periodo:fmtData(o.data)+(o.recorrente?' (mensal)':''), valor:o.valor, data:o.data, id:o.id}))
   ];
   if(tipoFiltro) itens = itens.filter(i=>i.tipo===tipoFiltro);
@@ -3606,7 +3605,7 @@ function renderGastosView(){
   const DEL_FN = {ads:'deleteAd', outros:'deleteOutro', operacional:'deleteOp'};
   tbody.innerHTML = itens.map(i=>`
     <tr>
-      <td data-label="Nome">${escapeHtml(i.nome)}</td>
+      <td data-label="Nome">${escapeHtml(i.nome)}<small class="muted" style="display:block">${i.source==='meta'?'Importado da Meta · atualizado pela sincronização':'Registo manual'}</small></td>
       <td data-label="Tipo"><span class="pill ${TIPO_BADGE[i.tipo]}">${TIPO_NOME[i.tipo]}</span></td>
       <td class="mono" data-label="Período">${i.periodo}</td>
       <td class="mono" data-label="Valor">${fmtMT(i.valor)}</td>

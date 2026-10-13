@@ -1,3 +1,4 @@
+import {productResolver,metaProductResolver,effectiveExpenseProduct} from '../web/catalog.mjs';
 import { safeId } from './security.mjs';
 export const collections = ['fluxo', 'vendas', 'produtos', 'ads', 'operacional'];
 export const normalName = value => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -9,7 +10,7 @@ export function validateRecord(collection, record) {
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
     vendas: ['id','data','horario','fonte','contacto','local','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos'],
-    produtos: ['id','nome','custo','foto','locais'],
+    produtos: ['id','nome','custo','foto','locais','aliases'],
     ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate'],
     operacional: ['id','nome','valor','data','recorrente']
   }[collection];
@@ -35,6 +36,7 @@ export function validateRecord(collection, record) {
       }
       continue;
     }
+    if(key==='aliases'){if(collection!=='produtos' || !Array.isArray(value) || value.length>50 || value.some(name=>typeof name!=='string' || !name.trim() || name.length>4000))throw new Error('Nomes associados inválidos.');continue;}
     if(key==='locais'){
       if(collection!=='produtos' || !Array.isArray(value) || value.length>50)throw new Error('Locais de stock inválidos.');
       const ids=new Set();
@@ -64,30 +66,17 @@ export function shopifyRecords(order, products = [], currency = 'MZN') {
       data:date, mes:date.slice(0,7), semana:weekFor(date), horario:'', fonte:'04.SHOPIFY',
       contacto:[address.name || [order.customer?.first_name,order.customer?.last_name].filter(Boolean).join(' '),address.phone || order.phone].filter(Boolean).join(' '),
       local:[address.address1,address.city].filter(Boolean).join(', '), descricao:order.note || '',
-      produto:names.get(normalName(item.title)) || item.title, quantidade:quantity,
+      produto:productResolver(products)(item.title), quantidade:quantity,
       valor:Math.max(0,gross-discounts), delivery:'', comissao:0, status, sourceCurrency:currency };
   });
-}
-function campaignProductName(value){
- const text=String(value || '').trim();
- // Apenas uma data final: não remover números do produto nem nomes de outros produtos.
- const match=text.match(/^(.*?)\s+(?:[-–—|]\s*)?[([]?((?:\d{1,2}[/.\-]\d{1,2}[/.\-](?:\d{4}|\d{2}))|(?:\d{4}-\d{2}-\d{2}))[)\]]?$/);
- if(!match)return text;
- const parts=match[2].split(/[/.\-]/).map(Number);
- let [day,month,year]=parts;if(parts[0]>999)[year,month,day]=parts;else if(year<100)year+=2000;
- const date=new Date(Date.UTC(year,month-1,day));
- if(date.getUTCFullYear()!==year || date.getUTCMonth()!==month-1 || date.getUTCDate()!==day)return text;
- return match[1].trim();
 }
 export function metaRecords(rows, products, accountId, sourceCurrency, currency = 'MZN', conversionRate = 1) {
   if (sourceCurrency !== currency && !(conversionRate > 0)) throw new Error('Configure uma taxa de câmbio para a conta de anúncios.');
   const rate = sourceCurrency === currency ? 1 : conversionRate;
-  const names=new Map();
-  for(const product of products){const key=normalName(product.nome);if(!names.has(key))names.set(key,new Set());names.get(key).add(product.nome);}
-  const unique=key=>names.get(key)?.size===1?[...names.get(key)][0]:'';
+  const resolveCampaign=metaProductResolver(products);
   const unmatched = new Set();
   const records = rows.map(row => {
-    const name=unique(normalName(row.campaign_name)) || unique(normalName(campaignProductName(row.campaign_name))) || '';
+    const name=resolveCampaign(row.campaign_name);
     if (!name) unmatched.add(row.campaign_name);
     const amount = Number(row.spend);
     if (!Number.isFinite(amount) || amount < 0) throw new Error('Gasto inválido devolvido pelo Meta Ads.');
@@ -98,13 +87,15 @@ export function metaRecords(rows, products, accountId, sourceCurrency, currency 
   return { records, unmatched:[...unmatched] };
 }
 export function calculateMetrics(state, start, end, product = '') {
-  const match = p => !product || normalName(p) === normalName(product);
+  const resolve=productResolver(state.produtos);
+  const key=value=>normalName(resolve(value));
+  const match = p => !product || key(p)===key(product);
   const sales = state.vendas.filter(v => v.status === 'concluido' && v.data >= start && v.data <= end && match(v.produto));
-  const expenses=state.ads.filter(a=>(a.dataFim || a.data)>=start && a.data<=end && match(a.produto));
+  const expenses=state.ads.filter(a=>(a.dataFim || a.data)>=start && a.data<=end && match(effectiveExpenseProduct(a,state.produtos)));
   const days=(first,last)=>Math.round((Date.parse(last+'T00:00:00Z')-Date.parse(first+'T00:00:00Z'))/86400000)+1;
   const allocated=expense=>expense.valor*days(expense.data>start?expense.data:start,(expense.dataFim || expense.data)<end?(expense.dataFim || expense.data):end)/days(expense.data,expense.dataFim || expense.data);
   const costs = new Map(state.produtos.map(p => [normalName(p.nome), p.custo]));
-  const acquisition = sales.reduce((s,v) => s+(costs.get(normalName(v.produto)) || 0)*(v.quantidade || 1),0);
+  const acquisition = sales.reduce((s,v) => s+(costs.get(key(v.produto)) || 0)*(v.quantidade || 1),0);
   const delivery = sales.reduce((s,v) => s+(v.comissao || 0),0);
   const ads = expenses.filter(a => a.tipo === 'ads').reduce((s,a) => s+allocated(a),0);
   const other = expenses.filter(a => a.tipo === 'outros').reduce((s,a) => s+allocated(a),0);
@@ -117,6 +108,6 @@ export function calculateMetrics(state, start, end, product = '') {
   }
   const revenue = sales.reduce((s,v) => s+v.valor,0), total=acquisition+delivery+ads+other+operational;
   const orders = new Set(sales.map(v => v.shopifyOrderId || v.id)).size;
-  return { acquisition, delivery, ads, other, operational, total, revenue, orders, profit:revenue-total, missingProductCount:sales.filter(sale=>sale.produto && !costs.has(normalName(sale.produto))).length,
+  return { acquisition, delivery, ads, other, operational, total, revenue, orders, profit:revenue-total, missingProductCount:sales.filter(sale=>sale.produto && !costs.has(key(sale.produto))).length,
     cpa:orders ? ads/orders : null, roas:ads ? revenue/ads : null, roi:total ? (revenue-total)/total*100 : null };
 }

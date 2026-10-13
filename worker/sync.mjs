@@ -8,7 +8,7 @@ export function createFreeSync(store,providers,config){
    const snapshot=await ref.get();if(!snapshot.exists)throw Object.assign(new Error('Integração não conectada.'),{status:400});
    const connection=snapshot.data(),{token}=decrypt(connection.credentials,config.encryptionKey);
    const business=(await store.business(uid).get()).data();
-   const productSnapshot=await store.records(uid,'produtos').select('record.nome').get(),products=productSnapshot.docs.map(doc=>doc.data().record);
+   const productSnapshot=await store.records(uid,'produtos').select('record.id','record.nome','record.aliases').get(),products=productSnapshot.docs.map(doc=>doc.data().record);
    const until=new Date().toISOString();
    const progress=connection.progress || {since:provider==='shopify'?(connection.lastSync?new Date(Date.parse(connection.lastSync)-5*60000).toISOString():new Date(Date.now()-59*86400000).toISOString()):new Date(Date.now()-30*86400000).toISOString().slice(0,10),until:provider==='shopify'?until:until.slice(0,10),after:null,offset:0,unmatched:[]};
    let items,nextAfter,offset=0,more=false,orderProgress={},unmatched=progress.unmatched || [];
@@ -39,7 +39,7 @@ export function createFreeSync(store,providers,config){
    const connection=(await store.connection(value.ownerId,'shopify').get()).data();
    if(!connection || connection.shop!==value.shop){await job.ref.update({status:'ignored'});return {ignored:true};}
    const {token}=decrypt(connection.credentials,config.encryptionKey),order=await providers.shopifyOrder(connection.shop,token,value.orderId);
-   const business=(await store.business(value.ownerId).get()).data(),snapshot=await store.records(value.ownerId,'produtos').select('record.nome').get();
+   const business=(await store.business(value.ownerId).get()).data(),snapshot=await store.records(value.ownerId,'produtos').select('record.id','record.nome','record.aliases').get();
    const records=shopifyRecords(order,snapshot.docs.map(doc=>doc.data().record),business.currency);
    const offset=value.sourceUpdatedAt===order.updated_at?(value.offset || 0):0,chunk=records.slice(offset,offset+5);
    await store.importedMany(value.ownerId,'vendas',chunk.map(record=>({record,sourceUpdatedAt:order.updated_at})));

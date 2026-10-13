@@ -1,8 +1,11 @@
+import {productResolver,effectiveExpenseProduct,metaProductResolver} from './catalog.mjs';
 import {initAccountMenu,initExperience} from './experience.mjs';
 import {initializeApp} from 'firebase/app';
 import {getAuth,connectAuthEmulator,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,sendEmailVerification,sendPasswordResetEmail} from 'firebase/auth';
 import Chart from 'chart.js/auto';
 import {jsPDF} from 'jspdf';
+window.resolveExpenseProduct=effectiveExpenseProduct;
+window.resolveProductName=(value,products)=>productResolver(products)(value);
 window.Chart=Chart; window.jspdf={jsPDF};
 const startup=document.createElement('section');startup.className='panel';startup.setAttribute('role','status');startup.style.cssText='max-width:440px;margin:12vh auto;padding:26px';startup.textContent='A abrir o painel…';document.body.prepend(startup);
 let config=null;
@@ -153,7 +156,7 @@ async function connections(){
  if(provider==='shopify' && connection.shop && !document.getElementById('cloudShop').value)document.getElementById('cloudShop').value=connection.shop;
  document.getElementById('sync'+cap).disabled=!connection.connected;
  document.getElementById('disconnect'+cap).hidden=!connection.connected;
- document.getElementById(provider+'ConnectionMessage').textContent=!connection.configured ? 'A integração precisa de configuração pelo administrador antes de poder ser ligada.' : connection.lastError || (connection.unmatchedCampaigns?.length ? 'Campanhas sem produto: '+connection.unmatchedCampaigns.join(', ') : '');
+ document.getElementById(provider+'ConnectionMessage').textContent=!connection.configured ? 'A integração precisa de configuração pelo administrador antes de poder ser ligada.' : connection.lastError || (connection.unmatchedCampaigns?.some(name=>provider!=='meta' || !metaProductResolver(desired.produtos || [])(name)) ? 'Campanhas sem produto: '+connection.unmatchedCampaigns.filter(name=>provider!=='meta' || !metaProductResolver(desired.produtos || [])(name)).join(', ') : '');
  }
  if(result.meta.connected && !metaAccountsLoaded){const response=await api('/meta/accounts');const select=document.getElementById('metaAccount');select.replaceChildren(...response.accounts.map(account=>{const option=document.createElement('option');option.value=account.id;option.textContent=`${account.name} (${account.currency})`;return option;}));select.value=result.meta.accountId || select.options[0]?.value || '';metaAccountsLoaded=true;}
  if(!result.meta.connected){metaAccountsLoaded=false;metaRateEditing=false;document.getElementById('metaRate').value='';}
