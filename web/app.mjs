@@ -140,9 +140,10 @@ function setupIntegrations(){
   document.getElementById('sync'+cap).onclick=()=>syncProvider(provider);
   document.getElementById('disconnect'+cap).onclick=async()=>{if(!confirm('Desligar a integração? Os dados já importados serão mantidos.'))return;try{await api('/connections/'+provider,{method:'DELETE'});await connections();}catch(error){document.getElementById(provider+'ConnectionMessage').textContent=error.message;}};
  }
- document.getElementById('chooseMetaAccount').onclick=async()=>{try{await api('/meta/account',{method:'POST',body:JSON.stringify({accountId:document.getElementById('metaAccount').value,conversionRate:Number(document.getElementById('metaRate').value)})});await refresh();}catch(error){document.getElementById('metaConnectionMessage').textContent=error.message;}};
+ document.getElementById('metaRate').oninput=()=>{metaRateEditing=true;};
+ document.getElementById('chooseMetaAccount').onclick=async()=>{const button=document.getElementById('chooseMetaAccount'),message=document.getElementById('metaConnectionMessage');button.disabled=true;message.textContent='A guardar a conta e a taxa de câmbio…';try{const result=await api('/meta/account',{method:'POST',body:JSON.stringify({accountId:document.getElementById('metaAccount').value,conversionRate:Number(document.getElementById('metaRate').value)})});metaRateEditing=false;await connections();await refresh();message.textContent=(result.partial?'Taxa guardada. A importação continua automaticamente.':'Conta e taxa de câmbio guardadas.');}catch(error){message.textContent=error.message;}finally{button.disabled=false;}};
 }
-let metaAccountsLoaded=false,shopifyConnectionKnown=null;
+let metaAccountsLoaded=false,metaRateEditing=false,shopifyConnectionKnown=null;
 async function connections(){
  const result=await api('/connections');lastConnectionsCheck=Date.now();shopifyConnectionKnown=Boolean(result.shopify.connected);
  for(const provider of ['shopify','meta']){const connection=result[provider],cap=provider==='shopify'?'Shopify':'Meta';
@@ -155,7 +156,8 @@ async function connections(){
  document.getElementById(provider+'ConnectionMessage').textContent=!connection.configured ? 'A integração precisa de configuração pelo administrador antes de poder ser ligada.' : connection.lastError || (connection.unmatchedCampaigns?.length ? 'Campanhas sem produto: '+connection.unmatchedCampaigns.join(', ') : '');
  }
  if(result.meta.connected && !metaAccountsLoaded){const response=await api('/meta/accounts');const select=document.getElementById('metaAccount');select.replaceChildren(...response.accounts.map(account=>{const option=document.createElement('option');option.value=account.id;option.textContent=`${account.name} (${account.currency})`;return option;}));select.value=result.meta.accountId || select.options[0]?.value || '';metaAccountsLoaded=true;}
- if(!result.meta.connected)metaAccountsLoaded=false;
+ if(!result.meta.connected){metaAccountsLoaded=false;metaRateEditing=false;document.getElementById('metaRate').value='';}
+ if(result.meta.connected && !metaRateEditing)document.getElementById('metaRate').value=result.meta.conversionRate ?? '';
  document.getElementById('metaAccountControls').hidden=!result.meta.connected;window.updateConnectionSummary?.();
 }
 async function loadSession(current){

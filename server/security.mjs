@@ -32,7 +32,7 @@ export function validShopifyOAuth(params, secret) {
 export function publicConnection(connection) {
   if (!connection) return { connected: false };
   return { connected: true, shop: connection.shop || null, accountId: connection.accountId || null,
-    currency: connection.currency || null, lastSync: connection.lastSync || null,
+    currency: connection.currency || null, conversionRate:Number.isFinite(connection.conversionRate)?connection.conversionRate:null, lastSync: connection.lastSync || null,
     lastError: connection.lastError || null, unmatchedCampaigns: connection.unmatchedCampaigns || [],
     statusWriteEnabled: true };
 }
