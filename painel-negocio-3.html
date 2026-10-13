@@ -1787,7 +1787,7 @@ function importarCSVShopifyNativo(){
       if(linhas.length<2){ showShopifyNativeMsg('Ficheiro vazio ou sem pedidos.', true); return; }
       const header = linhas[0];
       const col = (nome) => header.indexOf(nome);
-      const iId=col('Id'), iFin=col('Financial Status'), iCancel=col('Cancelled at'), iCreated=col('Created at'),
+      const iId=col('Id'), iFin=col('Financial Status'), iFulfillment=col('Fulfillment Status'), iCancel=col('Cancelled at'), iCreated=col('Created at'),
             iNotas=col('Note Attributes'), iShipName=col('Shipping Name'), iShipPhone=col('Shipping Phone'),
             iSubtotal=col('Subtotal'), iQtd=col('Lineitem quantity'), iProduto=col('Lineitem name');
       if(iId===-1 || iFin===-1 || iCreated===-1){
@@ -1813,15 +1813,14 @@ function importarCSVShopifyNativo(){
 
         const finStatus = String(cols[iFin]||'').trim().toLowerCase();
         const cancelledAt = String(cols[iCancel]||'').trim();
-        let status = 'pendente';
-        if(cancelledAt || finStatus==='voided' || finStatus==='refunded') status = 'cancelado';
-        else if(finStatus==='paid') status = 'concluido';
+        const status=window.csvOrderStatus(finStatus,iFulfillment>=0?cols[iFulfillment]:'',cancelledAt);
 
         const existenteIdx = vendasData.findIndex(v=>v.shopifyOrderId===shopifyOrderId);
         if(existenteIdx>-1){
-          if(vendasData[existenteIdx].status !== status){
-            vendasData[existenteIdx] = {...vendasData[existenteIdx], status};
-            atualizados++;
+          const old=vendasData[existenteIdx],fulfillment=String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase();
+          const nextStatus=status==='pendente' && old.panelConfirmed?'concluido':status;
+          if(old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment){
+            vendasData[existenteIdx]={...old,status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
           }
           continue;
         }
@@ -1861,7 +1860,7 @@ function importarCSVShopifyNativo(){
           data, horario, fonte: '04.SHOPIFY',
           contacto: (nome + ' ' + telefone).trim(),
           local, descricao: '', produto, quantidade, valor,
-          delivery: '', comissao: 0, status, shopifyOrderId
+          delivery: '', comissao: 0, status, shopifyOrderId,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase()
         });
         novos++;
       }
@@ -2217,7 +2216,7 @@ async function markStatus(id, status){
     } catch(error){pedidosMensagens.set(orderId,error.message);showVendaMsg(error.message);return;}
     finally{pedidosAAtualizar.delete(orderId);renderVendasAll();}
   }
-  vendasData[idx].status = status;
+  vendasData[idx].status = status;vendasData[idx].panelConfirmed=status==='concluido';
   saveVendas();
   renderVendasAll();
 
@@ -2253,7 +2252,7 @@ function renderVendaTable(){
 // Visão Geral (drOverview) — não o da aba de semana do formulário — porque agora mora junto dos
 // outros dois painéis de Relatórios que já respondem a esse mesmo seletor de período
 function renderSaidaProdutos(dados){
-  const doPeriodo = dados.filter(v=>v.status==='concluido' && v.produto);
+  const doPeriodo = dados.filter(v=>window.completedSale(v) && v.produto);
   const grupos = {};
   doPeriodo.forEach(v=>{ grupos[v.produto] = (grupos[v.produto]||0) + (v.quantidade||0); });
   const produtos = Object.keys(grupos);
@@ -2265,7 +2264,7 @@ function renderSaidaProdutos(dados){
 }
 
 function renderEntregas(dados){
-  const doPeriodo = dados.filter(v=>v.status==='concluido' && v.delivery);
+  const doPeriodo = dados.filter(v=>window.completedSale(v) && v.delivery);
   const grupos = {};
   doPeriodo.forEach(v=>{
     if(!grupos[v.delivery]) grupos[v.delivery] = {count:0, total:0};
@@ -2684,10 +2683,10 @@ function renderOverview(){
   const range = drOverview ? drOverview.getRange() : null;
   const dados = range ? vendasData.filter(v=> v.data >= range[0] && v.data <= range[1]) : vendasData;
 
-  const total = dados.length;
-  const concluido = dados.filter(v=>v.status==='concluido').length;
-  const cancelado = dados.filter(v=>v.status==='cancelado').length;
-  const remarcado = dados.filter(v=>v.status==='remarcado').length;
+  const total = window.countOrders(dados);
+  const concluido = window.countOrders(dados.filter(window.completedSale));
+  const cancelado = window.countOrders(dados.filter(v=>v.status==='cancelado'));
+  const remarcado = window.countOrders(dados.filter(v=>v.status==='remarcado'));
   // conversão sobre contactos já resolvidos (concluído + cancelado) — pendentes ainda podem virar venda,
   // então contá-los contra a taxa só porque ainda não foram decididos deprecia o número sem motivo
   const resolvidos = concluido + cancelado;
@@ -3457,7 +3456,7 @@ async function renderMetricas(){
   const fields={metGastoAquisicao:'acquisition',metGastoEntrega:'delivery',metGastoAds:'ads',metGastoOutros:'other',metGastoOperacional:'operational',metGastoTotal:'total',metReceita:'revenue',metLucroLiquido:'profit'};
   Object.entries(fields).forEach(([id,key])=>document.getElementById(id).textContent=fmtMT(result[key]));
   document.getElementById('metLucroLiquido').style.color=result.profit>=0?'var(--green)':'var(--red)';
-  document.getElementById('metVendasSub').textContent='('+result.orders+(result.orders===1?' venda)':' vendas)');
+  document.getElementById('metVendasSub').textContent='('+result.orders+(result.orders===1?' venda)':' vendas)')+(result.statusReviewOrders?' · '+result.statusReviewOrders+' pedido(s) antigo(s) a verificar na Shopify':'');
   document.getElementById('metCPA').textContent=result.cpa===null?'—':fmtMT(result.cpa);
   document.getElementById('metROAS').textContent=result.roas===null?'—':result.roas.toFixed(2)+'x';
   document.getElementById('metROI').textContent=result.roi===null?'—':result.roi.toFixed(1)+'%';
@@ -3488,14 +3487,14 @@ function renderMetChart(inicio, fim, produtoFiltro){
   const gastoPorDia = dias.map(d=>{
     // gasto de vários dias entra fatiado por dia (valor total / dias do período), não inteiro num só dia
     const adsOutros = adSpendData.filter(a=> a.data<=d && adSpendFim(a)>=d && matchProduto(window.resolveExpenseProduct?.(a,produtosData) || a.produto)).reduce((s,a)=>s+a.valor/adSpendDiasTotal(a),0);
-    const vendasDoDia = vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto));
+    const vendasDoDia = vendasData.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto));
     const aquisicao = vendasDoDia.reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
     const entrega = vendasDoDia.reduce((s,v)=> s + (v.comissao||0), 0);
     const operacional = produtoFiltro ? 0 : calcularGastoOperacional(d, d);
     return adsOutros + aquisicao + entrega + operacional;
   });
   const receitaPorDia = dias.map(d=>
-    vendasData.filter(v=> v.data===d && v.status==='concluido' && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
+    vendasData.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
   );
 
   const canvas = document.getElementById('metChart');

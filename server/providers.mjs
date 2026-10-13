@@ -26,14 +26,14 @@ export function createProviders(config, fetcher = fetch) {
       body:JSON.stringify({query,variables}), signal:AbortSignal.timeout(30000)
     }),'Shopify',query)).data;
   }
-  const fields=`id legacyResourceId createdAt updatedAt cancelledAt displayFulfillmentStatus currencyCode note phone
+  const fields=`id legacyResourceId createdAt updatedAt cancelledAt displayFulfillmentStatus displayFinancialStatus currencyCode note phone
     shippingAddress { name phone address1 city }
     lineItems(first:100) { nodes { id title quantity originalUnitPriceSet { shopMoney { amount } }
       discountAllocations { allocatedAmountSet { shopMoney { amount } } } } pageInfo { hasNextPage } }`;
   const normalize = order => {
     if (order.lineItems.pageInfo.hasNextPage) throw new Error('Pedido com mais de 100 itens: importação requer paginação adicional.');
     return { id:String(order.legacyResourceId),created_at:order.createdAt,updated_at:order.updatedAt,cancelled_at:order.cancelledAt,
-      fulfillment_status:order.displayFulfillmentStatus==='FULFILLED' ? 'fulfilled' : 'unfulfilled',currency:order.currencyCode,
+      financial_status:String(order.displayFinancialStatus || '').toLowerCase(),fulfillment_status:order.displayFulfillmentStatus==='FULFILLED' ? 'fulfilled' : 'unfulfilled',currency:order.currencyCode,
       note:order.note,phone:order.phone,customer:{first_name:order.customer?.firstName,last_name:order.customer?.lastName},
       shipping_address:order.shippingAddress,line_items:order.lineItems.nodes.map(item => ({
         id:item.id.split('/').pop(),title:item.title,quantity:item.quantity,price:item.originalUnitPriceSet.shopMoney.amount,

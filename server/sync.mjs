@@ -12,7 +12,7 @@ export function createSync(store,providers,config) {
       const business=(await store.business(uid).get()).data(), state=await store.state(uid);
       let count=0, unmatched=[];
       if(provider==='shopify') {
-        const since=connection.lastSync ? new Date(Date.parse(connection.lastSync)-24*60*60*1000).toISOString() : new Date(Date.now()-59*24*60*60*1000).toISOString();
+        const since=connection.salesPolicyVersion===2 && connection.lastSync ? new Date(Date.parse(connection.lastSync)-24*60*60*1000).toISOString() : new Date(Date.now()-59*24*60*60*1000).toISOString();
         const orders=await providers.shopifyOrders(connection.shop,auth.token,since);
         for(const order of orders) for(const record of shopifyRecords(order,state.produtos,business.currency)) {
           await store.imported(uid,'vendas',record,order.updated_at); count++;
@@ -26,7 +26,7 @@ export function createSync(store,providers,config) {
         unmatched=normalized.unmatched;
         for(const record of normalized.records) { await store.imported(uid,'ads',record); count++; }
       }
-      await ref.update({lastSync:new Date().toISOString(),lastError:null,unmatchedCampaigns:unmatched});
+      await ref.update({lastSync:new Date().toISOString(),...(provider==='shopify'?{salesPolicyVersion:2}:{}),lastError:null,unmatchedCampaigns:unmatched});
       return {count,unmatched};
     } catch(error) {
       if ((await ref.get()).exists) await ref.update({lastError:error.message});

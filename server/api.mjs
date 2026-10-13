@@ -85,15 +85,16 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     try{
       const connection=snap.data(),{token}=decrypt(connection.credentials,config.encryptionKey);
       let order=await providers.shopifyOrder(connection.shop,token,req.params.id);
-      const done=()=>wanted==='cancelado'?Boolean(order.cancelled_at):order.fulfillment_status==='fulfilled';
+      const done=()=>wanted==='cancelado'?Boolean(order.cancelled_at):!order.cancelled_at && order.fulfillment_status==='fulfilled';
+      if(wanted==='concluido' && (order.cancelled_at || ['refunded','voided'].includes(String(order.financial_status || '').toLowerCase())))throw Object.assign(new Error('Este pedido está cancelado na Shopify e não pode contar como venda.'),{status:409});
       if(req.method==='POST' && !done())order=await providers.shopifyStatus(connection.shop,token,req.params.id,wanted);
       // CSV/backups antigos têm IDs locais, não os IDs sh_ da sincronização.
       // Atualizar todos os registos já existentes deste pedido sem criar duplicados nem substituir contactos/valores.
-      const confirmed=order.cancelled_at?'cancelado':order.fulfillment_status==='fulfilled'?'concluido':null;
-      const records=confirmed?await store.importedMany(uid,'vendas',owned.docs.map(doc=>({record:{...doc.data().record,status:confirmed},sourceUpdatedAt:order.updated_at,statusOnly:true}))):owned.docs.map(doc=>({...doc.data().record,_revision:doc.data().revision}));
+      const confirmed=order.cancelled_at?'cancelado':done()?wanted:null;
+      const records=confirmed?await store.importedMany(uid,'vendas',owned.docs.map(doc=>({record:{...doc.data().record,status:confirmed,panelConfirmed:confirmed==='concluido',shopifyFinancialStatus:String(order.financial_status || '').toLowerCase(),shopifyFulfillmentStatus:order.fulfillment_status || 'unfulfilled'},sourceUpdatedAt:order.updated_at,statusOnly:true}))):owned.docs.map(doc=>({...doc.data().record,_revision:doc.data().revision}));
       const pending=!done();
       res.status(pending?202:200).json({ok:!pending,pending,records,message:pending?'A Shopify está a processar a alteração. A confirmar o estado do pedido…':null});
-    }catch(error){await store.connection(uid,'shopify').update({lastError:error.message});res.status(502).json({error:error.message});}
+    }catch(error){await store.connection(uid,'shopify').update({lastError:error.message});res.status(error.status || 502).json({error:error.message});}
     finally{await release();}
   }
   app.post('/api/shopify/orders/:id/status',orderStatus);

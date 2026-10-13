@@ -23,3 +23,7 @@ test('reautorizar reutiliza os webhooks corretos sem criar duplicados',async()=>
  const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{const call=JSON.parse(options.body);if(call.query.startsWith('query'))return Response.json({data:{webhookSubscriptions:{nodes:topics.slice(0,3).map(topic=>({topic,format:'JSON',endpoint:{callbackUrl:callback}})),pageInfo:{hasNextPage:false}}}});created.push(call.variables.topic);return Response.json({data:{webhookSubscriptionCreate:{webhookSubscription:{id:'new'},userErrors:[]}}});});
  await providers.registerWebhooks('fixture.myshopify.com','fixture',callback);assert.deepEqual(created,['APP_UNINSTALLED']);
 });
+
+test('contagem de pedidos não conta linhas como vendas e CSV pago não significa concluído',async()=>{
+ const {countOrders,csvOrderStatus}=await import('../web/sales.mjs');assert.equal(countOrders([{id:'line1',shopifyOrderId:'1'},{id:'line2',shopifyOrderId:'1'},{id:'manual'}]),2);assert.equal(csvOrderStatus('paid','unfulfilled',''),'pendente');assert.equal(csvOrderStatus('paid','',''),'pendente');assert.equal(csvOrderStatus('pending','fulfilled',''),'pendente');assert.equal(csvOrderStatus('paid','fulfilled','2026-10-13'),'cancelado');
+});

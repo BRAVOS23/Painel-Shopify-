@@ -78,7 +78,7 @@ try{
  const scheduled=scheduleOrder(withoutRevision,{date:'2026-11-03',time:'14:00'});await store.patch(owner,'vendas',[{id:first.id,revision:_revision,record:scheduled}]);await sync.run(owner,'shopify');const afterSchedule=(await store.state(owner)).vendas[0];assert.equal(afterSchedule.data,'2026-11-03');assert.equal(afterSchedule.mes,'2026-11');assert.equal(afterSchedule.dataPedido,withoutRevision.data);assert.equal(afterSchedule.reagendamentos.length,1);pass('reagendamento atravessa meses e mantém histórico após sincronização Shopify');
 
  await store.patch(owner,'vendas',[{id:first.id,revision:afterSchedule._revision,record:{...scheduleOrder(withoutRevision,{date:'2026-11-03',time:'14:00'}),delivery:'Entregador',comissao:30,semana:'semana3'}}]);
- order={...order,updated_at:'2026-10-12T10:00:00Z',fulfillment_status:'fulfilled'};await sync.run(owner,'shopify');current=await store.state(owner);
+ order={...order,updated_at:'2026-10-12T10:00:00Z',fulfillment_status:'fulfilled',financial_status:'paid'};await sync.run(owner,'shopify');current=await store.state(owner);
  assert.equal(current.vendas[0].delivery,'Entregador');assert.equal(current.vendas[0].comissao,30);assert.equal(current.vendas[0].semana,'semana3');assert.equal(current.vendas[0].status,'concluido');pass('atualização Shopify preserva dados operacionais e reconcilia estado');
  await sync.run(owner,'meta');await sync.run(owner,'meta');current=await store.state(owner);assert.equal(current.ads.length,2);assert.equal(current.ads.reduce((s,a)=>s+a.valor,0),55);pass('Meta não duplica gastos e inclui campanhas sem produto no total');
  const metrics=await request(a,'/api/metrics?start=2026-11-03&end=2026-11-03');assert.equal(metrics.body.delivery,30);assert.equal(metrics.body.total,70);assert.equal(metrics.body.orders,1);pass('métricas executadas no servidor incluem entregador');
@@ -89,13 +89,19 @@ try{
  assert.equal(remote.body.records.find(row=>row.id==='legacy_csv_991').contacto,'Cliente do backup');assert.equal(remote.body.records.find(row=>row.id==='legacy_csv_991').comissao,45);
  assert.equal((await store.state(owner)).vendas.length,2);pass('ação Shopify atualiza também IDs de CSV/backup sem criar duplicados ou alterar contactos');
  const originalRead=providers.shopifyOrder,originalChange=providers.shopifyStatus;
- let pendingOrder={...order,id:'992',cancelled_at:null,fulfillment_status:'unfulfilled'},mutations=0;
+ let pendingOrder={...order,id:'992',cancelled_at:null,fulfillment_status:'unfulfilled',financial_status:'pending'},mutations=0;
  await store.imported(owner,'vendas',shopifyRecords(pendingOrder)[0],pendingOrder.updated_at);
  providers.shopifyOrder=async()=>pendingOrder;providers.shopifyStatus=async()=>{mutations++;return pendingOrder;};
  const pending=await request(a,'/api/shopify/orders/992/status',{status:'concluido'});assert.equal(pending.status,202);assert.equal(pending.body.pending,true);
  assert.equal((await request(b,'/api/shopify/orders/992/status?status=concluido')).status,404);
  pendingOrder={...pendingOrder,fulfillment_status:'fulfilled',updated_at:new Date(Date.now()+1000).toISOString()};
  const confirmed=await request(a,'/api/shopify/orders/992/status?status=concluido');assert.equal(confirmed.status,200);assert.equal(confirmed.body.records[0].status,'concluido');assert.equal(mutations,1);
+ assert.equal(confirmed.body.records[0].panelConfirmed,true);
+ await store.imported(owner,'vendas',shopifyRecords(pendingOrder)[0],pendingOrder.updated_at);
+ assert.equal((await store.records(owner,'vendas').doc('sh_992_1').get()).data().record.status,'concluido');
+ const legacyPending={...shopifyRecords({...pendingOrder,id:'993',fulfillment_status:'unfulfilled'})[0],status:'concluido',panelConfirmed:false};
+ await store.imported(owner,'vendas',legacyPending,pendingOrder.updated_at);await store.imported(owner,'vendas',shopifyRecords({...pendingOrder,id:'993',fulfillment_status:'unfulfilled'})[0],pendingOrder.updated_at);
+ assert.equal((await store.records(owner,'vendas').doc('sh_993_1').get()).data().record.status,'pendente');pass('confirmação no painel resiste ao estado financeiro pendente; conclusão automática antiga sem prova é reconciliada');
  assert(!JSON.stringify(confirmed.body).includes('credentials'));
  providers.shopifyOrder=originalRead;providers.shopifyStatus=originalChange;
  pass('estado devolve registos com revisões, preserva edição e confirma job sem repetir mutação Shopify');

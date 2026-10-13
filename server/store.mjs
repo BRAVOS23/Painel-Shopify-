@@ -65,7 +65,7 @@ export function createStore(db,{stateCache=null}={}) {
       for(let i=0;i<incoming.length;i++){
         const {record:source,sourceUpdatedAt,statusOnly}=incoming[i],old=snapshots[i].data();
         if(sourceUpdatedAt && old?.sourceUpdatedAt && sourceUpdatedAt<old.sourceUpdatedAt)continue;
-        const record=statusOnly && old?{...old.record,status:source.status}:name==='vendas' && old ? {...source,...Object.fromEntries(['horario','delivery','comissao','semana','mes','descricao','data','dataPedido','reagendamentos'].filter(key=>old.record[key]!==undefined).map(key=>[key,old.record[key]])),status:source.status==='pendente'?old.record.status:source.status} : source;
+        const record=statusOnly && old?{...old.record,status:source.status,panelConfirmed:source.panelConfirmed===true,...Object.fromEntries(['shopifyFinancialStatus','shopifyFulfillmentStatus'].filter(key=>source[key]!==undefined).map(key=>[key,source[key]]))}:name==='vendas' && old ? {...source,...Object.fromEntries(['horario','delivery','comissao','semana','mes','descricao','data','dataPedido','reagendamentos'].filter(key=>old.record[key]!==undefined).map(key=>[key,old.record[key]])),panelConfirmed:source.status==='cancelado'?false:old.record.panelConfirmed===true,status:source.status==='pendente'?(old.record.panelConfirmed===true?'concluido':old.record.status==='remarcado'?'remarcado':'pendente'):source.status} : source;
         validateRecord(name,record);
         if(old && recordEqual(old.record,record) && (!sourceUpdatedAt || sourceUpdatedAt===old.sourceUpdatedAt))continue;
         updated[i]={...record,_revision:(old?.revision || 0)+1};

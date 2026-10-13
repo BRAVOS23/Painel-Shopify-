@@ -11,7 +11,8 @@ export function createFreeSync(store,providers,config){
    const business=(await store.business(uid).get()).data();
    const productSnapshot=await store.records(uid,'produtos').select('record.id','record.nome','record.aliases').get(),products=productSnapshot.docs.map(doc=>doc.data().record);
    const until=new Date().toISOString();
-   const progress=connection.progress || {since:provider==='shopify'?(connection.lastSync?new Date(Date.parse(connection.lastSync)-5*60000).toISOString():new Date(Date.now()-59*86400000).toISOString()):new Date(Date.now()-30*86400000).toISOString().slice(0,10),until:provider==='shopify'?until:until.slice(0,10),after:null,offset:0,unmatched:[]};
+   const audit=provider==='shopify' && connection.salesPolicyVersion!==2;
+   const progress=(!audit || connection.progress?.salesPolicyVersion===2?connection.progress:null) || {since:provider==='shopify'?(!audit && connection.lastSync?new Date(Date.parse(connection.lastSync)-5*60000).toISOString():new Date(Date.now()-59*86400000).toISOString()):new Date(Date.now()-30*86400000).toISOString().slice(0,10),until:provider==='shopify'?until:until.slice(0,10),after:null,offset:0,unmatched:[],salesPolicyVersion:2};
    let items,nextAfter,offset=0,more=false,orderProgress={},unmatched=progress.unmatched || [];
    if(provider==='shopify'){
     const page=progress.orderId?{orders:[await providers.shopifyOrder(connection.shop,token,progress.orderId)],after:progress.orderNextAfter}:await providers.shopifyOrdersPage(connection.shop,token,progress.since,progress.until,progress.after);
@@ -29,7 +30,7 @@ export function createFreeSync(store,providers,config){
     items=result.records.map(record=>({record}));nextAfter=page.after;more=Boolean(nextAfter);unmatched=[...new Set([...unmatched,...result.unmatched])].slice(0,100);
    }
    await store.importedMany(uid,provider==='shopify'?'vendas':'ads',items);
-   await ref.update({progress:more?{...progress,...orderProgress,after:nextAfter,offset,unmatched}:null,...(!more?{lastSync:provider==='shopify'?progress.until:new Date().toISOString()}:{}),lastError:null,unmatchedCampaigns:unmatched});
+   await ref.update({progress:more?{...progress,...orderProgress,after:nextAfter,offset,unmatched}:null,...(!more?{lastSync:provider==='shopify'?progress.until:new Date().toISOString(),...(provider==='shopify'?{salesPolicyVersion:2}:{})}:{}),lastError:null,unmatchedCampaigns:unmatched});
    return {count:items.length,unmatched,partial:more,message:more?'Importação iniciada. Os próximos lotes serão processados automaticamente.':null};
   }catch(error){if((await ref.get()).exists)await ref.update({lastError:error.message});throw error;}
   finally{await release();}

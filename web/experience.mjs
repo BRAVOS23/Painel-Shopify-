@@ -1,3 +1,4 @@
+import {countOrders,completedSale} from './sales.mjs';
 import {initInstallationUi} from './install.mjs';
 import {initUsability} from './usability.mjs';
 import {scheduleOrder} from './orders.mjs';
@@ -62,7 +63,7 @@ export function initExperience(){
  async function renderSummary(){
   if(!$('secResumo').classList.contains('active'))return;
   const month=monthInput.value || today().slice(0,7),state=snapshot(),rows=state.vendas.filter(row=>row.mes===month),openRows=rows.filter(row=>['pendente','remarcado'].includes(row.status));
-  $('summaryOpen').textContent=openRows.length;$('summaryDone').textContent=rows.filter(row=>row.status==='concluido').length;
+  $('summaryOpen').textContent=countOrders(openRows);$('summaryDone').textContent=countOrders(rows.filter(completedSale));
   const upcoming=[...openRows].sort((a,b)=>a.data.localeCompare(b.data) || (a.horario || '').localeCompare(b.horario || '')).slice(0,5);
   $('summaryOrders').innerHTML=upcoming.length?upcoming.map(row=>`<div class="summary-row"><div><strong>${escape(row.contacto || 'Pedido sem contacto')}</strong><small>${day(row.data)}${row.horario?' · '+escape(row.horario):''} · ${escape(row.produto || row.local || '')}</small></div><button class="btn-ghost" data-order="${escape(row.id)}">Ver pedido</button></div>`).join(''):'<div class="empty" style="padding:28px 0">Não há entregas em aberto neste mês.</div>';
   $('summaryOrders').querySelectorAll('[data-order]').forEach(button=>button.onclick=()=>{const row=state.vendas.find(row=>row.id===button.dataset.order);window.navigateOrders(row.mes,row.semana);});
@@ -70,7 +71,7 @@ export function initExperience(){
   const current=++request;$('summaryMetricsNote').textContent='A atualizar os resultados…';
   const [year,number]=month.split('-').map(Number),end=new Date(Date.UTC(year,number,0)).toISOString().slice(0,10);
   try{const metrics=await window.cloudBackend.metrics(month+'-01',end,'');if(current!==request || !$('secResumo').classList.contains('active'))return;if(!metrics){$('summaryMetricsNote').textContent='Os resultados serão atualizados depois de guardar as alterações.';return;}
-   $('summaryRevenue').textContent=money(metrics.revenue);$('summaryProfit').textContent=money(metrics.profit);$('summaryMetricsNote').textContent=metrics.missingProductCount?`${metrics.missingProductCount} venda(s) sem custo de produto registado. Completa os custos em Produtos para melhorar a estimativa de lucro.`:'Os resultados usam os pedidos concluídos e os custos registados no período.';
+   $('summaryRevenue').textContent=money(metrics.revenue);$('summaryProfit').textContent=money(metrics.profit);$('summaryMetricsNote').textContent=metrics.statusReviewOrders?`${metrics.statusReviewOrders} pedido(s) antigo(s) aguardam verificação na Shopify e ainda não entram na receita.`:metrics.missingProductCount?`${metrics.missingProductCount} venda(s) sem custo de produto registado. Completa os custos em Produtos para melhorar a estimativa de lucro.`:'Os resultados usam os pedidos concluídos e os custos registados no período.';
   }catch{$('summaryMetricsNote').textContent='Não foi possível atualizar os resultados. Verifica a ligação à internet.';}
  }
  function carryNotice(){const month=$('mesVendasEditor').value,previous=window.cloudBackend.read('vendas').filter(row=>row.status==='remarcado' && row.mes<month);$('carryNotice').hidden=!previous.length;$('carryNotice').innerHTML=previous.length?`<span>${previous.length} pedido(s) remarcado(s) em meses anteriores.</span><button class="btn-ghost" id="carryOrdersButton">Trazer para este mês</button>`:'';if(previous.length)$('carryOrdersButton').onclick=()=>window.openCarryRescheduled(month);}

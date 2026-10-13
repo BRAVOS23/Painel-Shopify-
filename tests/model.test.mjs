@@ -32,7 +32,7 @@ test('Meta associa produto sem omitir campanhas não correspondentes',()=>{
  assert.equal(metaRecords(rows,[],'act_1','USD','MZN',64).records[0].valor,640);assert.throws(()=>metaRecords(rows,[],'act_1','USD','MZN',0));
 });
 test('rentabilidade inclui entregador e CPA conta pedidos, não itens',()=>{
- const sales=shopifyRecords(order).map(row=>({...row,status:'concluido',comissao:row.id.endsWith('_1')?30:0}));
+ const sales=shopifyRecords(order).map(row=>({...row,status:'concluido',panelConfirmed:true,comissao:row.id.endsWith('_1')?30:0}));
  const state={vendas:sales,produtos:[{nome:'Produto A',custo:20},{nome:'Produto B',custo:10}],ads:[{data:'2026-10-12',produto:'',tipo:'ads',valor:20}],operacional:[{nome:'mensal',data:'2026-10-01',recorrente:true,valor:310}]};
  const metrics=calculateMetrics(state,'2026-10-12','2026-10-12');
  assert.equal(metrics.orders,1);assert.equal(metrics.cpa,20);assert.equal(metrics.revenue,230);assert.equal(metrics.acquisition,50);assert.equal(metrics.delivery,30);assert.equal(metrics.operational,10);assert.equal(metrics.total,110);
@@ -122,4 +122,20 @@ test('nomes associados preservam custos e filtros após renomear sem mudar o his
  assert.equal(result.revenue,100);assert.equal(result.acquisition,40);assert.equal(result.ads,10);assert.equal(result.profit,45);assert.equal(result.missingProductCount,0);assert.deepEqual(state,before);
  assert.equal(shopifyRecords({...order,line_items:[{id:'1',title:sale.produto,price:'100',quantity:1,discount_allocations:[]}]},products)[0].produto,'Cortador 14 em 1');
  validateRecord('produtos',products[0]);assert.throws(()=>validateRecord('produtos',{...products[0],aliases:['']}));
+});
+
+test('receita e vendas excluem pendentes, remarcados e cancelados; Meta não cria vendas',()=>{
+ const base={data:'2026-10-13',produto:'Produto A',quantidade:1,valor:100,comissao:10};
+ const sales=['pendente','remarcado','cancelado','concluido'].map((status,index)=>({...base,id:'sale'+index,status}));
+ const imported=metaRecords([{campaign_id:'9',campaign_name:'Produto A',spend:'30',date_start:'2026-10-13',actions:[{action_type:'purchase',value:'999'}],purchase_roas:[{value:'9999'}]}],[{nome:'Produto A'}],'act_1','MZN');
+ const state={vendas:sales,produtos:[{nome:'Produto A',custo:20}],ads:imported.records,operacional:[]};
+ const result=calculateMetrics(state,'2026-10-13','2026-10-13');assert.equal(result.revenue,100);assert.equal(result.orders,1);assert.equal(result.acquisition,20);assert.equal(result.delivery,10);assert.equal(result.ads,30);assert.equal(result.profit,40);assert.equal(result.cpa,30);assert.equal(result.roas,100/30);assert(imported.records.every(row=>!('actions' in row) && !('purchase_roas' in row)));
+ sales[3].status='pendente';const empty=calculateMetrics(state,'2026-10-13','2026-10-13');assert.equal(empty.orders,0);assert.equal(empty.revenue,0);assert.equal(empty.acquisition,0);assert.equal(empty.delivery,0);assert.equal(empty.ads,30);assert.equal(empty.profit,-30);
+});
+
+test('Shopify só confirma automaticamente processado e pago; confirmação no painel também conta',()=>{
+ for(const [financial,fulfillment,wanted] of [['paid','unfulfilled','pendente'],['pending','fulfilled','pendente'],['paid','fulfilled','concluido']]){const records=shopifyRecords({...order,financial_status:financial,fulfillment_status:fulfillment});assert(records.every(row=>row.status===wanted));}
+ const records=shopifyRecords({...order,financial_status:'pending',fulfillment_status:'fulfilled'}).map(row=>({...row,status:'concluido',panelConfirmed:true}));const state={vendas:records,produtos:[],ads:[],operacional:[]};assert.equal(calculateMetrics(state,'2026-10-12','2026-10-12').orders,1);
+ for(const row of records)row.panelConfirmed=false;assert.equal(calculateMetrics(state,'2026-10-12','2026-10-12').orders,0);
+ const legacy={...records[0]};delete legacy.shopifyFinancialStatus;delete legacy.shopifyFulfillmentStatus;state.vendas=[legacy];assert.equal(calculateMetrics(state,'2026-10-12','2026-10-12').statusReviewOrders,1);
 });
