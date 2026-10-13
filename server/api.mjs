@@ -182,8 +182,8 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
   app.use((error,req,res,_next)=>{
     const status=error.status || (error.type==='entity.too.large' ? 413 : 500);
     // Não imprimir requisições, tokens, URLs OAuth ou respostas integrais das plataformas.
-    console.error(`Pedido ${req.method} falhou (${status}).`);
-    res.status(status).json({error:status===500 ? 'Não foi possível concluir a operação no servidor. Tente novamente.' : error.message});
+    console.error(`Pedido ${req.method} falhou (${status})${/^[A-Z_]{1,50}$/.test(error.diagnosticCode || '')?' · '+error.diagnosticCode:''}.`);
+    res.status(status).json({error:status===500 ? 'Não foi possível concluir a operação no servidor. Tente novamente.' : error.message,...(/^[A-Z_]{1,50}$/.test(error.diagnosticCode || '')?{code:error.diagnosticCode}:{})});
   });
   return app;
 }

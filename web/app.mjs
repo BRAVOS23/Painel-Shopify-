@@ -35,7 +35,7 @@ async function api(path,options={}){
  const response=await fetch('/api'+path,{...options,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,...(path==='/state' && stateTag?{'If-None-Match':stateTag}:{}),...options.headers},signal:AbortSignal.timeout(60000)});
  if(response.status===304)return null;
  if(path==='/state' && response.ok)stateTag=response.headers.get('ETag');
- const body=await response.json();if(!response.ok)throw Object.assign(new Error(body.error || 'Operação recusada.'),{status:response.status});return body;
+ const body=await response.json();if(!response.ok)throw Object.assign(new Error(body.error || 'Operação recusada.'),{status:response.status,diagnosticCode:body.code});return body;
 }
 const clone=value=>structuredClone(value);
 function adopt(snapshot){baseline=clone(snapshot);desired=Object.fromEntries(groups.map(name=>[name,snapshot[name].map(clean)]));}
@@ -169,7 +169,7 @@ async function loadSession(current){
   document.getElementById('cloudIdentity').textContent=current.email+(config.emulators?' · Desenvolvimento local':'');
   sessionNotice.hidden=true;loginMessage('');login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');
   try{await connections();}catch{document.getElementById('shopifyConnectionMessage').textContent='Não foi possível atualizar o estado das integrações. Tenta novamente no menu de utilizador.';}
- }catch(error){if(activeSession!==session)return;wrap.hidden=true;login.hidden=true;sessionNotice.hidden=false;document.getElementById('sessionLoadMessage').textContent=error.status===401?'A sessão expirou. Entra novamente na tua conta.':error.status===403?error.message:'A tua sessão foi reconhecida, mas não foi possível carregar os dados do negócio. Tenta novamente.';document.getElementById('sessionLoadRetry').hidden=false;}
+ }catch(error){if(activeSession!==session)return;wrap.hidden=true;login.hidden=true;sessionNotice.hidden=false;document.getElementById('sessionLoadMessage').textContent=error.status===401?'A sessão expirou. Entra novamente na tua conta.':[403,422,429,503].includes(error.status)?error.message:'A tua sessão foi reconhecida, mas não foi possível carregar os dados do negócio. Tenta novamente.';if(/^[A-Z_]{1,50}$/.test(error.diagnosticCode || ''))document.getElementById('sessionLoadMessage').textContent+=' Código: '+error.diagnosticCode+'.';document.getElementById('sessionLoadRetry').hidden=false;}
 }
 onAuthStateChanged(auth,current=>void loadSession(current));
 setInterval(()=>{if(document.visibilityState==='visible')void refresh();},60000);

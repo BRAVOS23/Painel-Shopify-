@@ -39,3 +39,10 @@ test('query com limit não interpreta resultados truncados como coleção comple
  const calls=[];const db=createFirestore({project:'demo-test',accessToken:async()=>'owner',fetcher:async(_url,options)=>{const body=JSON.parse(options.body);calls.push(body);return Response.json([{document:{name:'projects/demo-test/databases/(default)/documents/businesses/a',fields:{ownerId:{stringValue:'a'}}}}]);}});
  assert.equal((await db.collection('businesses').limit(1).get()).size,1);assert.equal(calls[0].structuredQuery.limit,1);
 });
+
+test('falhas Firestore distinguem quota, permissões e indisponibilidade sem expor respostas',async()=>{
+ for(const [reason,httpStatus,status,diagnosticCode] of [['RESOURCE_EXHAUSTED',429,429,'FIREBASE_QUOTA'],['PERMISSION_DENIED',403,503,'FIREBASE_ACCESS'],['UNAVAILABLE',503,503,'FIREBASE_UNAVAILABLE']]){
+  const db=createFirestore({project:'demo-test',accessToken:async()=>'owner',fetcher:async()=>Response.json({error:{status:reason,message:'private-provider-details'}},{status:httpStatus})});
+  await assert.rejects(db.doc('businesses/test').get(),error=>error.status===status && error.diagnosticCode===diagnosticCode && !error.message.includes('private-provider-details'));
+ }
+});

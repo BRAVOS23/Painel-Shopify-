@@ -22,7 +22,11 @@ export function createFirestore({project,accessToken,emulator=false,fetcher=fetc
   const url=new URL(origin+path);if(query)for(const [k,v]of Object.entries(query))url.searchParams.set(k,v);
   const response=await fetcher(url,{method,headers:{Authorization:'Bearer '+await accessToken(),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(20000)});
   const result=await response.json();
-  if(!response.ok){const code={NOT_FOUND:5,ALREADY_EXISTS:6,ABORTED:10,UNAVAILABLE:14}[result.error?.status];throw Object.assign(new Error('Operação Firestore recusada.'),{code,httpStatus:response.status,status:response.status===403?503:undefined});}
+  if(!response.ok){
+   const reason=result.error?.status,code={NOT_FOUND:5,ALREADY_EXISTS:6,ABORTED:10,UNAVAILABLE:14}[reason];
+   const faults={RESOURCE_EXHAUSTED:[429,'FIREBASE_QUOTA','O Firebase atingiu o limite de utilização. Aguarda a reposição da quota ou verifica a utilização no Firebase.'],PERMISSION_DENIED:[503,'FIREBASE_ACCESS','O servidor não tem acesso à base de dados. Verifica as permissões da conta de serviço no Firebase.'],UNAUTHENTICATED:[503,'FIREBASE_IDENTITY','O Firebase recusou a identidade do servidor. Verifica a conta de serviço.'],UNAVAILABLE:[503,'FIREBASE_UNAVAILABLE','A base de dados está temporariamente indisponível. Tenta novamente.'],DEADLINE_EXCEEDED:[503,'FIREBASE_TIMEOUT','A base de dados demorou demasiado a responder. Tenta novamente.']};
+   const fault=faults[reason];throw Object.assign(new Error(fault?.[2] || 'Operação Firestore recusada.'),{code,httpStatus:response.status,status:fault?.[0] || (response.status===403?503:undefined),diagnosticCode:fault?.[1] || 'FIREBASE_REQUEST'});
+  }
   return result;
  }
  const fields=data=>encode(data).mapValue.fields;
