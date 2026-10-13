@@ -1,3 +1,4 @@
+import {createCatalog} from './catalog.mjs';
 import { randomBytes,createHash } from 'node:crypto';
 import { collections,calculateMetrics,shopifyRecords } from './model.mjs';
 import { encrypt,decrypt,shopDomain,validWebhook,validShopifyOAuth,publicConnection } from './security.mjs';
@@ -97,6 +98,9 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
   }
   app.post('/api/shopify/orders/:id/status',orderStatus);
   app.get('/api/shopify/orders/:id/status',orderStatus);
+  const catalog=createCatalog(store,providers,config);
+  app.get('/api/shopify/products',async(req,res)=>{const after=req.query.after || null;if(after && (typeof after!=='string' || after.length>1000))return res.status(400).json({error:'Cursor inválido.'});res.json(await catalog.list(req.user.uid,after));});
+  app.post('/api/shopify/products/link',async(req,res)=>res.json(await catalog.bind(req.user.uid,req.body.bindings,req.business.dataVersion || 0)));
   app.get('/api/meta/accounts',async(req,res)=>{
     const snap=await store.connection(req.user.uid,'meta').get();
     if(!snap.exists) return res.status(400).json({error:'Ligue a conta Meta primeiro.'});
@@ -128,7 +132,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     const redirect=`${config.baseUrl}/oauth/${provider}/callback`;
     const url=new URL(provider==='shopify' ? `https://${shop}/admin/oauth/authorize` : `https://www.facebook.com/${config.metaVersion}/dialog/oauth`);
     url.search=new URLSearchParams({client_id:provider==='shopify' ? config.shopifyId : config.metaId,
-      redirect_uri:redirect,state,scope:provider==='shopify' ? 'read_orders,write_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders' : 'ads_read'}).toString();
+      redirect_uri:redirect,state,scope:provider==='shopify' ? 'read_products,read_orders,write_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders' : 'ads_read'}).toString();
     res.json({url:url.toString()});
   });
   app.get('/oauth/:provider/callback',async(req,res)=>{

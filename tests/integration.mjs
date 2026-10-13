@@ -14,7 +14,7 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';process.env.FIRESTORE_E
 const firebase=initializeApp({projectId:'demo-painel'},'integration'),db=getFirestore(firebase),store=createStore(db);
 const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifyId:'fixture-client',shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta'};
 let order={id:'991',created_at:'2026-10-12T08:00:00Z',updated_at:'2026-10-12T09:00:00Z',currency:'MZN',shipping_address:{name:'Integration'},line_items:[{id:'1',title:'Produto A',quantity:2,price:'100',discount_allocations:[]}]};
-const providers={exchangeShopify:async()=>({access_token:'fixture'}),shopifyIdentity:async shop=>({id:shop==='different.myshopify.com'?'gid://shopify/Shop/2':'gid://shopify/Shop/1',myshopifyDomain:'fixture.myshopify.com'}),registerWebhooks:async()=>{},shopifyOrders:async()=>[order],shopifyOrder:async()=>order,shopifyStatus:async(_shop,_token,_id,status)=>{order={...order,updated_at:new Date().toISOString(),...(status==='cancelado'?{cancelled_at:new Date().toISOString()}:{fulfillment_status:'fulfilled'})};return order;},metaInsights:async()=>[{campaign_id:'7',campaign_name:'Produto A',spend:'50',date_start:'2026-10-12'},{campaign_id:'8',campaign_name:'Sem produto',spend:'5',date_start:'2026-10-12'}]};
+const providers={shopifyProductsPage:async()=>({products:[{id:'123',title:'Produto A da loja'}],after:null}),shopifyProductsByIds:async(_shop,_token,ids)=>ids.map(id=>({id,title:id==='123'?'Produto A da loja':'Novo produto'})),exchangeShopify:async()=>({access_token:'fixture'}),shopifyIdentity:async shop=>({id:shop==='different.myshopify.com'?'gid://shopify/Shop/2':'gid://shopify/Shop/1',myshopifyDomain:'fixture.myshopify.com'}),registerWebhooks:async()=>{},shopifyOrders:async()=>[order],shopifyOrder:async()=>order,shopifyStatus:async(_shop,_token,_id,status)=>{order={...order,updated_at:new Date().toISOString(),...(status==='cancelado'?{cancelled_at:new Date().toISOString()}:{fulfillment_status:'fulfilled'})};return order;},metaInsights:async()=>[{campaign_id:'7',campaign_name:'Produto A',spend:'50',date_start:'2026-10-12'},{campaign_id:'8',campaign_name:'Sem produto',spend:'5',date_start:'2026-10-12'}]};
 const sync=createSync(store,providers,config),server=createApp({store,auth:getAuth(firebase),providers,sync,config}).listen(0,'127.0.0.1');
 await new Promise(resolve=>server.once('listening',resolve));const root=`http://127.0.0.1:${server.address().port}`;
 const users=[];let checks=0;
@@ -103,6 +103,15 @@ try{
  // Testar as regras reais do emulador com o token do utilizador, sem Admin SDK.
  const direct=await fetch(`http://127.0.0.1:8080/v1/projects/demo-painel/databases/(default)/documents/businesses/${owner}/connections/shopify`,{headers:{Authorization:'Bearer '+a.idToken}});
  assert.equal(direct.status,403);pass('acesso direto do navegador a credenciais Firestore bloqueado');
+ // Catálogo Shopify: vínculo de nomes e IDs, nunca inventário.
+ const localProduct=(await store.records(owner,'produtos').doc('product1').get()).data();
+ await store.records(owner,'produtos').doc('product1').update({...localProduct,record:{...localProduct.record,locais:[{id:'maputo',local:'Maputo',quantidade:7}]}});
+ assert.equal((await request(b,'/api/shopify/products/link',{bindings:[{shopifyProductId:'123',productId:'product1',revision:localProduct.revision}]})).status,400);
+ const catalogList=await request(a,'/api/shopify/products');assert.equal(catalogList.status,200);assert.equal(catalogList.body.products[0].title,'Produto A da loja');
+ const linked=await request(a,'/api/shopify/products/link',{bindings:[{shopifyProductId:'123',productId:'product1',revision:localProduct.revision}]});assert.equal(linked.status,200,JSON.stringify(linked.body));
+ const savedProduct=(await store.records(owner,'produtos').doc('product1').get()).data();assert.equal(savedProduct.record.custo,20);assert.equal(savedProduct.record.locais[0].quantidade,7);assert.equal(savedProduct.record.nome,'Produto A da loja');assert(savedProduct.record.aliases.includes('Produto A'));assert.equal(savedProduct.record.shopifyProductId,'123');
+ assert.equal((await request(a,'/api/shopify/products/link',{bindings:[{shopifyProductId:'123',productId:'product1',revision:localProduct.revision}]})).status,409);
+ pass('catálogo Shopify exige propriedade, preserva custo/stock local e recusa revisões antigas');
  console.log(`${checks} verificações de integração passaram (emuladores + provedores simulados).`);
 }finally{
  for(const user of users){await db.recursiveDelete(store.business(user.localId));await getAuth(firebase).deleteUser(user.localId);}

@@ -44,7 +44,7 @@ Verifique `/api/health`, faça login com email verificado e teste dois negócios
 
 1. Crie/configure um aplicativo Shopify que suporte OAuth e instalação para as lojas pretendidas. Para vender a outras empresas, escolha a distribuição adequada e cumpra os requisitos/revisão da Shopify; um token de app personalizado de uma loja não basta para um serviço multi-cliente.
 2. Configure a URL base e o callback exato `https://SEU_DOMINIO/oauth/shopify/callback`.
-3. Configure as permissões `read_orders`, `write_orders`, `read_merchant_managed_fulfillment_orders` e `write_merchant_managed_fulfillment_orders`. Acesso aos dados protegidos dos clientes requer as autorizações aplicáveis da Shopify. Processamento por prestadores/locais de terceiros pode exigir permissões e tratamento adicionais.
+3. Configure as permissões `read_products`, `read_orders`, `write_orders`, `read_merchant_managed_fulfillment_orders` e `write_merchant_managed_fulfillment_orders`. Acesso aos dados protegidos dos clientes requer as autorizações aplicáveis da Shopify. Processamento por prestadores/locais de terceiros pode exigir permissões e tratamento adicionais.
 4. Configure `SHOPIFY_CLIENT_ID` e `SHOPIFY_CLIENT_SECRET` no servidor. A versão GraphQL padrão é `2026-07`; confirme o suporte e mantenha-a atualizada com testes.
 5. No painel, no menu ⋯ → Integrações, indique `nomedaloja.myshopify.com` e clique em Ligar Shopify. A loja pede autorização diretamente na Shopify.
 
@@ -70,3 +70,9 @@ Destinos necessários em produção: a loja `*.myshopify.com`, `www.facebook.com
 Configure logs sem tokens, alertas para falhas de sincronização, retenção/limpeza da fila e estados OAuth, recuperação dos jobs que esgotaram tentativas e backups do banco. Esta versão conserva jobs falhados para diagnóstico; não tem consola administrativa de reprocessamento. Os erros de integração aparecem no menu ⋯ → Integrações.
 
 A cobrança ainda não existe. O serviço **não está pronto para aceitar assinaturas pagas** até os requisitos comerciais indicados em README.md serem implementados e as ligações reais validadas.
+
+## Catálogo Shopify e limpeza manual
+
+Adicione read_products à versão ativa do app Shopify e reautorize no painel. Em Resultados → Produtos → Vincular produtos Shopify, selecione a correspondência com um produto existente, Criar no painel ou Não vincular. O servidor lê apenas ID e título; não consulta nem altera inventário. Uma ligação preserva ID local, custo, fotografia e locais/quantidades; nomes anteriores tornam-se aliases. Nomes vinculados são editados na Shopify e atualizados automaticamente pelo Worker em lotes de cinco, com reconciliação diária. Produtos criados da loja têm custo por definir e stock local vazio. Falhas no catálogo são apresentadas nas integrações e não bloqueiam indefinidamente a reconciliação dos pedidos.
+
+Em ⋯ → Dados → Limpar pedidos e gastos manuais, a prévia contém apenas pedidos sem identificação Shopify, anúncios/outros sem identificação Meta e gastos da loja. A confirmação exige baixar o backup, confirmar que foi guardado e escrever APAGAR. Produtos, stock, importações identificadas e movimentos antigos de caixa são preservados. A restauração específica da limpeza valida todo o ficheiro antes de inserir e nunca substitui IDs existentes. Limpeza/restauração usam as transações e revisões normais, em lotes; consulte o estado de gravação e resolva conflitos antes de continuar. A conta real só é alterada pela ação autenticada do utilizador nesta interface.

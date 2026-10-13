@@ -65,6 +65,9 @@ async function flush(){
 window.cloudBackend={
  preferenceKey:key=>`${key}:${auth.currentUser?.uid || "anonymous"}`,
  async shopifyConnected(){if(shopifyConnectionKnown!==null)return shopifyConnectionKnown;await connections();return shopifyConnectionKnown;},
+ ready:()=>!dirty() && !busy && !failure,
+ catalogPage:after=>api('/shopify/products'+(after?'?'+new URLSearchParams({after}):'')),
+ async linkCatalog(bindings){if(dirty() || busy)throw new Error('Aguarda a gravação dos dados.');const result=await api('/shopify/products/link',{method:'POST',body:JSON.stringify({bindings:bindings.map(item=>({...item,revision:baseline.produtos.find(row=>row.id===item.productId)?._revision || 0}))})});await refresh();return result;},
  read:name=>clone(desired[name] || []),
  save(name,records){desired[name]=clone(records);mutation++;status('A guardar…');if(!failure)void flush();},
  async reflectStatus(id,status){
@@ -156,7 +159,7 @@ async function connections(){
  if(provider==='shopify' && connection.shop && !document.getElementById('cloudShop').value)document.getElementById('cloudShop').value=connection.shop;
  document.getElementById('sync'+cap).disabled=!connection.connected;
  document.getElementById('disconnect'+cap).hidden=!connection.connected;
- document.getElementById(provider+'ConnectionMessage').textContent=!connection.configured ? 'A integração precisa de configuração pelo administrador antes de poder ser ligada.' : connection.lastError || (connection.unmatchedCampaigns?.some(name=>provider!=='meta' || !metaProductResolver(desired.produtos || [])(name)) ? 'Campanhas sem produto: '+connection.unmatchedCampaigns.filter(name=>provider!=='meta' || !metaProductResolver(desired.produtos || [])(name)).join(', ') : '');
+ document.getElementById(provider+'ConnectionMessage').textContent=!connection.configured ? 'A integração precisa de configuração pelo administrador antes de poder ser ligada.' : connection.lastError || connection.catalogLastError || (connection.unmatchedCampaigns?.some(name=>provider!=='meta' || !metaProductResolver(desired.produtos || [])(name)) ? 'Campanhas sem produto: '+connection.unmatchedCampaigns.filter(name=>provider!=='meta' || !metaProductResolver(desired.produtos || [])(name)).join(', ') : '');
  }
  if(result.meta.connected && !metaAccountsLoaded){const response=await api('/meta/accounts');const select=document.getElementById('metaAccount');select.replaceChildren(...response.accounts.map(account=>{const option=document.createElement('option');option.value=account.id;option.textContent=`${account.name} (${account.currency})`;return option;}));select.value=result.meta.accountId || select.options[0]?.value || '';metaAccountsLoaded=true;}
  if(!result.meta.connected){metaAccountsLoaded=false;metaRateEditing=false;document.getElementById('metaRate').value='';}

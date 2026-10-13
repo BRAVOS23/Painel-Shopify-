@@ -97,7 +97,9 @@ export function createProviders(config, fetcher = fetch) {
     } while(after);
     return rows;
   }
-  return { shopifyGraphql,shopifyOrders,shopifyOrdersPage,shopifyOrder,shopifyStatus,registerWebhooks,meta,
+  async function shopifyProductsPage(shop,token,after=null){const data=await shopifyGraphql(shop,token,'query($after:String){products(first:5,after:$after,sortKey:ID){nodes{legacyResourceId title}pageInfo{hasNextPage endCursor}}}',{after});return {products:data.products.nodes.map(row=>({id:String(row.legacyResourceId),title:row.title})),after:data.products.pageInfo.hasNextPage?data.products.pageInfo.endCursor:null};}
+  async function shopifyProductsByIds(shop,token,ids){const data=await shopifyGraphql(shop,token,'query($ids:[ID!]!){nodes(ids:$ids){... on Product {legacyResourceId title}}}',{ids:ids.map(id=>'gid://shopify/Product/'+id)});return data.nodes.filter(Boolean).map(row=>({id:String(row.legacyResourceId),title:row.title}));}
+  return {shopifyProductsPage,shopifyProductsByIds, shopifyGraphql,shopifyOrders,shopifyOrdersPage,shopifyOrder,shopifyStatus,registerWebhooks,meta,
     metaAccounts:token=>metaPages('me/adaccounts',token,{fields:'id,name,currency,timezone_name',limit:100}),
     metaInsights:(id,token,since,until)=>metaPages(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:500}),
     metaInsightsPage:async(id,token,since,until,after=null)=>{const body=await meta(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:5,...(after?{after}:{})});if(body.paging?.next && !body.paging?.cursors?.after)throw new Error('Meta Ads: paginação sem cursor.');return {rows:body.data,after:body.paging?.next?body.paging.cursors.after:null};},

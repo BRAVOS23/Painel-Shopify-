@@ -1,3 +1,4 @@
+import {createCatalog} from '../server/catalog.mjs';
 // Teste do runtime Workerd real (wrangler dev), Auth/Firestore locais e sync com provedores simulados.
 import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
@@ -37,6 +38,12 @@ try{
  result=await sync.run(id,'meta');assert(!result.partial);assert.equal((await store.state(id)).ads.length,6);assert.deepEqual(result.unmatched,['Sem produto']);pass('paginação Meta retoma o cursor e mantém campanhas não correspondentes');
  const job=db.doc('webhookQueue/worker-'+id);await job.set({ownerId:id,shop:'fixture.myshopify.com',orderId:'887',status:'pending',attempts:0});
  assert((await sync.processWebhook(await job.get())).partial);assert.equal((await job.get()).data().status,'pending');assert(!(await sync.processWebhook(await job.get())).partial);assert.equal((await job.get()).data().status,'done');pass('fila de webhooks retoma lote e marca concluído apenas no fim');
+ const productBefore=(await store.records(id,'produtos').doc('worker_product').get()).data();
+ await store.patch(id,'produtos',[{id:'worker_product',revision:productBefore.revision,record:{...productBefore.record,locais:[{id:'maputo',local:'Maputo',quantidade:6}]}}]);
+ let catalogTitle='Produto da loja';const catalog=createCatalog(store,{shopifyProductsByIds:async()=>[{id:'456',title:catalogTitle}]},{encryptionKey:key});
+ const binding=await catalog.bind(id,[{shopifyProductId:'456',productId:'worker_product',revision:productBefore.revision+1}]);assert.equal(binding.count,1);
+ catalogTitle='Produto da loja atualizado';await catalog.refresh(id,(await store.connection(id,'shopify').get()).data());
+ const linkedProduct=(await store.records(id,'produtos').doc('worker_product').get()).data().record;assert.equal(linkedProduct.nome,catalogTitle);assert.equal(linkedProduct.custo,10);assert.equal(linkedProduct.locais[0].quantidade,6);assert(linkedProduct.aliases.includes('Produto Worker'));pass('catálogo por ID e nomes atualizado via Firestore REST preserva stock/custo local');
  // O scheduler Workerd sem ligações reais não faz chamadas às plataformas.
  await store.connection(id,'shopify').delete();await store.connection(id,'meta').delete();await job.delete();
  const scheduled=await fetch(root+'/__scheduled?cron=*+*+*+*+*');assert.equal(scheduled.status,200);pass('Cron Trigger invocado no runtime Cloudflare local');

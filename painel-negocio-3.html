@@ -2962,7 +2962,7 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
 
   if(produtoEditId){
     const idx = produtosData.findIndex(p=>p.id===produtoEditId);
-    if(idx>-1){const old=produtosData[idx];produtosData[idx]={...old,nome,custo,locais,foto:foto || old.foto || '',aliases:[...new Set([...(old.aliases || []),...(old.nome!==nome?[old.nome]:[])])].slice(-50)};}
+    if(idx>-1){const old=produtosData[idx];produtosData[idx]={...old,nome,custo,locais,costConfigured:true,foto:foto || old.foto || '',aliases:[...new Set([...(old.aliases || []),...(old.nome!==nome?[old.nome]:[])])].slice(-50)};}
     showProdutoMsg('Produto atualizado.');
     produtoEditId = null;
     document.getElementById('produtoSubmitBtn').textContent = 'Guardar';
@@ -2995,7 +2995,7 @@ function editProduto(id){
   if(!p) return;
   switchMain('metricas');
   switchMetricasView('produtos');
-  document.getElementById('pNome').value = p.nome;
+  document.getElementById('pNome').value = p.nome;document.getElementById('pNome').readOnly=Boolean(p.shopifyProductId);if(document.getElementById('productNameOrigin'))document.getElementById('productNameOrigin').hidden=!p.shopifyProductId;
   document.getElementById('pCusto').value = p.custo;
   produtoLocaisForm = (p.locais && p.locais.length ? p.locais : [novaLinhaLocalProduto()]).map(r=>({...r}));
   renderProdutoLocaisForm();
@@ -3009,6 +3009,7 @@ function editProduto(id){
   window.openProductEditor?.(true);
 }
 function cancelProdutoEdit(){
+  document.getElementById('pNome').readOnly=false;if(document.getElementById('productNameOrigin'))document.getElementById('productNameOrigin').hidden=true;
   produtoEditId = null;
   pendingFotoBase64 = null;
   document.getElementById('produtoForm').reset();
@@ -3429,8 +3430,8 @@ function populateProdutosMetricas(){
  document.getElementById('produtosExistentes').innerHTML=[...registered,...unknown].map(p=>`<option value="${escapeHtml(p)}"></option>`).join('');
  const sel=document.getElementById('metProduto'),atual=resolve(sel.value);
  const options=values=>values.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
- sel.innerHTML='<option value="">Todos os produtos</option>'+`<optgroup label="Produtos cadastrados (${registered.length})">${options(registered)}</optgroup>`+(unknown.length?`<optgroup label="Nomes sem associação (${unknown.length})">${options(unknown)}</optgroup>`:'');
- if([...registered,...unknown].includes(atual))sel.value=atual;
+ sel.innerHTML='<option value="">Todos os produtos</option>'+options(registered);
+ if(registered.includes(atual))sel.value=atual;
  window.updateCatalogNotice?.();
 }
 
@@ -3656,7 +3657,7 @@ function renderProdutosView(){
           <button type="button" class="produto-expand-chev" aria-label="Ver stock por local" aria-expanded="${expandido}" onclick="event.stopPropagation();toggleProdutoCard('${p.id}')">⌄</button>
         </div>
         <div class="produto-card-extra">
-          <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${fmtMT(p.custo)}</span></div>
+          <div class="produto-card-linha"><span>Custo/un.</span><span class="mono">${p.costConfigured===false?'Definir custo':fmtMT(p.custo)}</span></div>
           ${locaisHtml}
           <div class="produto-card-total"><span>Unidades em stock total</span><span class="mono">${estoque}</span></div>
           <div class="row-actions" onclick="event.stopPropagation()" style="margin-top:10px;">
