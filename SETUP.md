@@ -1,5 +1,7 @@
 # Ativar Firebase, Shopify e Meta
 
+> Referência atual (13/10/2026): [Manual técnico e funcional](docs/MANUAL-TECNICO-E-FUNCIONAL.md). Este ficheiro conserva instruções/notas de fases anteriores. Afirmações de que o painel ainda não foi publicado, integrações nunca foram ligadas ou certas ações permanecem na interface podem estar desatualizadas; usar o manual e o código atual para o estado do projeto.
+
 O alvo escolhido para respeitar o orçamento zero é **Cloudflare Workers Free**. Seguir primeiro [CLOUDFLARE.md](CLOUDFLARE.md), incluindo a configuração de Secrets. A versão foi verificada localmente; ainda não foi publicada nem ligada ao Firestore real. Não ativar faturação nem plano Blaze. As instruções Node abaixo ficam como referência de desenvolvimento/alternativa e não devem ser usadas para contratar um servidor pago.
 
 ## 1. Criar o projeto Firebase

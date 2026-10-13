@@ -1,5 +1,7 @@
 # Publicar no Cloudflare Workers Free
 
+> Referência atual (13/10/2026): [Manual técnico e funcional](docs/MANUAL-TECNICO-E-FUNCIONAL.md). Este ficheiro conserva instruções/notas de fases anteriores. Afirmações de que o painel ainda não foi publicado, integrações nunca foram ligadas ou certas ações permanecem na interface podem estar desatualizadas; usar o manual e o código atual para o estado do projeto.
+
 Esta versão foi compilada com Wrangler e testada no Workerd local, com Firebase emulado. O proprietário publicou a branch main na Cloudflare (build e24ff08b, conforme screenshot) e forneceu a URL https://painel-shopify.lobojose348.workers.dev. A verificação HTTP pelo ambiente foi bloqueada pela política de rede. A ligação ao Firestore real e as integrações Shopify/Meta ainda não foram validadas. Não comprar domínio, não ativar Workers Paid e não mudar o Firebase Spark para Blaze: o requisito do proprietário é orçamento zero.
 
 ## Ficheiros e comandos preparados

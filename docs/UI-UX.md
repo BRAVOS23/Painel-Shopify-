@@ -1,5 +1,7 @@
 # Revisão da interface — 12 de outubro de 2026
 
+> Referência atual (13/10/2026): [Manual técnico e funcional](MANUAL-TECNICO-E-FUNCIONAL.md). Este ficheiro conserva instruções/notas de fases anteriores. Afirmações de que o painel ainda não foi publicado, integrações nunca foram ligadas ou certas ações permanecem na interface podem estar desatualizadas; usar o manual e o código atual para o estado do projeto.
+
 A estrutura mantém Resumo, Pedidos, Resultados e o menu de utilizador. A revisão não altera regras financeiras, permissões de acesso ou o armazenamento dos pedidos.
 
 | Área | Problema observado | Alteração |
