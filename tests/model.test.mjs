@@ -101,3 +101,14 @@ test('importação usa contacto de entrega sem exigir acesso ao perfil Customer'
  const page=await providers.shopifyOrdersPage('fixture.myshopify.com','fixture','2026-10-01','2026-10-12');
  const rows=shopifyRecords(page.orders[0]);assert.equal(rows[0].contacto,'Cliente Entrega 865123456');assert.equal(rows[0].local,'Matola, Maputo');assert.equal(rows[0].valor,100);
 });
+
+test('Meta reconhece datas finais sem confundir números ou campanhas de vários produtos',()=>{
+ const products=[{nome:'Selante'},{nome:'Cortador 14 em 1'},{nome:'Mini Batedeira'},{nome:'Mini Chopper'}];
+ const campaigns=['Selante 30/07/26','Cortador 14 em 1 31/08/2026','Selante - 2026-10-11','Selante (11/10/26)','MINI BATEDEIRA + MINI CHOPPER 11/10/26','Selante 31/02/26','Super Selante 11/10/26'];
+ const rows=campaigns.map((campaign_name,index)=>({campaign_id:String(index),campaign_name,spend:'10',date_start:'2026-10-13'}));
+ const result=metaRecords(rows,products,'act_1','MZN');
+ assert.deepEqual(result.records.map(row=>row.produto),['Selante','Cortador 14 em 1','Selante','Selante','','','']);
+ assert.equal(result.records[0].campaignName,campaigns[0]);assert.equal(result.records[0].valor,10);
+ const again=metaRecords(rows,products,'act_1','MZN');assert.deepEqual(again.records.map(row=>row.id),result.records.map(row=>row.id));
+ assert.equal(metaRecords(rows,[{nome:'Selante'},{nome:'SELANTE'}],'act_1','MZN').records[0].produto,'');
+});
