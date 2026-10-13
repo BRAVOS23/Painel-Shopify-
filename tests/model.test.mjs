@@ -85,7 +85,7 @@ test('recusa da plataforma apresenta HTTP sem expor resposta com segredos',async
 });
 
 test('GraphQL distingue erros HTTP 200 sem mostrar mensagens ou valores privados',async()=>{
- const providers=createProviders({shopifyVersion:'2026-07'},async()=>Response.json({errors:[{message:'private-token@example.test',extensions:{code:'undefinedField',fieldName:'callbackUrl'},path:['webhookSubscriptionCreate']}] }));
+ const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>JSON.parse(options.body).query.startsWith('query')?Response.json({data:{webhookSubscriptions:{nodes:[],pageInfo:{hasNextPage:false}}}}):Response.json({errors:[{message:'private-token@example.test',extensions:{code:'undefinedField',fieldName:'callbackUrl'},path:['webhookSubscriptionCreate']}] }));
  await assert.rejects(providers.registerWebhooks('fixture.myshopify.com','fixture-token','https://test.example/webhooks/shopify'),error=>error.message.includes('ORDERS_CREATE') && error.message.includes('undefinedField') && error.message.includes('callbackUrl') && !error.message.includes('private-token'));
 });
 test('GraphQL informa bloqueio de dados protegidos sem expor resposta de cliente',async()=>{

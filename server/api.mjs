@@ -168,6 +168,8 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       await store.db.runTransaction(async tx=>{
         const link=store.db.doc(`shopLinks/${connection.shop}`),existing=await tx.get(link);
         if(existing.exists && existing.data().ownerId!==saved.ownerId) throw Object.assign(new Error('Esta loja já está ligada a outro negócio.'),{status:409});
+        const previous=await tx.get(store.connection(saved.ownerId,provider));
+        if(previous.exists && previous.data().shop===connection.shop){const fresh={credentials:connection.credentials,connectedAt:connection.connectedAt,shop:connection.shop,lastError:null};Object.assign(connection,previous.data(),fresh);}
         tx.set(link,{ownerId:saved.ownerId}); tx.set(store.connection(saved.ownerId,provider),connection);
       });
       stage='registar webhooks e iniciar a importação';

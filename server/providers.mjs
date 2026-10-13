@@ -74,10 +74,19 @@ export function createProviders(config, fetcher = fetch) {
     return shopifyOrder(shop,token,id);
   }
   async function registerWebhooks(shop,token,callbackUrl) {
-    // Uma atualização pode disparar vários tópicos. A importação é idempotente.
-    for (const topic of ['ORDERS_CREATE','ORDERS_UPDATED','ORDERS_CANCELLED','APP_UNINSTALLED']) {
-      let data;try{data=await shopifyGraphql(shop,token,`mutation($topic:WebhookSubscriptionTopic!,$input:WebhookSubscriptionInput!){webhookSubscriptionCreate(topic:$topic,webhookSubscription:$input){webhookSubscription{id}userErrors{message}}}`,{topic,input:{callbackUrl,format:'JSON'}});}catch(error){throw Object.assign(new Error(`Registo de webhook ${topic}: ${error.message}`),{status:error.status || 502});}
-      if (data.webhookSubscriptionCreate.userErrors.length) throw new Error('A Shopify recusou o registo de webhooks. Verifique a URL pública HTTPS.');
+    const expected=['ORDERS_CREATE','ORDERS_UPDATED','ORDERS_CANCELLED','APP_UNINSTALLED'];
+    const existing=new Set();let after=null;
+    for(let page=0;page<5;page++){
+      const data=await shopifyGraphql(shop,token,`query($after:String){webhookSubscriptions(first:100,after:$after){nodes{topic format endpoint{... on WebhookHttpEndpoint{callbackUrl}}}pageInfo{hasNextPage endCursor}}}`,{after});
+      for(const subscription of data.webhookSubscriptions.nodes)if(subscription.endpoint?.callbackUrl===callbackUrl && subscription.format==='JSON')existing.add(subscription.topic);
+      if(!data.webhookSubscriptions.pageInfo.hasNextPage)break;
+      after=data.webhookSubscriptions.pageInfo.endCursor;
+      if(!after || page===4)throw new Error('Não foi possível verificar todos os webhooks existentes. Consulte a configuração da Shopify.');
+    }
+    for (const topic of expected) {
+      if(existing.has(topic))continue;
+      let data;try{data=await shopifyGraphql(shop,token,`mutation($topic:WebhookSubscriptionTopic!,$input:WebhookSubscriptionInput!){webhookSubscriptionCreate(topic:$topic,webhookSubscription:$input){webhookSubscription{id}userErrors{field message}}}`,{topic,input:{callbackUrl,format:'JSON'}});}catch(error){throw Object.assign(new Error(`Registo de webhook ${topic}: ${error.message}`),{status:error.status || 502});}
+      if (data.webhookSubscriptionCreate.userErrors.length){const fields=[...new Set(data.webhookSubscriptionCreate.userErrors.flatMap(error=>error.field || []).filter(field=>['callbackUrl','topic','format','webhookSubscription','uri'].includes(field)))];throw new Error(`A Shopify recusou o webhook ${topic}${fields.length?' ('+fields.join(', ')+')':''}. Verifique a configuração do aplicativo e o endereço HTTPS.`);}
     }
   }
   async function meta(path,token,params={}) {

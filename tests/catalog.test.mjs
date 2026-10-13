@@ -17,3 +17,9 @@ test('consulta de produtos Shopify é paginada e não pede nem altera inventári
  const calls=[];const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{calls.push(JSON.parse(options.body));return Response.json({data:JSON.parse(options.body).query.includes('products(first')?{products:{nodes:[{legacyResourceId:'123',title:'Produto'}],pageInfo:{hasNextPage:true,endCursor:'next'}}}:{nodes:[{legacyResourceId:'123',title:'Produto'}]}});});
  assert.deepEqual(await providers.shopifyProductsPage('fixture.myshopify.com','fixture'),{products:[{id:'123',title:'Produto'}],after:'next'});await providers.shopifyProductsByIds('fixture.myshopify.com','fixture',['123']);assert(calls.every(call=>!/(inventory|stock|mutation|quantity)/i.test(call.query)));assert.deepEqual(calls[1].variables.ids,['gid://shopify/Product/123']);
 });
+
+test('reautorizar reutiliza os webhooks corretos sem criar duplicados',async()=>{
+ const topics=['ORDERS_CREATE','ORDERS_UPDATED','ORDERS_CANCELLED','APP_UNINSTALLED'],callback='https://test.example/webhooks/shopify',created=[];
+ const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{const call=JSON.parse(options.body);if(call.query.startsWith('query'))return Response.json({data:{webhookSubscriptions:{nodes:topics.slice(0,3).map(topic=>({topic,format:'JSON',endpoint:{callbackUrl:callback}})),pageInfo:{hasNextPage:false}}}});created.push(call.variables.topic);return Response.json({data:{webhookSubscriptionCreate:{webhookSubscription:{id:'new'},userErrors:[]}}});});
+ await providers.registerWebhooks('fixture.myshopify.com','fixture',callback);assert.deepEqual(created,['APP_UNINSTALLED']);
+});

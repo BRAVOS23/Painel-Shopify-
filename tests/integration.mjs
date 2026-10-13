@@ -48,6 +48,13 @@ try{
  params.set('hmac',createHmac('sha256',config.shopifySecret).update([...params.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${k}=${v}`).join('&')).digest('hex'));
  const aliasResponse=await fetch(root+'/oauth/shopify/callback?'+params,{redirect:'manual'});
  assert.equal(aliasResponse.status,302);assert.equal((await store.connection(b.localId,'shopify').get()).data().shop,'fixture.myshopify.com');
+ const previousLink=(await store.connection(b.localId,'shopify').get()).data();
+ await store.connection(b.localId,'shopify').update({lastSync:'2026-10-13T08:00:00Z',progress:{after:'fixture-cursor'},catalogEnabled:true,catalogAfter:'product-fixture'});
+ const registerOriginal=providers.registerWebhooks;providers.registerWebhooks=async()=>{throw new Error('fixture-webhook-error');};
+ const reauth=await request(b,'/api/oauth/shopify',{shop:'fixture.myshopify.com'}),retryParams=new URLSearchParams({state:new URL(reauth.body.url).searchParams.get('state'),shop:'fixture.myshopify.com',code:'fixture-code'});
+ retryParams.set('hmac',createHmac('sha256',config.shopifySecret).update([...retryParams.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${k}=${v}`).join('&')).digest('hex'));
+ assert.equal((await fetch(root+'/oauth/shopify/callback?'+retryParams,{redirect:'manual'})).status,302);providers.registerWebhooks=registerOriginal;
+ const reauthorized=(await store.connection(b.localId,'shopify').get()).data();assert.equal(reauthorized.lastSync,'2026-10-13T08:00:00Z');assert.equal(reauthorized.progress.after,'fixture-cursor');assert.equal(reauthorized.catalogEnabled,true);assert.equal(reauthorized.catalogAfter,'product-fixture');assert.notEqual(reauthorized.connectedAt,previousLink.connectedAt);pass('reautorizar a mesma loja preserva cursores e catálogo mesmo se webhooks falharem');
  await store.connection(b.localId,'shopify').delete();await db.doc('shopLinks/fixture.myshopify.com').delete();
  // A importação da ligação de teste não deve afetar o restante teste de isolamento.
  for(const doc of (await db.collection('businesses/'+b.localId+'/vendas').get()).docs)await doc.ref.delete();
