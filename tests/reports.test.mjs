@@ -1,3 +1,4 @@
+import {reconciledStatus} from '../server/status-audit.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {orderSummary,sourceCounts,orderSeries} from '../web/order-reports.mjs';
@@ -13,4 +14,10 @@ test('evolução diária inclui dias vazios sem acumular receita ou contar itens
 test('períodos longos agrupam por semana ou mês preservando os totais',()=>{
  const weekly=orderSeries(rows,'2026-10-01','2027-01-01'),monthly=orderSeries(rows,'2026-01-01','2026-12-31');assert.equal(weekly.unit,'semana');assert.equal(monthly.unit,'mês');for(const series of [weekly,monthly]){assert.equal(series.orders.reduce((sum,value)=>sum+value,0),4);assert.equal(series.revenue.reduce((sum,value)=>sum+value,0),150);}
  assert.deepEqual(orderSeries([],null,null).labels,[]);
+});
+
+test('reconciliação mantém confirmações explícitas e reagendamentos, mas confirma processados e pagos antigos',()=>{
+ const row={id:'legacy',status:'cancelado',data:'2026-01-01',valor:100,comissao:10};
+ const paid={financial_status:'paid',fulfillment_status:'fulfilled',cancelled_at:null};assert.equal(reconciledStatus(row,paid).status,'concluido');assert.equal(reconciledStatus(row,{...paid,financial_status:'pending'}).status,'pendente');assert.equal(reconciledStatus({...row,status:'remarcado'},{...paid,fulfillment_status:'unfulfilled'}).status,'remarcado');assert.equal(reconciledStatus({...row,status:'concluido',panelConfirmed:true},{...paid,financial_status:'pending'}).status,'concluido');
+ const cancelled=reconciledStatus({...row,panelConfirmed:true},{...paid,cancelled_at:'2026-10-13'});assert.equal(cancelled.status,'cancelado');assert.equal(cancelled.panelConfirmed,false);assert.equal(cancelled.comissao,10);assert.equal(cancelled.data,'2026-01-01');
 });

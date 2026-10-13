@@ -757,7 +757,7 @@
         <h2>Desempenho dos pedidos
           <div id="drOverview"></div>
         </h2>
-        <p class="report-help">Todos os indicadores e a lista abaixo seguem o período escolhido. A taxa de sucesso compara concluídos com concluídos + cancelados.</p><div class="overview">
+        <div class="order-audit-control"><button class="btn-ghost" id="verifyOrderCounts" type="button">Verificar contagem na Shopify</button><p class="report-help" id="orderAuditMessage" role="status"></p></div><p class="report-help">Os indicadores mostram os pedidos já carregados no painel, dentro do período escolhido. A taxa de sucesso compara concluídos com concluídos + cancelados.</p><div class="overview">
           <div class="ov-card"><span class="v" id="ovTotal">0</span><span class="k">Pedidos</span></div>
           <div class="ov-card"><span class="v" style="color:var(--green)" id="ovConcluido">0</span><span class="k">Concluídos</span></div>
           <div class="ov-card"><span class="v" style="color:var(--red)" id="ovCancelado">0</span><span class="k">Cancelados</span></div>

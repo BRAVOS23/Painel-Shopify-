@@ -1,3 +1,4 @@
+import {createStatusAudit} from '../server/status-audit.mjs';
 import {createCatalog} from '../server/catalog.mjs';
 // Teste do runtime Workerd real (wrangler dev), Auth/Firestore locais e sync com provedores simulados.
 import assert from 'node:assert/strict';
@@ -44,6 +45,14 @@ try{
  const binding=await catalog.bind(id,[{shopifyProductId:'456',productId:'worker_product',revision:productBefore.revision+1}]);assert.equal(binding.count,1);
  catalogTitle='Produto da loja atualizado';await catalog.refresh(id,(await store.connection(id,'shopify').get()).data());
  const linkedProduct=(await store.records(id,'produtos').doc('worker_product').get()).data().record;assert.equal(linkedProduct.nome,catalogTitle);assert.equal(linkedProduct.custo,10);assert.equal(linkedProduct.locais[0].quantidade,6);assert(linkedProduct.aliases.includes('Produto Worker'));pass('catálogo por ID e nomes atualizado via Firestore REST preserva stock/custo local');
+ // Auditoria de um pedido com vários itens: retoma o lote sem repetir estados.
+ for(let index=8;index<12;index++)await store.imported(id,'vendas',{id:'sh_887_'+(index+1),shopifyOrderId:'887',data:'2026-01-12',mes:'2026-01',semana:'semana2',status:'pendente',produto:'Produto Worker',quantidade:1,valor:100,comissao:7});
+ let auditCalls=0;const auditDb=createFirestore({project:'demo-painel',emulator:true,accessToken:async()=>'owner',fetcher:(...args)=>{auditCalls++;return fetch(...args);}}),auditStore=createStore(auditDb);
+ const audit=createStatusAudit(auditStore,{shopifyScopes:async()=>{auditCalls++;return ['read_orders','read_all_orders'];},shopifyOrderStatuses:async()=>{auditCalls++;return [{id:'887',updated_at:'2026-10-13T10:00:00Z',financial_status:'paid',fulfillment_status:'fulfilled',cancelled_at:null}];}},{encryptionKey:key});
+ let firstAudit=await audit.run(id);assert(firstAudit.partial);assert.equal(firstAudit.checked,0);assert(auditCalls<=30);auditCalls=0;
+ firstAudit=await audit.run(id);assert(!firstAudit.partial);assert.equal(firstAudit.checked,1);assert(auditCalls<=30);
+ const auditedRows=(await store.state(id)).vendas;assert.equal(auditedRows.filter(row=>row.status==='concluido').length,12);assert.equal(auditedRows.find(row=>row.id==='sh_887_12').comissao,7);
+ const publicAudit=(await request(a,'/api/connections')).body.shopify.statusAudit;assert.equal(publicAudit.total,1);assert(publicAudit.completedAt);assert(!('ids' in publicAudit));pass('auditoria de estados antigos retoma mais de 10 itens, preserva entregas e respeita o orçamento de chamadas gratuito');
  // O scheduler Workerd sem ligações reais não faz chamadas às plataformas.
  await store.connection(id,'shopify').delete();await store.connection(id,'meta').delete();await job.delete();
  const scheduled=await fetch(root+'/__scheduled?cron=*+*+*+*+*');assert.equal(scheduled.status,200);pass('Cron Trigger invocado no runtime Cloudflare local');

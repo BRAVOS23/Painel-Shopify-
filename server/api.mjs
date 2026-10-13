@@ -1,3 +1,4 @@
+import {createStatusAudit} from './status-audit.mjs';
 import {validDay} from '../web/orders.mjs';
 import {createCatalog} from './catalog.mjs';
 import { randomBytes,createHash } from 'node:crypto';
@@ -72,6 +73,8 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     if(!['shopify','meta'].includes(req.params.provider)) return res.sendStatus(400);
     res.json(await sync.run(req.user.uid,req.params.provider));
   });
+  const statusAudit=createStatusAudit(store,providers,config);
+  app.post('/api/shopify/orders/reconcile',async(req,res)=>res.json(await statusAudit.run(req.user.uid,{restart:req.body.restart===true})));
   async function orderStatus(req,res){
     const wanted=req.method==='POST'?req.body.status:req.query.status;
     if(!/^\d+$/.test(req.params.id) || !['concluido','cancelado'].includes(wanted))return res.status(400).json({error:'Estado de pedido inválido.'});
@@ -130,11 +133,12 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     if(Buffer.from(config.encryptionKey,'base64').length!==32)return res.status(503).json({error:'A INTEGRATION_ENCRYPTION_KEY precisa de 32 bytes em base64. Verifique o Secret na Cloudflare, sem aspas ou espaços adicionais.'});
     if(!config.baseUrl.startsWith('https://')) return res.status(503).json({error:'As integrações reais precisam de um endereço público HTTPS.'});
     const state=randomBytes(32).toString('hex'),shop=provider==='shopify' ? shopDomain(req.body.shop) : null;
-    await store.db.doc(`oauthStates/${state}`).create({ownerId:req.user.uid,provider,shop,expiresAt:Date.now()+10*60000});
+    const allOrders=provider==='shopify' && (req.body.allOrders===true || (await store.connection(req.user.uid,'shopify').get()).data()?.historyReadEnabled===true);
+    await store.db.doc(`oauthStates/${state}`).create({ownerId:req.user.uid,provider,shop,allOrders,expiresAt:Date.now()+10*60000});
     const redirect=`${config.baseUrl}/oauth/${provider}/callback`;
     const url=new URL(provider==='shopify' ? `https://${shop}/admin/oauth/authorize` : `https://www.facebook.com/${config.metaVersion}/dialog/oauth`);
     url.search=new URLSearchParams({client_id:provider==='shopify' ? config.shopifyId : config.metaId,
-      redirect_uri:redirect,state,scope:provider==='shopify' ? 'read_products,read_orders,write_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders' : 'ads_read'}).toString();
+      redirect_uri:redirect,state,scope:provider==='shopify' ? 'read_products,read_orders,write_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders'+(allOrders?',read_all_orders':'') : 'ads_read'}).toString();
     res.json({url:url.toString()});
   });
   app.get('/oauth/:provider/callback',async(req,res)=>{
@@ -172,6 +176,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
         if(existing.exists && existing.data().ownerId!==saved.ownerId) throw Object.assign(new Error('Esta loja já está ligada a outro negócio.'),{status:409});
         const previous=await tx.get(store.connection(saved.ownerId,provider));
         if(previous.exists && previous.data().shop===connection.shop){const fresh={credentials:connection.credentials,connectedAt:connection.connectedAt,shop:connection.shop,lastError:null};Object.assign(connection,previous.data(),fresh);}
+        if(saved.allOrders){connection.historyReadEnabled=true;connection.statusAudit=null;}
         tx.set(link,{ownerId:saved.ownerId}); tx.set(store.connection(saved.ownerId,provider),connection);
       });
       stage='registar webhooks e iniciar a importação';

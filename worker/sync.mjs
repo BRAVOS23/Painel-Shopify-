@@ -1,3 +1,4 @@
+import {createStatusAudit} from '../server/status-audit.mjs';
 import {createCatalog} from '../server/catalog.mjs';
 import {decrypt} from '../server/security.mjs';
 import {shopifyRecords,metaRecords} from '../server/model.mjs';
@@ -66,6 +67,7 @@ export function createFreeSync(store,providers,config){
   await ref.set(state);
   const connection=(await store.connection(owner,provider).get()).data();
   if(!connection || (provider==='meta' && !connection.accountId))return {idle:true};
+  if(provider==='shopify' && ((!connection.statusAudit && connection.lastSync) || (connection.statusAudit && !connection.statusAudit.completedAt)))return createStatusAudit(store,providers,config).run(owner);
   if(provider==='shopify' && connection.catalogEnabled && (connection.catalogAfter || !connection.catalogLastSync || Date.now()-Date.parse(connection.catalogLastSync)>86400000)){try{await createCatalog(store,providers,config).refresh(owner,connection);}catch(error){await store.connection(owner,'shopify').update({catalogAfter:null,catalogLastSync:new Date().toISOString(),catalogLastError:error.message});}return {catalog:true};}
   if(!connection.progress && connection.lastSync && Date.now()-Date.parse(connection.lastSync)<15*60000)return {idle:true};
   return run(owner,provider);

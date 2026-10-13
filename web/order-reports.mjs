@@ -29,6 +29,7 @@ export function initOrderReports(){
  const line=(label,data,color)=>({label,data,borderColor:color,backgroundColor:color+'18',borderWidth:2,pointRadius:0,pointHitRadius:18,pointHoverRadius:4,tension:.15,fill:false});
  window.renderOrderReportCharts=(rows,range)=>{
   if(!$('vendasViewRelatorios').classList.contains('active'))return;
+  void window.cloudBackend.verifyOrderCounts?.({automatic:true});
   const summary=orderSummary(rows);$('ovPendente').textContent=summary.open;$('reportRevenue').textContent=money(summary.revenue);
   const dates=rows.map(row=>row.data).filter(Boolean).sort(),start=range?.[0] || dates[0],end=range?.[1] || dates.at(-1),series=orderSeries(rows,start,end);
   $('ordersTrendUnit').textContent='Por '+series.unit+' · data registada no pedido';
@@ -44,5 +45,6 @@ export function initOrderReports(){
   draw('historyRevenueChart','line',series.labels,[line('Receita concluída',series.revenue,'#21966a')],true);
  };
  window.addEventListener('resize',()=>{for(const chart of charts.values())chart.resize();});
+ $('verifyOrderCounts').onclick=()=>window.cloudBackend.verifyOrderCounts({restart:true});
  window.renderOverview();window.renderHistoricoMeses();
 }

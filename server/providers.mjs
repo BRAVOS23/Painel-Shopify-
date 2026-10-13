@@ -58,6 +58,16 @@ export function createProviders(config, fetcher = fetch) {
     if (!data.order) throw new Error('Pedido não encontrado na Shopify.');
     return normalize(data.order);
   }
+  async function shopifyScopes(shop,token){
+    const data=await shopifyGraphql(shop,token,'query{currentAppInstallation{accessScopes{handle}}}');
+    if(!Array.isArray(data.currentAppInstallation?.accessScopes))throw new Error('Não foi possível confirmar as permissões Shopify.');
+    return data.currentAppInstallation.accessScopes.map(scope=>scope.handle);
+  }
+  async function shopifyOrderStatuses(shop,token,ids){
+    const data=await shopifyGraphql(shop,token,`query($ids:[ID!]!){nodes(ids:$ids){... on Order{legacyResourceId updatedAt cancelledAt displayFinancialStatus displayFulfillmentStatus}}}`,{ids:ids.map(id=>`gid://shopify/Order/${id}`)});
+    if(!Array.isArray(data.nodes) || data.nodes.filter(Boolean).some(order=>!order.legacyResourceId || !order.updatedAt || !order.displayFinancialStatus || !order.displayFulfillmentStatus))throw new Error('A Shopify devolveu estados incompletos; os dados guardados foram preservados.');
+    return data.nodes.filter(Boolean).map(order=>({id:String(order.legacyResourceId),updated_at:order.updatedAt,cancelled_at:order.cancelledAt,financial_status:String(order.displayFinancialStatus || '').toLowerCase(),fulfillment_status:order.displayFulfillmentStatus==='FULFILLED'?'fulfilled':'unfulfilled'}));
+  }
   async function shopifyStatus(shop,token,id,status) {
     const orderId=`gid://shopify/Order/${id}`;
     if(status==='cancelado') {
@@ -118,7 +128,7 @@ export function createProviders(config, fetcher = fetch) {
   }
   async function shopifyProductsPage(shop,token,after=null){const data=await shopifyGraphql(shop,token,'query($after:String){products(first:5,after:$after,sortKey:ID){nodes{legacyResourceId title}pageInfo{hasNextPage endCursor}}}',{after});return {products:data.products.nodes.map(row=>({id:String(row.legacyResourceId),title:row.title})),after:data.products.pageInfo.hasNextPage?data.products.pageInfo.endCursor:null};}
   async function shopifyProductsByIds(shop,token,ids){const data=await shopifyGraphql(shop,token,'query($ids:[ID!]!){nodes(ids:$ids){... on Product {legacyResourceId title}}}',{ids:ids.map(id=>'gid://shopify/Product/'+id)});return data.nodes.filter(Boolean).map(row=>({id:String(row.legacyResourceId),title:row.title}));}
-  return {shopifyProductsPage,shopifyProductsByIds, shopifyGraphql,shopifyOrders,shopifyOrdersPage,shopifyOrder,shopifyStatus,registerWebhooks,meta,
+  return {shopifyProductsPage,shopifyProductsByIds, shopifyGraphql,shopifyOrders,shopifyOrdersPage,shopifyOrder,shopifyScopes,shopifyOrderStatuses,shopifyStatus,registerWebhooks,meta,
     metaAccounts:token=>metaPages('me/adaccounts',token,{fields:'id,name,currency,timezone_name',limit:100}),
     metaInsights:(id,token,since,until)=>metaPages(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:500}),
     metaInsightsPage:async(id,token,since,until,after=null)=>{const body=await meta(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:5,...(after?{after}:{})});if(body.paging?.next && !body.paging?.cursors?.after)throw new Error('Meta Ads: paginação sem cursor.');return {rows:body.data,after:body.paging?.next?body.paging.cursors.after:null};},

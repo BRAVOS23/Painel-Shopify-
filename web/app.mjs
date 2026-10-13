@@ -20,7 +20,7 @@ startup.remove();const auth=getAuth(initializeApp(config.firebase));
 if(config.emulators)connectAuthEmulator(auth,`http://${location.hostname}:9099`,{disableWarnings:true});
 const groups=['fluxo','vendas','produtos','ads','operacional'];
 const clean=record=>Object.fromEntries(Object.entries(record).filter(([key])=>key!=='_revision'));
-let baseline={},desired={},loaded=false,busy=false,failure=null,mutation=0,user=null,session=0,stateTag=null,lastConnectionsCheck=0;
+let baseline={},desired={},loaded=false,busy=false,failure=null,mutation=0,user=null,session=0,stateTag=null,lastConnectionsCheck=0,countAuditBusy=false,countAuditAutoTried=false,shopifyAuditInfo=null;
 const wrap=document.querySelector('.wrap');wrap.hidden=true;
 const style=document.createElement('style');style.textContent=`
 [hidden]{display:none!important}.cloud-login{max-width:440px;margin:8vh auto;padding:28px;background:var(--panel);border:1px solid var(--panel-line);border-radius:14px}.cloud-login h1{font-size:24px;margin-bottom:12px}.cloud-login p{line-height:1.5;color:var(--sand-dim);font-size:14px}.cloud-login form{display:flex;flex-direction:column;align-items:stretch;margin:20px 0}.cloud-login input{padding:12px;border-radius:8px;border:1px solid var(--panel-line);background:var(--ink-2);color:var(--sand)}.cloud-actions{display:flex;gap:8px;flex-wrap:wrap}.cloud-status{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:12px;border:1px solid var(--panel-line);border-radius:10px;font-size:12px}.cloud-status button{padding:6px 10px}.cloud-message{font-size:13px;line-height:1.5;margin-top:10px;color:var(--gold)}.cloud-help{font-size:13px;color:var(--sand-dim);line-height:1.6;margin-bottom:12px}.cloud-integration input,.cloud-integration select{padding:10px;background:var(--ink-2);color:var(--sand);border:1px solid var(--panel-line);border-radius:8px;max-width:100%}.cloud-integration .cloud-actions{margin-top:12px}
@@ -91,6 +91,35 @@ window.cloudBackend={
   }
   return result;
  },
+ async verifyOrderCounts({restart=false,automatic=false}={}){
+  if(countAuditBusy || dirty() || busy)return;
+  if(automatic && countAuditAutoTried)return;
+  const requestedSession=session;
+  if(shopifyConnectionKnown===null){try{await connections();}catch(error){document.getElementById('orderAuditMessage').textContent='Não foi possível verificar a ligação Shopify: '+error.message;return;}}
+  if(requestedSession!==session)return;
+  if(!shopifyConnectionKnown){if(!automatic)document.getElementById('orderAuditMessage').textContent='Liga a Shopify para verificar os estados atuais dos pedidos.';return;}
+  if(automatic && shopifyAuditInfo?.completedAt)return;
+  countAuditAutoTried=true;countAuditBusy=true;const activeSession=session,button=document.getElementById('verifyOrderCounts'),message=document.getElementById('orderAuditMessage');button.disabled=true;
+  try{
+   for(let attempt=0;attempt<100;attempt++){
+    if(activeSession!==session)return;
+    if(dirty() || busy)throw new Error('A verificação foi interrompida para guardar as tuas alterações. Podes retomá-la depois.');
+    const result=await api('/shopify/orders/reconcile',{method:'POST',body:JSON.stringify({restart})});
+    if(activeSession!==session)return;
+    if(result.busy){message.textContent='A aguardar a sincronização Shopify em curso…';}
+    else{
+     restart=false;shopifyAuditInfo={checked:result.checked,total:result.total,unavailable:result.unavailable,requiresAllOrders:result.requiresAllOrders,completedAt:result.partial?null:new Date().toISOString()};
+     message.textContent=result.partial?`A verificar na Shopify: ${result.checked+result.unavailable} de ${result.total} pedidos. A contagem ainda está a ser atualizada.`:`Verificação concluída: ${result.checked} de ${result.total} pedidos consultados.${result.unavailable?' '+result.message:''}`;
+     if(!result.partial || attempt%8===7)await refresh();
+     if(!result.partial){await connections();return;}
+    }
+    await new Promise(resolve=>setTimeout(resolve,2500));
+    if(document.visibilityState!=='visible')break;
+   }
+   message.textContent='Verificação em curso. Os próximos lotes continuam automaticamente; podes voltar a verificar a contagem.';
+  }catch(error){message.textContent='Não foi possível concluir a verificação: '+error.message;}
+  finally{countAuditBusy=false;button.disabled=false;}
+ },
  async syncShopify(){await syncProvider('shopify');},
  async metrics(start,end,product){if(dirty() || busy)return null;const activeSession=session;const result=await api(`/metrics?${new URLSearchParams({start,end,product})}`);return activeSession===session && !dirty() && !busy ? result : null;}
 };
@@ -148,7 +177,7 @@ function setupIntegrations(){
  panel.after(meta);
  for(const provider of ['shopify','meta']){
   const cap=provider==='shopify' ? 'Shopify' : 'Meta';
-  document.getElementById('connect'+cap).onclick=async()=>{try{if(dirty())throw new Error('Aguarde a gravação dos dados.');const result=await api('/oauth/'+provider,{method:'POST',body:JSON.stringify(provider==='shopify' ? {shop:document.getElementById('cloudShop').value} : {})});location.assign(result.url);}catch(error){document.getElementById(provider+'ConnectionMessage').textContent=error.message;}};
+  document.getElementById('connect'+cap).onclick=async()=>{try{if(dirty())throw new Error('Aguarde a gravação dos dados.');const result=await api('/oauth/'+provider,{method:'POST',body:JSON.stringify(provider==='shopify' ? {shop:document.getElementById('cloudShop').value,allOrders:shopifyAuditInfo?.requiresAllOrders===true} : {})});location.assign(result.url);}catch(error){document.getElementById(provider+'ConnectionMessage').textContent=error.message;}};
   document.getElementById('sync'+cap).onclick=()=>syncProvider(provider);
   document.getElementById('disconnect'+cap).onclick=async()=>{if(!confirm('Desligar a integração? Os dados já importados serão mantidos.'))return;try{await api('/connections/'+provider,{method:'DELETE'});await connections();}catch(error){document.getElementById(provider+'ConnectionMessage').textContent=error.message;}};
  }
@@ -157,7 +186,8 @@ function setupIntegrations(){
 }
 let metaAccountsLoaded=false,metaRateEditing=false,shopifyConnectionKnown=null;
 async function connections(){
- const result=await api('/connections');lastConnectionsCheck=Date.now();shopifyConnectionKnown=Boolean(result.shopify.connected);
+ const result=await api('/connections');lastConnectionsCheck=Date.now();shopifyConnectionKnown=Boolean(result.shopify.connected);shopifyAuditInfo=result.shopify.statusAudit;
+ const auditMessage=document.getElementById('orderAuditMessage');if(auditMessage && !countAuditBusy && result.shopify.connected){auditMessage.textContent=result.shopify.statusAudit&&!result.shopify.statusAudit.completedAt?'A contagem dos pedidos está a ser verificada na Shopify.':result.shopify.importPending?'A importação Shopify ainda está em curso. O total anual pode estar incompleto.':result.shopify.statusAudit?.completedAt?`Última verificação: ${result.shopify.statusAudit.checked} de ${result.shopify.statusAudit.total} pedidos consultados.${result.shopify.statusAudit.unavailable?(result.shopify.statusAudit.requiresAllOrders?' Reautoriza a Shopify em Integrações para verificar pedidos com mais de 60 dias.':' Alguns pedidos não estão disponíveis na Shopify; os dados do painel foram preservados.'):''}`:'';}
  for(const provider of ['shopify','meta']){const connection=result[provider],cap=provider==='shopify'?'Shopify':'Meta';
  document.getElementById(provider==='shopify'?'shopifyStatusTag':'metaStatusTag').textContent=connection.connected ? 'Ligada'+(connection.lastSync ? ' · '+new Date(connection.lastSync).toLocaleString('pt-MZ',{timeZone:'Africa/Maputo'}) : '') : 'Não ligada';
  document.getElementById('connect'+cap).disabled=!connection.configured;
@@ -173,7 +203,7 @@ async function connections(){
  document.getElementById('metaAccountControls').hidden=!result.meta.connected;window.updateConnectionSummary?.();
 }
 async function loadSession(current){
- const activeSession=++session;user=current;stateTag=null;shopifyConnectionKnown=null;
+ const activeSession=++session;user=current;stateTag=null;shopifyConnectionKnown=null;shopifyAuditInfo=null;countAuditAutoTried=false;
  if(!current){sessionNotice.hidden=true;loginMessage('');document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
  wrap.hidden=true;login.hidden=true;sessionNotice.hidden=false;document.getElementById('sessionLoadMessage').textContent='A carregar os dados do negócio…';document.getElementById('sessionLoadRetry').hidden=true;
  try{

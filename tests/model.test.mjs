@@ -164,3 +164,8 @@ test('datas impossíveis não entram nos gastos nem nas vendas importadas de bac
  for(const data of ['2026-02-30','2026-13-01','2026-00-12'])assert.throws(()=>validateRecord('ads',{id:'date_test',data,tipo:'ads',valor:10}));
  assert.equal(validateRecord('ads',{id:'leap',data:'2028-02-29',tipo:'ads',valor:10}).data,'2028-02-29');
 });
+
+test('verificação Shopify lê apenas estados e não executa mutações',async()=>{
+ const calls=[];const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{const body=JSON.parse(options.body);calls.push(body);return Response.json({data:{nodes:[{legacyResourceId:'1',updatedAt:'2026-10-13T00:00:00Z',cancelledAt:null,displayFinancialStatus:'PAID',displayFulfillmentStatus:'FULFILLED'},null]}});});
+ const states=await providers.shopifyOrderStatuses('fixture.myshopify.com','fixture',['1','2']);assert.equal(states.length,1);assert.equal(states[0].financial_status,'paid');assert.equal(states[0].fulfillment_status,'fulfilled');assert(calls.every(call=>call.query.startsWith('query') && !call.query.includes('shippingAddress')));assert.deepEqual(calls[0].variables.ids,['gid://shopify/Order/1','gid://shopify/Order/2']);
+});

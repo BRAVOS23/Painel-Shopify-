@@ -34,6 +34,7 @@ export function publicConnection(connection) {
   return { connected: true, shop: connection.shop || null, accountId: connection.accountId || null,
     currency: connection.currency || null, conversionRate:Number.isFinite(connection.conversionRate)?connection.conversionRate:null, lastSync: connection.lastSync || null,
     lastError: connection.lastError || null, catalogLastError:connection.catalogLastError || null, unmatchedCampaigns: connection.unmatchedCampaigns || [],
+    importPending:Boolean(connection.progress),statusAudit:connection.statusAudit?{checked:connection.statusAudit.checked,total:connection.statusAudit.ids.length,unavailable:connection.statusAudit.unavailable,requiresAllOrders:connection.statusAudit.unavailable>0 && connection.statusAudit.hasAllOrders===false,completedAt:connection.statusAudit.completedAt || null}:null,
     statusWriteEnabled: true };
 }
 export function safeId(id) {
