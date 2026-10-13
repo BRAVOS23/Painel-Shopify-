@@ -164,7 +164,8 @@ onAuthStateChanged(auth,async current=>{
   if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js?v='+(document.querySelector('meta[name="painel-build"]')?.content || '');script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();initExperience();loaded=true;}
   else window.applyCloudState(desired);
   document.getElementById('cloudIdentity').textContent=current.email+(config.emulators?' · Desenvolvimento local':'');
-  login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');await connections();
+  login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');
+  try{await connections();}catch{document.getElementById('shopifyConnectionMessage').textContent='Não foi possível atualizar o estado das integrações. Tenta novamente no menu de utilizador.';}
  }catch(error){loginMessage(error.message);wrap.hidden=true;login.hidden=false;}
 });
 setInterval(()=>{if(document.visibilityState==='visible')void refresh();},60000);

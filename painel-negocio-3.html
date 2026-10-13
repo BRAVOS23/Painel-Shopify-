@@ -921,7 +921,7 @@
 
       <div class="chart-grid">
         <div class="chart-card">
-          <div class="chart-card-title">Receita e gastos</div><label class="chart-mode"><input id="chartCumulative" type="checkbox" onchange="renderMetricas()"> Acumulado no período</label><p class="chart-help">Toca nas linhas para comparar os valores de cada dia.</p>
+          <div class="chart-card-title">Receita e gastos</div><label class="chart-mode"><input id="chartCumulative" type="checkbox" onchange="refreshChartMode()"> Acumulado no período</label><p class="chart-help">Toca nas linhas para comparar os valores de cada dia.</p>
           <div class="chart-canvas-wrap"><canvas id="metChart" role="img" aria-label="Evolução diária da receita e dos gastos"></canvas>
             <div id="metChartEmpty" class="chart-empty" style="display:none;">Sem dados neste período.</div>
           </div>
@@ -3469,6 +3469,11 @@ async function renderMetricas(){
 }
 window.refreshCloudMetrics=()=>{if(document.getElementById('secResumo').classList.contains('active'))window.renderExperience?.();else if(document.getElementById('secMetricas').classList.contains('active'))renderMetricas();};
 
+
+function refreshChartMode(){
+ const range=getMetricasRange();if(!range)return;
+ renderMetChart(range[0],range[1],document.getElementById('metProduto').value.trim());
+}
 
 function renderMetChart(inicio, fim, produtoFiltro){
   const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(p)===normalizarNomeProduto(produtoFiltro);

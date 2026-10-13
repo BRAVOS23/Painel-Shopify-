@@ -38,3 +38,5 @@ Resultados: receita e gasto total em linhas, comparação ao tocar/hover, cursor
 Conta: secção de instalação da PWA com o evento real beforeinstallprompt, tratamento de aceitação/recusa e estado instalado. Sem suporte ao prompt, apresenta instruções para Chrome/Android e Safari/iPhone. O manifesto já não afirma que os dados do negócio funcionam offline; consultar e guardar continuam a exigir internet.
 
 Verificação: build e 27 testes unitários passaram. Auditoria Chromium com dados sintéticos e emuladores: todas as abas em 360, 390, 800 e 1280 px, temas claro/escuro, sem overflow ou erros JavaScript. Teste adicional confirmou tipo line, soma acumulada por dia, instruções manuais e chamada de prompt simulada. A instalação física em Android/iPhone não foi executada neste ambiente.
+
+Correção posterior: Acumulado redesenha apenas o gráfico local, sem depender do endpoint de métricas. Regressão Chromium confirmou ativar, desativar e alternar rapidamente com métricas a devolver HTTP 503: os valores diários originais regressam. Uma falha na consulta inicial de conexões também não esconde mais o painel autenticado.
