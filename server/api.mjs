@@ -1,3 +1,4 @@
+import {validDay} from '../web/orders.mjs';
 import {createCatalog} from './catalog.mjs';
 import { randomBytes,createHash } from 'node:crypto';
 import { collections,calculateMetrics,shopifyRecords } from './model.mjs';
@@ -54,7 +55,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
   app.post('/api/data/:collection',async(req,res)=>res.json({revisions:await store.patch(req.user.uid,req.params.collection,req.body.changes)}));
   app.get('/api/metrics',async(req,res)=>{
     const {start,end,product=''}=req.query;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start>end || Date.parse(end)-Date.parse(start)>366*86400000) return res.status(400).json({error:'Selecione um período até 366 dias.'});
+    if(!validDay(start) || !validDay(end) || start>end || Date.parse(end)-Date.parse(start)>366*86400000) return res.status(400).json({error:'Selecione um período até 366 dias.'});
     res.json(calculateMetrics(await store.state(req.user.uid,req.business.dataVersion || 0),start,end,product));
   });
   app.get('/api/connections',async(req,res)=>{
@@ -179,7 +180,12 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     } else {
       stage='guardar a ligação Meta no Firestore';
       connection.expiresAt=result.expires_in ? Date.now()+Number(result.expires_in)*1000 : null;
-      await store.connection(saved.ownerId,provider).set(connection);
+      await store.db.runTransaction(async tx=>{
+        const ref=store.connection(saved.ownerId,provider),previous=await tx.get(ref);
+        // Reautorizar renova apenas as credenciais do mesmo negócio. A próxima
+        // chamada à Meta volta a verificar o acesso à conta selecionada.
+        tx.set(ref,{...(previous.exists?previous.data():{}),...connection,...(previous.exists?{lastSync:previous.data().lastSync || null}: {})});
+      });
     }
     res.redirect('/?connection='+provider);
     }catch(error){if(error.status)throw error;throw Object.assign(new Error('Falha ao '+stage+'. Inicie uma nova ligação. Se persistir, consulte os logs do Worker sem partilhar credenciais.'),{status:502});}

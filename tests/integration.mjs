@@ -7,14 +7,14 @@ import {randomBytes,createHmac} from 'node:crypto';
 import {createStore} from '../server/store.mjs';
 import {createSync} from '../server/sync.mjs';
 import {createApp} from '../server/app.mjs';
-import {encrypt} from '../server/security.mjs';
+import {encrypt,decrypt} from '../server/security.mjs';
 import {shopifyRecords} from '../server/model.mjs';
 import {scheduleOrder} from '../web/orders.mjs';
 process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
 const firebase=initializeApp({projectId:'demo-painel'},'integration'),db=getFirestore(firebase),store=createStore(db);
-const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifyId:'fixture-client',shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta'};
+const config={emulators:true,projectId:'demo-painel',webApiKey:'demo-key',authDomain:'demo-painel.firebaseapp.com',encryptionKey:randomBytes(32).toString('base64'),shopifyId:'fixture-client',shopifySecret:'fixture-secret',baseUrl:'https://test.example',metaSecret:'fixture-meta',metaId:'fixture-meta-client'};
 let order={id:'991',created_at:'2026-10-12T08:00:00Z',updated_at:'2026-10-12T09:00:00Z',currency:'MZN',shipping_address:{name:'Integration'},line_items:[{id:'1',title:'Produto A',quantity:2,price:'100',discount_allocations:[]}]};
-const providers={shopifyProductsPage:async()=>({products:[{id:'123',title:'Produto A da loja'}],after:null}),shopifyProductsByIds:async(_shop,_token,ids)=>ids.map(id=>({id,title:id==='123'?'Produto A da loja':'Novo produto'})),exchangeShopify:async()=>({access_token:'fixture'}),shopifyIdentity:async shop=>({id:shop==='different.myshopify.com'?'gid://shopify/Shop/2':'gid://shopify/Shop/1',myshopifyDomain:'fixture.myshopify.com'}),registerWebhooks:async()=>{},shopifyOrders:async()=>[order],shopifyOrder:async()=>order,shopifyStatus:async(_shop,_token,_id,status)=>{order={...order,updated_at:new Date().toISOString(),...(status==='cancelado'?{cancelled_at:new Date().toISOString()}:{fulfillment_status:'fulfilled',financial_status:'paid'})};return order;},metaInsights:async()=>[{campaign_id:'7',campaign_name:'Produto A',spend:'50',date_start:'2026-10-12'},{campaign_id:'8',campaign_name:'Sem produto',spend:'5',date_start:'2026-10-12'}]};
+const providers={exchangeMeta:async()=>({access_token:'renewed-fixture',expires_in:3600}),shopifyProductsPage:async()=>({products:[{id:'123',title:'Produto A da loja'}],after:null}),shopifyProductsByIds:async(_shop,_token,ids)=>ids.map(id=>({id,title:id==='123'?'Produto A da loja':'Novo produto'})),exchangeShopify:async()=>({access_token:'fixture'}),shopifyIdentity:async shop=>({id:shop==='different.myshopify.com'?'gid://shopify/Shop/2':'gid://shopify/Shop/1',myshopifyDomain:'fixture.myshopify.com'}),registerWebhooks:async()=>{},shopifyOrders:async()=>[order],shopifyOrder:async()=>order,shopifyStatus:async(_shop,_token,_id,status)=>{order={...order,updated_at:new Date().toISOString(),...(status==='cancelado'?{cancelled_at:new Date().toISOString()}:{fulfillment_status:'fulfilled',financial_status:'paid'})};return order;},metaInsights:async()=>[{campaign_id:'7',campaign_name:'Produto A',spend:'50',date_start:'2026-10-12'},{campaign_id:'8',campaign_name:'Sem produto',spend:'5',date_start:'2026-10-12'}]};
 const sync=createSync(store,providers,config),server=createApp({store,auth:getAuth(firebase),providers,sync,config}).listen(0,'127.0.0.1');
 await new Promise(resolve=>server.once('listening',resolve));const root=`http://127.0.0.1:${server.address().port}`;
 const users=[];let checks=0;
@@ -60,6 +60,13 @@ try{
  for(const doc of (await db.collection('businesses/'+b.localId+'/vendas').get()).docs)await doc.ref.delete();
  pass('aliases Shopify exigem identidade da mesma loja e guardam domínio canónico');
 
+
+ await store.connection(b.localId,'meta').set({accountId:'act_saved',currency:'USD',conversionRate:65,timezone:'Africa/Maputo',lastSync:'2026-10-13T08:00:00Z',progress:{after:'saved-cursor'},credentials:encrypt({token:'old-fixture'},config.encryptionKey)});
+ const metaAttempt=await request(b,'/api/oauth/meta',{});assert.equal(metaAttempt.status,200);
+ const metaParams=new URLSearchParams({state:new URL(metaAttempt.body.url).searchParams.get('state'),code:'fixture'});
+ assert.equal((await fetch(root+'/oauth/meta/callback?'+metaParams,{redirect:'manual'})).status,302);
+ const metaRenewed=(await store.connection(b.localId,'meta').get()).data();assert.equal(metaRenewed.accountId,'act_saved');assert.equal(metaRenewed.conversionRate,65);assert.equal(metaRenewed.currency,'USD');assert.equal(metaRenewed.progress.after,'saved-cursor');assert.equal(metaRenewed.lastSync,'2026-10-13T08:00:00Z');assert.equal(decrypt(metaRenewed.credentials,config.encryptionKey).token,'renewed-fixture');
+ await store.connection(b.localId,'meta').delete();pass('reautorizar Meta preserva a conta, o câmbio e a importação em curso');
 
  const stateA=await request(a,'/api/state'),stateB=await request(b,'/api/state');assert.equal(stateA.status,200);assert.equal(stateB.status,200);
  const record={id:'manual1',data:'2026-10-12',tipo:'entrada',valor:123.45,descricao:'Negócio A',observacao:''};

@@ -10,6 +10,7 @@ export function initUsability(){
  $('pedidosBusca').oninput=()=>window.renderPedidos();$('pedidosEstado').onchange=()=>window.renderPedidos();
  const orderForm=$('vendaForm'),extra=document.createElement('details');extra.className='form-secondary';extra.id='orderExtraFields';extra.innerHTML='<summary>Mais detalhes: origem, nota e entregador</summary><div class="secondary-fields"></div>';
  for(const id of ['vFonte','vDescricao','vDelivery','vComissao','vStatus'])extra.querySelector('div').append($(id).closest('.field'));
+ const statusHelp=document.createElement('small');statusHelp.id='shopifyEditStatusHelp';statusHelp.className='muted';statusHelp.hidden=true;statusHelp.textContent='Para atualizar também a Shopify, usa Concluir ou Cancelar no pedido.';extra.querySelector('#vStatus').after(statusHelp);
  orderForm.insertBefore(extra,$('vendaSubmitBtn').closest('.field'));
  // Contacto e local vêm primeiro; a data, o produto e o valor continuam visíveis.
  const first=orderForm.firstElementChild;for(const id of ['vContacto','vLocal'])orderForm.insertBefore($(id).closest('.field'),first);

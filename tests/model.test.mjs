@@ -159,3 +159,8 @@ test('pagamento não permitido é recusado antes de processar o pedido',async()=
  const calls=[];const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{calls.push(JSON.parse(options.body).query);return Response.json({data:{order:{displayFinancialStatus:'AUTHORIZED',displayFulfillmentStatus:'UNFULFILLED',canMarkAsPaid:false}}});});
  await assert.rejects(providers.shopifyStatus('fixture.myshopify.com','fixture','1','concluido'),/não permite registar o pagamento/);assert(calls.every(query=>query.startsWith('query')));
 });
+
+test('datas impossíveis não entram nos gastos nem nas vendas importadas de backups',()=>{
+ for(const data of ['2026-02-30','2026-13-01','2026-00-12'])assert.throws(()=>validateRecord('ads',{id:'date_test',data,tipo:'ads',valor:10}));
+ assert.equal(validateRecord('ads',{id:'leap',data:'2028-02-29',tipo:'ads',valor:10}).data,'2028-02-29');
+});

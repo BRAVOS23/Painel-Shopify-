@@ -1902,7 +1902,8 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
   const valor = parseFloat(document.getElementById('vValor').value)||0;
   const delivery = document.getElementById('vDelivery').value.trim();
   const comissao = parseFloat(document.getElementById('vComissao').value)||0;
-  const status = document.getElementById('vStatus').value;
+  const edited=vendaEditId?vendasData.find(v=>v.id===vendaEditId):null;
+  const status = edited?.shopifyOrderId?edited.status:document.getElementById('vStatus').value;
 
   if(!data || !contacto){ showVendaMsg('Preencha pelo menos a data e o contacto.'); return; }
 
@@ -1920,6 +1921,8 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
   mesAtivoVendas=data.slice(0,7);guardarMesPreferido();
   saveVendas();
   document.getElementById('vendaForm').reset();
+  document.getElementById('vStatus').disabled=false;
+  document.getElementById('shopifyEditStatusHelp').hidden=true;
   dpVData.setValue(mesAtivoVendas===drISO(new Date()).slice(0,7)?drISO(new Date()):mesAtivoVendas+'-01');
   document.getElementById('vQuantidade').value = 1;
   renderVendasAll();
@@ -2216,7 +2219,8 @@ async function markStatus(id, status){
     } catch(error){pedidosMensagens.set(orderId,error.message);showVendaMsg(error.message);return;}
     finally{pedidosAAtualizar.delete(orderId);renderVendasAll();}
   }
-  vendasData[idx].status = status;vendasData[idx].panelConfirmed=status==='concluido';
+  const current=vendasData.find(v=>v.id===id);if(!current)return;
+  current.status = status;current.panelConfirmed=status==='concluido';
   saveVendas();
   renderVendasAll();
 
@@ -2303,6 +2307,8 @@ function editVenda(id){
   document.getElementById('vDelivery').value = v.delivery;
   document.getElementById('vComissao').value = v.comissao||'';
   document.getElementById('vStatus').value = v.status;
+  document.getElementById('vStatus').disabled=!!v.shopifyOrderId;
+  document.getElementById('shopifyEditStatusHelp').hidden=!v.shopifyOrderId;
   vendaEditId = id;
   document.getElementById('vendaSubmitBtn').textContent = 'Atualizar';
   document.getElementById('vendaCancelEdit').style.display = 'inline-block';
@@ -2311,6 +2317,8 @@ function editVenda(id){
 function cancelVendaEdit(){
   vendaEditId = null;
   document.getElementById('vendaForm').reset();
+  document.getElementById('vStatus').disabled=false;
+  document.getElementById('shopifyEditStatusHelp').hidden=true;
   dpVData.setValue(drISO(new Date()));
   document.getElementById('vQuantidade').value = 1;
   document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
@@ -3343,15 +3351,15 @@ function renderAdTable(){
       <td data-label="Produto">${escapeHtml(a.produto||'Geral')}</td>
       <td class="mono" data-label="Valor">${fmtMT(a.valor)}</td>
       <td data-label=""><div class="row-actions">
-        <button class="icon-btn" onclick="editAd('${a.id}')" title="Editar">✎</button>
-        <button class="icon-btn" onclick="deleteAd('${a.id}')" title="Apagar">✕</button>
+        ${a.source==='meta'?'<span class="muted">Gerido pela Meta</span>':`<button class="icon-btn" onclick="editAd('${a.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteAd('${a.id}')" title="Apagar">✕</button>`}
       </div></td>
     </tr>`).join('');
 }
 
 function editAd(id){
   const a = adSpendData.find(x=>x.id===id);
-  if(!a) return;
+  if(!a || a.source==='meta') return;
   switchMain('metricas');
   switchMetricasView('cadastros');window.chooseExpenseType?.('ads');
   dpAdData.setRange([a.data, adSpendFim(a)], null);
@@ -3370,6 +3378,7 @@ function cancelAdEdit(){
   document.getElementById('adCancelEdit').style.display = 'none';
 }
 function deleteAd(id){
+  if(adSpendData.find(a=>a.id===id)?.source==='meta')return;
   if(!confirm('Apagar este gasto?')) return;
   adSpendData = adSpendData.filter(a=>a.id!==id);
   saveAdSpend();
@@ -3448,11 +3457,13 @@ function getMetricasRange(){
   return drMetricas ? drMetricas.getRange() : null;
 }
 
+let metricasRenderRequest=0;
 async function renderMetricas(){
+ const request=++metricasRenderRequest;
  const range=getMetricasRange();if(!range)return;
  const [inicio,fim]=range,produtoFiltro=document.getElementById('metProduto').value.trim();
  try{
-  const result=await window.cloudBackend.metrics(inicio,fim,produtoFiltro);if(!result)return;
+  const result=await window.cloudBackend.metrics(inicio,fim,produtoFiltro);if(!result || request!==metricasRenderRequest)return;
   const fields={metGastoAquisicao:'acquisition',metGastoEntrega:'delivery',metGastoAds:'ads',metGastoOutros:'other',metGastoOperacional:'operational',metGastoTotal:'total',metReceita:'revenue',metLucroLiquido:'profit'};
   Object.entries(fields).forEach(([id,key])=>document.getElementById(id).textContent=fmtMT(result[key]));
   document.getElementById('metLucroLiquido').style.color=result.profit>=0?'var(--green)':'var(--red)';
@@ -3464,7 +3475,7 @@ async function renderMetricas(){
   document.getElementById('metRoiSub').textContent=produtoFiltro?'Custos do produto e das entregas, anúncios e outros gastos.':'Receita menos custos, em percentagem dos custos.';
   const aviso=document.getElementById('metAvisoProduto');aviso.style.display=result.missingProductCount?'flex':'none';aviso.textContent=result.missingProductCount+' venda(s) concluída(s) com produto sem custo cadastrado. Cadastre o produto para corrigir o ROI.';
   window.updateMetricsPresentation?.(result);renderMetChart(inicio,fim,produtoFiltro);renderMetCostChart(result.acquisition,result.ads,result.other,result.operational,result.delivery);
- }catch(error){document.getElementById('metVendasSub').textContent='Não foi possível atualizar as métricas.';}
+ }catch(error){if(request===metricasRenderRequest)document.getElementById('metVendasSub').textContent='Não foi possível atualizar as métricas.';}
 }
 window.refreshCloudMetrics=()=>{if(document.getElementById('secResumo').classList.contains('active'))window.renderExperience?.();else if(document.getElementById('secMetricas').classList.contains('active'))renderMetricas();};
 
@@ -3610,8 +3621,8 @@ function renderGastosView(){
       <td class="mono" data-label="Período">${i.periodo}</td>
       <td class="mono" data-label="Valor">${fmtMT(i.valor)}</td>
       <td data-label=""><div class="row-actions">
-        <button class="icon-btn" onclick="${EDIT_FN[i.tipo]}('${i.id}')" title="Editar">✎</button>
-        <button class="icon-btn" onclick="${DEL_FN[i.tipo]}('${i.id}')" title="Apagar">✕</button>
+        ${i.source==='meta'?'<span class="muted">Gerido pela Meta</span>':`<button class="icon-btn" onclick="${EDIT_FN[i.tipo]}('${i.id}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="${DEL_FN[i.tipo]}('${i.id}')" title="Apagar">✕</button>`}
       </div></td>
     </tr>`).join('');
   document.getElementById('gastosViewTotal').textContent = fmtMT(itens.reduce((s,i)=>s+i.valor,0));

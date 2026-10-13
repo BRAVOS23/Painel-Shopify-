@@ -1,3 +1,4 @@
+import {validateRecord} from './record-schema.mjs';
 import {countOrders,csvOrderStatus,completedSale} from './sales.mjs';
 import {productResolver,effectiveExpenseProduct,metaProductResolver} from './catalog.mjs';
 import {initAccountMenu,initExperience} from './experience.mjs';
@@ -18,7 +19,7 @@ startup.remove();const auth=getAuth(initializeApp(config.firebase));
 if(config.emulators)connectAuthEmulator(auth,`http://${location.hostname}:9099`,{disableWarnings:true});
 const groups=['fluxo','vendas','produtos','ads','operacional'];
 const clean=record=>Object.fromEntries(Object.entries(record).filter(([key])=>key!=='_revision'));
-let baseline={},desired={},loaded=false,busy=false,failure=null,mutation=0,user=null,metricsRequest=0,session=0,stateTag=null,lastConnectionsCheck=0;
+let baseline={},desired={},loaded=false,busy=false,failure=null,mutation=0,user=null,session=0,stateTag=null,lastConnectionsCheck=0;
 const wrap=document.querySelector('.wrap');wrap.hidden=true;
 const style=document.createElement('style');style.textContent=`
 [hidden]{display:none!important}.cloud-login{max-width:440px;margin:8vh auto;padding:28px;background:var(--panel);border:1px solid var(--panel-line);border-radius:14px}.cloud-login h1{font-size:24px;margin-bottom:12px}.cloud-login p{line-height:1.5;color:var(--sand-dim);font-size:14px}.cloud-login form{display:flex;flex-direction:column;align-items:stretch;margin:20px 0}.cloud-login input{padding:12px;border-radius:8px;border:1px solid var(--panel-line);background:var(--ink-2);color:var(--sand)}.cloud-actions{display:flex;gap:8px;flex-wrap:wrap}.cloud-status{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:12px;border:1px solid var(--panel-line);border-radius:10px;font-size:12px}.cloud-status button{padding:6px 10px}.cloud-message{font-size:13px;line-height:1.5;margin-top:10px;color:var(--gold)}.cloud-help{font-size:13px;color:var(--sand-dim);line-height:1.6;margin-bottom:12px}.cloud-integration input,.cloud-integration select{padding:10px;background:var(--ink-2);color:var(--sand);border:1px solid var(--panel-line);border-radius:8px;max-width:100%}.cloud-integration .cloud-actions{margin-top:12px}
@@ -90,7 +91,7 @@ window.cloudBackend={
   return result;
  },
  async syncShopify(){await syncProvider('shopify');},
- async metrics(start,end,product){const request=++metricsRequest; if(dirty() || busy)return null; const result=await api(`/metrics?${new URLSearchParams({start,end,product})}`);return request===metricsRequest ? result : null;}
+ async metrics(start,end,product){if(dirty() || busy)return null;const activeSession=session;const result=await api(`/metrics?${new URLSearchParams({start,end,product})}`);return activeSession===session && !dirty() && !busy ? result : null;}
 };
 window.addEventListener('beforeunload',event=>{if(dirty()){event.preventDefault();event.returnValue='';}});
 document.getElementById('cloudRetry').onclick=()=>{failure=null;void flush();};
@@ -121,8 +122,10 @@ async function importBackup(file){
   if(result.foto && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(result.foto))throw new Error('Fotografia inválida no backup.');
   if(name==='produtos' && !result.locais){result.locais=[{id:(result.id+'__local').slice(0,180),local:result.local || '',quantidade:Number(result.estoque || 0)}];delete result.estoque;delete result.local;}
   if(result.locais && (!Array.isArray(result.locais) || result.locais.some(item=>!item || !/^[A-Za-z0-9_-]{1,180}$/.test(item.id || '') || typeof item.local!=='string' || !Number.isInteger(item.quantidade) || item.quantidade<0)))throw new Error('Locais de stock inválidos no backup.');
+  validateRecord(name,result);
   return result;
  })]));
+ if(groups.some(name=>new Set(prepared[name].map(record=>record.id)).size!==prepared[name].length))throw new Error('O backup contém registos repetidos.');
  if(!confirm('Importar este backup para a conta atual? Confirme que pertence ao seu negócio.'))return;
  for(const name of groups)window.cloudBackend.save(name,prepared[name]);window.applyCloudState(desired);
 }

@@ -1,3 +1,4 @@
+import {validDay} from './orders.mjs';
 const safeId=id=>{if(!/^[A-Za-z0-9_-]{1,180}$/.test(String(id)))throw new Error('Identificador inválido.');};
 export function validateRecord(collection, record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error('Registo inválido.');
@@ -15,7 +16,7 @@ export function validateRecord(collection, record) {
   for (const field of ['valor','custo','comissao','quantidade','sourceValue','conversionRate']) {
     if (field in record && (typeof record[field] !== 'number' || !Number.isFinite(record[field]) || record[field] < 0)) throw new Error('Valor numérico inválido.');
   }
-  for (const field of ['data','dataFim','dataPedido','mes']) if (record[field] && !new RegExp(field !== 'mes' ? '^\\d{4}-\\d{2}-\\d{2}$' : '^\\d{4}-\\d{2}$').test(record[field])) throw new Error('Data inválida.');
+  for (const field of ['data','dataFim','dataPedido','mes']) if (record[field] && !validDay(field==='mes'?record[field]+'-01':record[field])) throw new Error('Data inválida.');
   if(record.dataFim && record.dataFim<record.data)throw new Error('O fim do período não pode ser anterior ao início.');
   if (collection === 'vendas' && !['pendente','concluido','cancelado','remarcado'].includes(record.status)) throw new Error('Estado inválido.');
   if (collection === 'fluxo' && !['entrada','saida'].includes(record.tipo)) throw new Error('Movimento inválido.');
