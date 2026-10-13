@@ -64,12 +64,22 @@ export function createProviders(config, fetcher = fetch) {
       const data=await shopifyGraphql(shop,token,`mutation($id:ID!){orderCancel(orderId:$id,reason:OTHER,notifyCustomer:false,refund:false,restock:true){job{id done}orderCancelUserErrors{message}}}`,{id:orderId});
       if(data.orderCancel.orderCancelUserErrors.length) throw new Error('A Shopify recusou o cancelamento. Verifique o estado e as permissões do pedido.');
     } else {
-      const data=await shopifyGraphql(shop,token,`query($id:ID!){order(id:$id){fulfillmentOrders(first:100){nodes{id status}pageInfo{hasNextPage}}}}`,{id:orderId});
-      if(!data.order || data.order.fulfillmentOrders.pageInfo.hasNextPage) throw new Error('Não foi possível obter os pedidos de processamento completos.');
-      const items=data.order.fulfillmentOrders.nodes.filter(item=>['OPEN','IN_PROGRESS'].includes(item.status)).map(item=>({fulfillmentOrderId:item.id}));
-      if(!items.length) throw new Error('Não há itens disponíveis para concluir na Shopify.');
-      const created=await shopifyGraphql(shop,token,`mutation($input:FulfillmentInput!){fulfillmentCreate(fulfillment:$input){fulfillment{id status}userErrors{message}}}`,{input:{lineItemsByFulfillmentOrder:items,notifyCustomer:false}});
-      if(created.fulfillmentCreate.userErrors.length || !created.fulfillmentCreate.fulfillment) throw new Error('A Shopify recusou a conclusão. Verifique as permissões de processamento.');
+      const before=(await shopifyGraphql(shop,token,`query($id:ID!){order(id:$id){cancelledAt displayFulfillmentStatus displayFinancialStatus canMarkAsPaid}}`,{id:orderId})).order;
+      if(!before || before.cancelledAt || ['REFUNDED','VOIDED'].includes(before.displayFinancialStatus))throw Object.assign(new Error('Este pedido não pode ser concluído e marcado como pago. Revê o estado na Shopify.'),{status:409});
+      const paid=before.displayFinancialStatus==='PAID';
+      if(!paid && !before.canMarkAsPaid)throw Object.assign(new Error('A Shopify não permite registar o pagamento deste pedido como recebido. Revê o estado do pagamento na Shopify.'),{status:409});
+      if(before.displayFulfillmentStatus!=='FULFILLED'){
+        const data=await shopifyGraphql(shop,token,`query($id:ID!){order(id:$id){fulfillmentOrders(first:100){nodes{id status}pageInfo{hasNextPage}}}}`,{id:orderId});
+        if(!data.order || data.order.fulfillmentOrders.pageInfo.hasNextPage)throw new Error('Não foi possível obter os pedidos de processamento completos.');
+        const items=data.order.fulfillmentOrders.nodes.filter(item=>['OPEN','IN_PROGRESS'].includes(item.status)).map(item=>({fulfillmentOrderId:item.id}));
+        if(!items.length)throw new Error('Não há itens disponíveis para concluir na Shopify.');
+        const created=await shopifyGraphql(shop,token,`mutation($input:FulfillmentInput!){fulfillmentCreate(fulfillment:$input){fulfillment{id status}userErrors{message}}}`,{input:{lineItemsByFulfillmentOrder:items,notifyCustomer:false}});
+        if(created.fulfillmentCreate.userErrors.length || !created.fulfillmentCreate.fulfillment)throw new Error('A Shopify recusou a conclusão. Verifique as permissões de processamento.');
+      }
+      if(!paid){
+        const result=await shopifyGraphql(shop,token,`mutation($input:OrderMarkAsPaidInput!){orderMarkAsPaid(input:$input){order{id displayFinancialStatus}userErrors{field message}}}`,{input:{id:orderId}});
+        if(result.orderMarkAsPaid.userErrors.length || !result.orderMarkAsPaid.order)throw new Error('O processamento foi solicitado, mas a Shopify recusou o registo como pago. O painel só conclui após confirmar os dois estados.');
+      }
     }
     return shopifyOrder(shop,token,id);
   }

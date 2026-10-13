@@ -78,3 +78,5 @@ Adicione read_products à versão ativa do app Shopify e reautorize no painel. E
 A limpeza em massa foi retirada a pedido do utilizador. Os registos podem ser removidos individualmente nas suas listas. A opção Restaurar backup da limpeza mantém compatibilidade com os ficheiros já descarregados: valida o ficheiro antes de inserir e não substitui IDs existentes. Consulte o estado de gravação e resolva conflitos antes de continuar.
 
 Vendas confirmadas: confirmação explícita em Concluir no painel ou estado processado e pago na Shopify. A Meta contribui apenas com gastos. Na primeira sincronização após a revisão desta regra, os últimos 59 dias são verificados novamente em lotes; pedidos mais antigos sem informação de pagamento/processamento ficam fora dos resultados até serem confirmados ou importados com essa informação.
+
+Ação Concluir: em pedidos ligados à Shopify, processa e regista o pagamento recebido (orderMarkAsPaid, permissão write_orders). Use após receber o pagamento. O registo não cobra o cartão do cliente. Estados já confirmados não são repetidos; o painel aguarda processamento e pagamento confirmados antes de concluir localmente.

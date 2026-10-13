@@ -85,7 +85,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     try{
       const connection=snap.data(),{token}=decrypt(connection.credentials,config.encryptionKey);
       let order=await providers.shopifyOrder(connection.shop,token,req.params.id);
-      const done=()=>wanted==='cancelado'?Boolean(order.cancelled_at):!order.cancelled_at && order.fulfillment_status==='fulfilled';
+      const done=()=>wanted==='cancelado'?Boolean(order.cancelled_at):!order.cancelled_at && order.fulfillment_status==='fulfilled' && order.financial_status==='paid';
       if(wanted==='concluido' && (order.cancelled_at || ['refunded','voided'].includes(String(order.financial_status || '').toLowerCase())))throw Object.assign(new Error('Este pedido está cancelado na Shopify e não pode contar como venda.'),{status:409});
       if(req.method==='POST' && !done())order=await providers.shopifyStatus(connection.shop,token,req.params.id,wanted);
       // CSV/backups antigos têm IDs locais, não os IDs sh_ da sincronização.

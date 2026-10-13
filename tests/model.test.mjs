@@ -50,15 +50,17 @@ test('paginação Meta usa cursor apenas no domínio oficial',async()=>{
  });
  assert.deepEqual(await providers.metaAccounts('token'),[{id:'1'},{id:'2'}]);assert(urls.every(url=>new URL(url).hostname==='graph.facebook.com'));assert.equal(new URL(urls[1]).searchParams.get('after'),'next');
 });
-test('conclusão Shopify usa fulfillmentOrders e verifica confirmação',async()=>{
- const operations=[];
+test('conclusão Shopify processa e marca como pago, verificando ambos',async()=>{
+ const operations=[];let paid=false;
  const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{
   const {query,variables}=JSON.parse(options.body);operations.push({query,variables});
+  if(query.includes('canMarkAsPaid'))return Response.json({data:{order:{displayFinancialStatus:'PENDING',displayFulfillmentStatus:'UNFULFILLED',canMarkAsPaid:true}}});
+  if(query.includes('orderMarkAsPaid')){paid=true;return Response.json({data:{orderMarkAsPaid:{order:{id:'1',displayFinancialStatus:'PAID'},userErrors:[]}}});}
   if(query.includes('fulfillmentCreate'))return Response.json({data:{fulfillmentCreate:{fulfillment:{id:'f',status:'SUCCESS'},userErrors:[]}}});
   if(query.includes('fulfillmentOrders'))return Response.json({data:{order:{fulfillmentOrders:{nodes:[{id:'gid://shopify/FulfillmentOrder/1',status:'OPEN'}],pageInfo:{hasNextPage:false}}}}});
-  return Response.json({data:{order:{id:'gid://shopify/Order/1',legacyResourceId:'1',createdAt:'2026-10-12T00:00:00Z',updatedAt:'2026-10-12T01:00:00Z',displayFulfillmentStatus:'FULFILLED',currencyCode:'MZN',lineItems:{nodes:[],pageInfo:{hasNextPage:false}}}}});
+  return Response.json({data:{order:{legacyResourceId:'1',createdAt:'2026-10-12T00:00:00Z',updatedAt:'2026-10-12T01:00:00Z',displayFulfillmentStatus:'FULFILLED',displayFinancialStatus:paid?'PAID':'PENDING',currencyCode:'MZN',lineItems:{nodes:[],pageInfo:{hasNextPage:false}}}}});
  });
- const result=await providers.shopifyStatus('test.myshopify.com','fixture','1','concluido');assert.equal(result.fulfillment_status,'fulfilled');assert.equal(operations[1].variables.input.lineItemsByFulfillmentOrder[0].fulfillmentOrderId,'gid://shopify/FulfillmentOrder/1');
+ const result=await providers.shopifyStatus('test.myshopify.com','fixture','1','concluido');assert.equal(result.fulfillment_status,'fulfilled');assert.equal(result.financial_status,'paid');assert.equal(operations.find(row=>row.query.includes('fulfillmentCreate')).variables.input.lineItemsByFulfillmentOrder[0].fulfillmentOrderId,'gid://shopify/FulfillmentOrder/1');assert.equal(operations.filter(row=>row.query.includes('orderMarkAsPaid')).length,1);
 });
 test('cancelamento recusado pela Shopify não é tratado como sucesso',async()=>{
  const providers=createProviders({shopifyVersion:'2026-07'},async()=>Response.json({data:{orderCancel:{orderCancelUserErrors:[{message:'denied'}]}}}));
@@ -138,4 +140,22 @@ test('Shopify só confirma automaticamente processado e pago; confirmação no p
  const records=shopifyRecords({...order,financial_status:'pending',fulfillment_status:'fulfilled'}).map(row=>({...row,status:'concluido',panelConfirmed:true}));const state={vendas:records,produtos:[],ads:[],operacional:[]};assert.equal(calculateMetrics(state,'2026-10-12','2026-10-12').orders,1);
  for(const row of records)row.panelConfirmed=false;assert.equal(calculateMetrics(state,'2026-10-12','2026-10-12').orders,0);
  const legacy={...records[0]};delete legacy.shopifyFinancialStatus;delete legacy.shopifyFulfillmentStatus;state.vendas=[legacy];assert.equal(calculateMetrics(state,'2026-10-12','2026-10-12').statusReviewOrders,1);
+});
+
+test('conclusão retoma processamento/pagamento sem repetir estados já confirmados',async()=>{
+ for(const [fulfilledInitially,paidInitially] of [[true,false],[false,true],[true,true]]){
+  let fulfilled=fulfilledInitially,paid=paidInitially;const mutations=[];
+  const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{const {query}=JSON.parse(options.body);
+   if(query.includes('canMarkAsPaid'))return Response.json({data:{order:{displayFulfillmentStatus:fulfilled?'FULFILLED':'UNFULFILLED',displayFinancialStatus:paid?'PAID':'PENDING',canMarkAsPaid:!paid}}});
+   if(query.includes('fulfillmentCreate')){fulfilled=true;mutations.push('fulfill');return Response.json({data:{fulfillmentCreate:{fulfillment:{id:'f'},userErrors:[]}}});}
+   if(query.includes('fulfillmentOrders'))return Response.json({data:{order:{fulfillmentOrders:{nodes:[{id:'f',status:'OPEN'}],pageInfo:{hasNextPage:false}}}}});
+   if(query.includes('orderMarkAsPaid')){paid=true;mutations.push('paid');return Response.json({data:{orderMarkAsPaid:{order:{id:'1'},userErrors:[]}}});}
+   return Response.json({data:{order:{legacyResourceId:'1',createdAt:'2026-10-13',updatedAt:'2026-10-13',displayFulfillmentStatus:fulfilled?'FULFILLED':'UNFULFILLED',displayFinancialStatus:paid?'PAID':'PENDING',currencyCode:'MZN',lineItems:{nodes:[],pageInfo:{hasNextPage:false}}}}});
+  });
+  const result=await providers.shopifyStatus('fixture.myshopify.com','fixture','1','concluido');assert.equal(result.fulfillment_status,'fulfilled');assert.equal(result.financial_status,'paid');assert.deepEqual(mutations,[...(fulfilledInitially?[]:['fulfill']),...(paidInitially?[]:['paid'])]);
+ }
+});
+test('pagamento não permitido é recusado antes de processar o pedido',async()=>{
+ const calls=[];const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{calls.push(JSON.parse(options.body).query);return Response.json({data:{order:{displayFinancialStatus:'AUTHORIZED',displayFulfillmentStatus:'UNFULFILLED',canMarkAsPaid:false}}});});
+ await assert.rejects(providers.shopifyStatus('fixture.myshopify.com','fixture','1','concluido'),/não permite registar o pagamento/);assert(calls.every(query=>query.startsWith('query')));
 });
