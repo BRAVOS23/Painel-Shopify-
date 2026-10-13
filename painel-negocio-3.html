@@ -921,8 +921,8 @@
 
       <div class="chart-grid">
         <div class="chart-card">
-          <div class="chart-card-title">Gasto vs. receita por dia</div>
-          <div class="chart-canvas-wrap"><canvas id="metChart"></canvas>
+          <div class="chart-card-title">Receita e gastos</div><label class="chart-mode"><input id="chartCumulative" type="checkbox" onchange="renderMetricas()"> Acumulado no período</label><p class="chart-help">Toca nas linhas para comparar os valores de cada dia.</p>
+          <div class="chart-canvas-wrap"><canvas id="metChart" role="img" aria-label="Evolução diária da receita e dos gastos"></canvas>
             <div id="metChartEmpty" class="chart-empty" style="display:none;">Sem dados neste período.</div>
           </div>
         </div>
@@ -2721,21 +2721,10 @@ function renderFonteChart(dados){
   requestAnimationFrame(()=>{
     // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
     if(fonteChart){ fonteChart.destroy(); fonteChart=null; }
+    const sorted=[...fontes].sort((a,b)=>grupos[b]-grupos[a]);
     fonteChart = new Chart(canvas, {
-      type:'doughnut',
-      data:{
-        labels: fontes,
-        datasets:[{ data: fontes.map(f=>grupos[f]), backgroundColor: fontes.map(f=>cssVar(FONTE_COLOR[f]||'--cat-muted')), borderColor: cssVar('--ink-2'), borderWidth:2, spacing:2, hoverOffset:8 }]
-      },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        cutout:'72%',
-        plugins:{
-          legend:{ position:'right', labels:chartLegendStyle({font:{size:11}}) },
-          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ' ' + ctx.label + ': ' + ctx.raw + ' (' + (ctx.raw/total*100).toFixed(0) + '%)' } }
-        }
-      }
+      type:'bar',data:{labels:sorted.map(f=>f.replace(/^\d+\./,'').replace('WARM CALLING','Telefone')),datasets:[{data:sorted.map(f=>grupos[f]),backgroundColor:sorted.map(f=>cssVar(FONTE_COLOR[f]||'--cat-muted')),borderRadius:6,maxBarThickness:28}]},
+      options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{...chartTooltipStyle(),callbacks:{label:ctx=>ctx.raw+' pedidos · '+(ctx.raw/total*100).toFixed(0)+'%'}}},scales:{x:{beginAtZero:true,border:chartAxisNoBorder(),ticks:{precision:0,maxTicksLimit:5,color:chartInk(.65)},grid:chartGridStyle(.07)},y:{border:chartAxisNoBorder(),ticks:{color:chartInk(.8)},grid:{display:false}}}}
     });
   });
 }
@@ -2846,8 +2835,8 @@ function chartTooltipStyle(){
     cornerRadius:9,
     boxPadding:5,
     usePointStyle:true,
-    titleFont:{ family:"'Space Grotesk', sans-serif", weight:'600', size:12.5 },
-    bodyFont:{ family:"'IBM Plex Mono', monospace", size:12 }
+    titleFont:{ family:"Inter, sans-serif", weight:'600', size:12.5 },
+    bodyFont:{ family:"Inter, sans-serif", size:12 }
   };
 }
 // grade discreta (tracejada, sem a linha sólida do eixo) — o padrão do Chart.js desenha um eixo
@@ -3519,26 +3508,18 @@ function renderMetChart(inicio, fim, produtoFiltro){
   requestAnimationFrame(()=>{
     // ver nota equivalente em renderFluxoChart — destroy tem de ser checado aqui dentro, não antes
     if(metChart){ metChart.destroy(); metChart=null; }
+    const cumulative=document.getElementById('chartCumulative')?.checked;
+    const values=series=>{let sum=0;return cumulative?series.map(value=>sum+=value):series;};
     metChart = new Chart(canvas, {
-      type:'bar',
-      data:{
-        labels,
-        datasets:[
-          { label:'Gasto total', data: gastoPorDia, backgroundColor:cssVar('--red'), borderRadius:6, borderSkipped:false, maxBarThickness:34 },
-          { label:'Receita', data: receitaPorDia, backgroundColor:cssVar('--green-chart'), borderRadius:6, borderSkipped:false, maxBarThickness:34 }
-        ]
-      },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{
-          legend:{ labels:chartLegendStyle() },
-          tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmtMT(ctx.raw) } }
-        },
-        scales:{
-          y:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55), callback:v=>v+' MT' }, grid:{ ...chartGridStyle(0.07), borderDash:[3,4] } },
-          x:{ border:chartAxisNoBorder(), ticks:{ color:chartInk(0.55) }, grid:{ display:false } }
-        }
+      type:'line',
+      data:{labels,datasets:[
+        {label:'Receita',data:values(receitaPorDia),borderColor:cssVar('--green-chart'),backgroundColor:chartInk(0.025),fill:true,borderWidth:2.5,pointRadius:dias.length===1?4:0,pointHitRadius:18,pointHoverRadius:5,tension:0},
+        {label:'Gasto total',data:values(gastoPorDia),borderColor:cssVar('--red'),borderWidth:2,pointRadius:dias.length===1?4:0,pointHitRadius:18,pointHoverRadius:5,tension:0}
+      ]},
+      plugins:[{id:'cursorLine',afterDatasetsDraw(chart){const active=chart.tooltip?.getActiveElements();if(!active?.length)return;const x=active[0].element.x,{ctx,chartArea}=chart;ctx.save();ctx.strokeStyle=chartInk(.3);ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,chartArea.top);ctx.lineTo(x,chartArea.bottom);ctx.stroke();ctx.restore();}}],
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:chartLegendStyle()},tooltip:{...chartTooltipStyle(),callbacks:{title:items=>(cumulative?'Até ':'')+items[0].label,label:ctx=>ctx.dataset.label+': '+fmtMT(ctx.raw)}}},
+        scales:{y:{beginAtZero:true,border:chartAxisNoBorder(),ticks:{maxTicksLimit:5,color:chartInk(.65),callback:v=>new Intl.NumberFormat('pt-PT',{notation:'compact',maximumFractionDigits:1}).format(v)+' MT'},grid:chartGridStyle(.07)},x:{border:chartAxisNoBorder(),ticks:{maxTicksLimit:6,maxRotation:0,color:chartInk(.65),callback:(_,index)=>labels[index].slice(0,5)},grid:{display:false}}}
       }
     });
   });
@@ -3568,6 +3549,7 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
     if(metCostChart){ metCostChart.destroy(); metCostChart=null; }
     metCostChart = new Chart(canvas, {
       type:'doughnut',
+      plugins:[{id:'costTotal',afterDraw(chart){const arc=chart.getDatasetMeta(0).data[0];if(!arc)return;const {ctx}=chart;ctx.save();ctx.textAlign='center';ctx.fillStyle=chartInk(.65);ctx.font='12px Inter, sans-serif';ctx.fillText('Total de custos',arc.x,arc.y-10);ctx.fillStyle=chartInk(.95);ctx.font='600 16px Inter, sans-serif';ctx.fillText(fmtMT(total),arc.x,arc.y+16,arc.innerRadius*1.8);ctx.restore();}}],
       data:{
         labels: partes.map(p=>p.label),
         datasets:[{ data: partes.map(p=>p.valor), backgroundColor: partes.map(p=>p.cor), borderColor: cssVar('--ink-2'), borderWidth:2, spacing:2, hoverOffset:8 }]
@@ -3577,7 +3559,7 @@ function renderMetCostChart(aquisicao, ads, outros, operacional, entrega){
         maintainAspectRatio:false,
         cutout:'72%',
         plugins:{
-          legend:{ position:'right', labels:chartLegendStyle({font:{size:11.5}}) },
+          legend:{ position:'bottom', labels:chartLegendStyle({padding:16,font:{family:'Inter',size:12}}) },
           tooltip:{ ...chartTooltipStyle(), callbacks:{ label: ctx => ' ' + ctx.label + ': ' + fmtMT(ctx.raw) + ' (' + (ctx.raw/total*100).toFixed(1) + '%)' } }
         }
       }

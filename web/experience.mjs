@@ -1,3 +1,4 @@
+import {initInstallationUi} from './install.mjs';
 import {initUsability} from './usability.mjs';
 import {scheduleOrder} from './orders.mjs';
 const $=id=>document.getElementById(id);
@@ -17,7 +18,7 @@ export function initAccountMenu(){
  <div class="dialog-body"><section id="accountPaneConta" class="account-pane" role="tabpanel" aria-labelledby="accountTabConta"><div class="account-identity"><strong>A tua conta</strong><span id="cloudIdentity"></span></div><div class="account-line"><div>Aparência<p>Escolhe o tema que te é mais confortável.</p></div><div id="accountThemeSlot"></div></div><div class="account-line"><div>Guardar alterações<p>Os dados são associados à tua conta.</p></div><button id="cloudRetry" class="btn-ghost" hidden>Tentar novamente</button><span id="accountSaveLabel" class="muted">Guardado automaticamente</span></div><div class="account-line"><span>Sessão</span><button id="cloudLogout" class="btn-ghost">Sair da conta</button></div></section>
  <section id="accountPaneIntegracoes" class="account-pane" role="tabpanel" aria-labelledby="accountTabIntegracoes" hidden></section>
  <section id="accountPaneDados" class="account-pane" role="tabpanel" aria-labelledby="accountTabDados" hidden><div id="accountBackupSlot"></div><details><summary class="muted" style="cursor:pointer;margin:16px 0">Importar de outras fontes</summary><button class="btn-ghost" id="cloudImport">Importar dados deste navegador</button><input id="cloudBackupFile" type="file" accept="application/json,.json" hidden><p class="account-data-help">Usa apenas dados do teu negócio. Os backups também incluem os movimentos antigos de caixa.</p><div id="accountCsvSlot"></div></details></section></div>`;
- document.body.append(dialog);wireClose(dialog);
+ document.body.append(dialog);wireClose(dialog);initInstallationUi($('accountPaneConta'));
  function tab(name){for(const key of ['Conta','Integracoes','Dados']){$('accountPane'+key).hidden=key!==name;$('accountTab'+key).setAttribute('aria-selected',String(key===name));$('accountTab'+key).tabIndex=key===name?0:-1;}}
  for(const key of ['Conta','Integracoes','Dados'])$('accountTab'+key).onclick=()=>tab(key);
  const tabs=[...dialog.querySelectorAll('[role="tab"]')];tabs.forEach((button,index)=>button.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?2:(index+(event.key==='ArrowRight'?1:-1)+3)%3;tabs[next].click();tabs[next].focus();});

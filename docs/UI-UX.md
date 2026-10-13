@@ -30,3 +30,11 @@ A estrutura mantém Resumo, Pedidos, Resultados e o menu de utilizador. A revis�
 - Falha de arranque e gravação offline; recuperação online com persistência confirmada.
 
 Os testes usam dados sintéticos e emuladores. Não concluem nem cancelam pedidos de clientes reais. A renderização foi verificada em Chromium; uma verificação num dispositivo físico continua útil para particularidades do teclado e do sistema operativo.
+
+## Gráficos e instalação — 13 de outubro de 2026
+
+Resultados: receita e gasto total em linhas, comparação ao tocar/hover, cursor vertical, datas curtas e até seis marcas no eixo horizontal. O seletor Acumulado soma os valores diários já calculados, sem alterar as regras financeiras. Os custos mostram o total no centro e legenda inferior; Relatórios usa barras horizontais para comparar as origens dos pedidos. Tooltips usam Inter.
+
+Conta: secção de instalação da PWA com o evento real beforeinstallprompt, tratamento de aceitação/recusa e estado instalado. Sem suporte ao prompt, apresenta instruções para Chrome/Android e Safari/iPhone. O manifesto já não afirma que os dados do negócio funcionam offline; consultar e guardar continuam a exigir internet.
+
+Verificação: build e 27 testes unitários passaram. Auditoria Chromium com dados sintéticos e emuladores: todas as abas em 360, 390, 800 e 1280 px, temas claro/escuro, sem overflow ou erros JavaScript. Teste adicional confirmou tipo line, soma acumulada por dia, instruções manuais e chamada de prompt simulada. A instalação física em Android/iPhone não foi executada neste ambiente.
