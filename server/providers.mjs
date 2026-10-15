@@ -53,6 +53,10 @@ export function createProviders(config, fetcher = fetch) {
     const data=await shopifyGraphql(shop,token,`query($after:String,$filter:String!){orders(first:1,after:$after,sortKey:UPDATED_AT,query:$filter){nodes{${fields}}pageInfo{hasNextPage endCursor}}}`,{after,filter:`updated_at:>=${since} updated_at:<=${until}`});
     return {orders:data.orders.nodes.map(normalize),after:data.orders.pageInfo.hasNextPage?data.orders.pageInfo.endCursor:null};
   }
+  async function shopifyHistoryPage(shop,token,since,until,after=null){
+    const data=await shopifyGraphql(shop,token,`query($after:String,$filter:String!){orders(first:1,after:$after,sortKey:CREATED_AT,query:$filter){nodes{${fields}}pageInfo{hasNextPage endCursor}}}`,{after,filter:`created_at:>=${since} created_at:<=${until}`});
+    return {orders:data.orders.nodes.map(normalize),after:data.orders.pageInfo.hasNextPage?data.orders.pageInfo.endCursor:null};
+  }
   async function shopifyOrder(shop,token,id) {
     const data=await shopifyGraphql(shop,token,`query($id:ID!){order(id:$id){${fields}}}`,{id:`gid://shopify/Order/${id}`});
     if (!data.order) throw new Error('Pedido não encontrado na Shopify.');
@@ -128,7 +132,7 @@ export function createProviders(config, fetcher = fetch) {
   }
   async function shopifyProductsPage(shop,token,after=null){const data=await shopifyGraphql(shop,token,'query($after:String){products(first:5,after:$after,sortKey:ID){nodes{legacyResourceId title}pageInfo{hasNextPage endCursor}}}',{after});return {products:data.products.nodes.map(row=>({id:String(row.legacyResourceId),title:row.title})),after:data.products.pageInfo.hasNextPage?data.products.pageInfo.endCursor:null};}
   async function shopifyProductsByIds(shop,token,ids){const data=await shopifyGraphql(shop,token,'query($ids:[ID!]!){nodes(ids:$ids){... on Product {legacyResourceId title}}}',{ids:ids.map(id=>'gid://shopify/Product/'+id)});return data.nodes.filter(Boolean).map(row=>({id:String(row.legacyResourceId),title:row.title}));}
-  return {shopifyProductsPage,shopifyProductsByIds, shopifyGraphql,shopifyOrders,shopifyOrdersPage,shopifyOrder,shopifyScopes,shopifyOrderStatuses,shopifyStatus,registerWebhooks,meta,
+  return {shopifyProductsPage,shopifyProductsByIds, shopifyGraphql,shopifyOrders,shopifyOrdersPage,shopifyHistoryPage,shopifyOrder,shopifyScopes,shopifyOrderStatuses,shopifyStatus,registerWebhooks,meta,
     metaAccounts:token=>metaPages('me/adaccounts',token,{fields:'id,name,currency,timezone_name',limit:100}),
     metaInsights:(id,token,since,until)=>metaPages(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:500}),
     metaInsightsPage:async(id,token,since,until,after=null)=>{const body=await meta(id+'/insights',token,{fields:'campaign_id,campaign_name,spend,date_start,date_stop',level:'campaign',time_increment:1,time_range:{since,until},limit:5,...(after?{after}:{})});if(body.paging?.next && !body.paging?.cursors?.after)throw new Error('Meta Ads: paginação sem cursor.');return {rows:body.data,after:body.paging?.next?body.paging.cursors.after:null};},

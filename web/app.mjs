@@ -1,15 +1,16 @@
+import {initBusinessTools} from './business-tools.mjs';
 import {validateRecord} from './record-schema.mjs';
 import {sourceCounts} from './order-reports.mjs';
-import {countOrders,csvOrderStatus,completedSale} from './sales.mjs';
+import {countOrders,csvOrderStatus,completedSale,effectiveSales,saleCost,captureSaleCost} from './sales.mjs';
 import {productResolver,effectiveExpenseProduct,metaProductResolver} from './catalog.mjs';
 import {initAccountMenu,initExperience} from './experience.mjs';
 import {initializeApp} from 'firebase/app';
-import {getAuth,connectAuthEmulator,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,sendEmailVerification,sendPasswordResetEmail} from 'firebase/auth';
+import {getAuth,connectAuthEmulator,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,sendEmailVerification,sendPasswordResetEmail,reauthenticateWithCredential,EmailAuthProvider,deleteUser} from 'firebase/auth';
 import Chart from 'chart.js/auto';
 import {jsPDF} from 'jspdf';
 window.resolveExpenseProduct=effectiveExpenseProduct;
 window.resolveProductName=(value,products)=>productResolver(products)(value);
-window.sourceCounts=sourceCounts;window.completedSale=completedSale;window.countOrders=countOrders;window.csvOrderStatus=csvOrderStatus;
+window.sourceCounts=sourceCounts;window.effectiveSales=effectiveSales;window.saleCost=saleCost;window.captureSaleCost=captureSaleCost;window.completedSale=completedSale;window.countOrders=countOrders;window.csvOrderStatus=csvOrderStatus;
 window.Chart=Chart; window.jspdf={jsPDF};
 const startup=document.createElement('section');startup.className='panel';startup.setAttribute('role','status');startup.style.cssText='max-width:440px;margin:12vh auto;padding:26px';startup.textContent='A abrir o painel…';document.body.prepend(startup);
 let config=null;
@@ -20,7 +21,7 @@ startup.remove();const auth=getAuth(initializeApp(config.firebase));
 if(config.emulators)connectAuthEmulator(auth,`http://${location.hostname}:9099`,{disableWarnings:true});
 const groups=['fluxo','vendas','produtos','ads','operacional'];
 const clean=record=>Object.fromEntries(Object.entries(record).filter(([key])=>key!=='_revision'));
-let baseline={},desired={},loaded=false,busy=false,failure=null,mutation=0,user=null,session=0,stateTag=null,lastConnectionsCheck=0,countAuditBusy=false,countAuditAutoTried=false,shopifyAuditInfo=null;
+let baseline={},desired={},loaded=false,busy=false,failure=null,mutation=0,user=null,session=0,stateTag=null,lastConnectionsCheck=0,countAuditBusy=false,countAuditAutoTried=false,shopifyAuditInfo=null,platformUi=null,historyBusy=false,historyCancelled=false;
 const wrap=document.querySelector('.wrap');wrap.hidden=true;
 const style=document.createElement('style');style.textContent=`
 [hidden]{display:none!important}.cloud-login{max-width:440px;margin:8vh auto;padding:28px;background:var(--panel);border:1px solid var(--panel-line);border-radius:14px}.cloud-login h1{font-size:24px;margin-bottom:12px}.cloud-login p{line-height:1.5;color:var(--sand-dim);font-size:14px}.cloud-login form{display:flex;flex-direction:column;align-items:stretch;margin:20px 0}.cloud-login input{padding:12px;border-radius:8px;border:1px solid var(--panel-line);background:var(--ink-2);color:var(--sand)}.cloud-actions{display:flex;gap:8px;flex-wrap:wrap}.cloud-status{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:12px;border:1px solid var(--panel-line);border-radius:10px;font-size:12px}.cloud-status button{padding:6px 10px}.cloud-message{font-size:13px;line-height:1.5;margin-top:10px;color:var(--gold)}.cloud-help{font-size:13px;color:var(--sand-dim);line-height:1.6;margin-bottom:12px}.cloud-integration input,.cloud-integration select{padding:10px;background:var(--ink-2);color:var(--sand);border:1px solid var(--panel-line);border-radius:8px;max-width:100%}.cloud-integration .cloud-actions{margin-top:12px}
@@ -39,10 +40,22 @@ function authMessage(error){return ({'auth/invalid-credential':'Email ou palavra
 async function api(path,options={}){
  if(!navigator.onLine)throw new Error('Sem ligação à internet. Volta a tentar quando a ligação regressar.');
  const token=await auth.currentUser?.getIdToken();if(!token)throw new Error('Entre novamente na sua conta.');
- const response=await fetch('/api'+path,{...options,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,...(path==='/state' && stateTag?{'If-None-Match':stateTag}:{}),...options.headers},signal:AbortSignal.timeout(60000)});
+ const response=await fetch('/api'+path,{...options,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token,...(path.split('?')[0]==='/state' && stateTag?{'If-None-Match':stateTag}:{}),...options.headers},signal:AbortSignal.timeout(60000)});
  if(response.status===304)return null;
- if(path==='/state' && response.ok)stateTag=response.headers.get('ETag');
+ if(path.split('?')[0]==='/state' && response.ok)stateTag=response.headers.get('ETag');
  const body=await response.json();if(!response.ok)throw Object.assign(new Error(body.error || 'Operação recusada.'),{status:response.status,diagnosticCode:body.code});return body;
+}
+async function loadSnapshot(){
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   const manifest=await api('/state?manifest=1');if(!manifest)return null;
+   const result=Object.fromEntries(groups.map(name=>[name,[]]));
+   for(const name of groups){let after=null;do{const params=new URLSearchParams({version:String(manifest.version),...(after?{after}:{})});const part=await api('/state/'+name+'?'+params);result[name].push(...part.records);after=part.after;}while(after);}
+   const check=await api('/state?manifest=1');if(check && (check.version!==manifest.version || check.ownerId!==manifest.ownerId)){stateTag=null;continue;}
+   return result;
+  }catch(error){if(error.status!==409)throw error;stateTag=null;}
+ }
+ throw new Error('Os dados estão a mudar rapidamente. Aguarda a sincronização e tenta novamente.');
 }
 const clone=value=>structuredClone(value);
 function adopt(snapshot){baseline=clone(snapshot);desired=Object.fromEntries(groups.map(name=>[name,snapshot[name].map(clean)]));}
@@ -73,7 +86,7 @@ window.cloudBackend={
  catalogPage:after=>api('/shopify/products'+(after?'?'+new URLSearchParams({after}):'')),
  async linkCatalog(bindings){if(dirty() || busy)throw new Error('Aguarda a gravação dos dados.');const result=await api('/shopify/products/link',{method:'POST',body:JSON.stringify({bindings:bindings.map(item=>({...item,revision:baseline.produtos.find(row=>row.id===item.productId)?._revision || 0}))})});await refresh();return result;},
  read:name=>clone(desired[name] || []),
- save(name,records){desired[name]=clone(records);mutation++;status('A guardar…');if(!failure)void flush();},
+ save(name,records){if(platformUi && !platformUi.canWrite()){status('Acesso apenas para consulta. Pede a renovação no menu de conta.');return false;}desired[name]=clone(records);mutation++;status('A guardar…');if(!failure)void flush();},
  async reflectStatus(id,status){
   if(dirty() || busy)throw new Error('Aguarde a gravação dos dados antes de alterar a Shopify.');
   const activeSession=session;let result=await api(`/shopify/orders/${id}/status`,{method:'POST',body:JSON.stringify({status})});
@@ -91,8 +104,21 @@ window.cloudBackend={
   }
   return result;
  },
+ async importHistory(range){
+  if(historyBusy || countAuditBusy || dirty() || busy || (platformUi && !platformUi.canWrite()))return;
+  const message=document.getElementById('historyImportMessage');if(!range){message.textContent='Escolhe um período de até 366 dias para importar.';return;}historyBusy=true;historyCancelled=false;const button=document.getElementById('importReportHistory'),activeSession=session;button.disabled=true;
+  try{let result=await api('/shopify/history',{method:'POST',body:JSON.stringify({action:'start',start:range[0],end:range[1]})}),started=!result.busy;
+   for(let attempt=0;attempt<100;attempt++){
+    if(activeSession!==session || historyCancelled)return;message.textContent=result.busy?'A aguardar a sincronização Shopify…':`${result.checkedOrders} pedidos consultados · ${result.importedLines} linhas importadas.${result.partial?' A continuar…':' Importação concluída.'}`;
+    document.getElementById('stopReportHistory').hidden=!result.partial;
+    if(!result.partial && !result.busy){await refresh();await connections();return;}if(!result.busy && attempt%8===7)await refresh();await new Promise(resolve=>setTimeout(resolve,2500));if(historyCancelled)return;if(document.visibilityState!=='visible')break;
+    result=await api('/shopify/history',{method:'POST',body:JSON.stringify(started?{action:'step'}:{action:'start',start:range[0],end:range[1]})});if(!result.busy)started=true;
+   }message.textContent+=' Os próximos lotes continuam automaticamente.';
+  }catch(error){message.textContent=error.message;await connections().catch(()=>{});}finally{historyBusy=false;button.disabled=false;}
+ },
+ async cancelHistory(){try{const result=await api('/shopify/history',{method:'POST',body:JSON.stringify({action:'cancel'})});if(result.busy){document.getElementById('historyImportMessage').textContent='Aguarda o lote atual e tenta parar novamente.';return;}historyCancelled=true;document.getElementById('historyImportMessage').textContent='Importação histórica parada. Os registos já importados foram preservados.';document.getElementById('stopReportHistory').hidden=true;}catch(error){document.getElementById('historyImportMessage').textContent=error.message;}},
  async verifyOrderCounts({restart=false,automatic=false}={}){
-  if(countAuditBusy || dirty() || busy)return;
+  if(countAuditBusy || historyBusy || dirty() || busy || (platformUi && !platformUi.canWrite()))return;
   if(automatic && countAuditAutoTried)return;
   const requestedSession=session;
   if(shopifyConnectionKnown===null){try{await connections();}catch(error){document.getElementById('orderAuditMessage').textContent='Não foi possível verificar a ligação Shopify: '+error.message;return;}}
@@ -163,7 +189,7 @@ window.cloudBackend.importBackup=importBackup;
 document.getElementById('cloudBackupFile').onchange=async event=>{const input=event.target,file=input.files[0];if(!file)return;try{await importBackup(file);}catch(error){status(error.message || 'Não foi possível ler o backup.');}finally{input.value='';}};
 async function refresh(){
  if(!loaded || !user || dirty() || busy || failure)return;const started=mutation;
- try{const snapshot=await api('/state');if(started!==mutation || dirty() || busy)return;if(snapshot && JSON.stringify(snapshot)!==JSON.stringify(baseline)){adopt(snapshot);window.applyCloudState(desired);}if(Date.now()-lastConnectionsCheck>300000)await connections();}
+ try{const snapshot=await loadSnapshot();if(started!==mutation || dirty() || busy)return;if(snapshot && JSON.stringify(snapshot)!==JSON.stringify(baseline)){adopt(snapshot);window.applyCloudState(desired);}if(Date.now()-lastConnectionsCheck>300000){await connections();await platformUi?.reload();}}
  catch(error){status('Ligação interrompida: '+error.message);}
 }
 async function syncProvider(provider){
@@ -186,7 +212,8 @@ function setupIntegrations(){
 }
 let metaAccountsLoaded=false,metaRateEditing=false,shopifyConnectionKnown=null;
 async function connections(){
- const result=await api('/connections');lastConnectionsCheck=Date.now();shopifyConnectionKnown=Boolean(result.shopify.connected);shopifyAuditInfo=result.shopify.statusAudit;
+ const result=await api('/connections');lastConnectionsCheck=Date.now();shopifyConnectionKnown=Boolean(result.shopify.connected);shopifyAuditInfo=result.shopify.statusAudit;if(result.shopify.historyReadRequired)shopifyAuditInfo={...(shopifyAuditInfo || {}),requiresAllOrders:true};
+ const historical=result.shopify.historyImport;if(historical && !historyBusy){document.getElementById('historyImportMessage').textContent=`Importação ${historical.start} a ${historical.end}: ${historical.checkedOrders} pedidos consultados, ${historical.importedLines} linhas.${historical.completedAt?' Concluída.':' Em curso.'}`;document.getElementById('stopReportHistory').hidden=Boolean(historical.completedAt);}
  const auditMessage=document.getElementById('orderAuditMessage');if(auditMessage && !countAuditBusy && result.shopify.connected){auditMessage.textContent=result.shopify.statusAudit&&!result.shopify.statusAudit.completedAt?'A contagem dos pedidos está a ser verificada na Shopify.':result.shopify.importPending?'A importação Shopify ainda está em curso. O total anual pode estar incompleto.':result.shopify.statusAudit?.completedAt?`Última verificação: ${result.shopify.statusAudit.checked} de ${result.shopify.statusAudit.total} pedidos consultados.${result.shopify.statusAudit.unavailable?(result.shopify.statusAudit.requiresAllOrders?' Reautoriza a Shopify em Integrações para verificar pedidos com mais de 60 dias.':' Alguns pedidos não estão disponíveis na Shopify; os dados do painel foram preservados.'):''}`:'';}
  for(const provider of ['shopify','meta']){const connection=result[provider],cap=provider==='shopify'?'Shopify':'Meta';
  document.getElementById(provider==='shopify'?'shopifyStatusTag':'metaStatusTag').textContent=connection.connected ? 'Ligada'+(connection.lastSync ? ' · '+new Date(connection.lastSync).toLocaleString('pt-MZ',{timeZone:'Africa/Maputo'}) : '') : 'Não ligada';
@@ -202,14 +229,27 @@ async function connections(){
  if(result.meta.connected && !metaRateEditing)document.getElementById('metaRate').value=result.meta.conversionRate ?? '';
  document.getElementById('metaAccountControls').hidden=!result.meta.connected;window.updateConnectionSummary?.();
 }
+async function recoverClosure(current){
+ const closureSession=session;
+ const message=document.getElementById('sessionLoadMessage'),retry=document.getElementById('sessionLoadRetry');retry.hidden=false;retry.textContent='Continuar eliminação';retry.onclick=()=>void recoverClosure(current);retry.disabled=true;
+ try{let result;for(let attempt=0;attempt<40;attempt++){if(closureSession!==session || current.uid!==auth.currentUser?.uid)return;result=await api('/account/closure',{method:'POST',body:JSON.stringify({action:'step'})});if(result.done)break;message.textContent='A eliminar os dados… '+(result.deleted || 0)+' registos removidos.';await new Promise(resolve=>setTimeout(resolve,1500));}
+  if(closureSession!==session)return;
+  if(result?.done){message.textContent='Os dados do negócio foram removidos. Confirma a palavra-passe para terminar a eliminação do login.';let form=document.getElementById('finishClosureForm');if(!form){form=document.createElement('form');form.id='finishClosureForm';form.innerHTML='<label for="finishClosurePassword">Palavra-passe</label><input type="password" id="finishClosurePassword" autocomplete="current-password" required><button class="btn-primary" type="submit">Eliminar também o login</button>';sessionNotice.append(form);form.onsubmit=async event=>{event.preventDefault();try{await reauthenticateWithCredential(auth.currentUser,EmailAuthProvider.credential(auth.currentUser.email,document.getElementById('finishClosurePassword').value));await deleteUser(auth.currentUser);form.remove();}catch(error){message.textContent=authMessage(error);}};}retry.hidden=true;}
+ }catch(error){message.textContent=error.message;}finally{retry.disabled=false;}
+}
 async function loadSession(current){
  const activeSession=++session;user=current;stateTag=null;shopifyConnectionKnown=null;shopifyAuditInfo=null;countAuditAutoTried=false;
- if(!current){sessionNotice.hidden=true;loginMessage('');document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
+ document.getElementById('finishClosureForm')?.remove();
+ if(!current){platformUi?.reset();sessionNotice.hidden=true;loginMessage('');document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());login.hidden=false;wrap.hidden=true;baseline={};desired={};failure=null;return;}
  wrap.hidden=true;login.hidden=true;sessionNotice.hidden=false;document.getElementById('sessionLoadMessage').textContent='A carregar os dados do negócio…';document.getElementById('sessionLoadRetry').hidden=true;
  try{
-  const snapshot=await api('/state');if(activeSession!==session)return;adopt(snapshot);
-  if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js?v='+(document.querySelector('meta[name="painel-build"]')?.content || '');script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();initExperience();loaded=true;}
+  const account=await api('/account');if(activeSession!==session)return;
+  if(account.accountStatus){document.getElementById('sessionLoadMessage').textContent='A conta está em encerramento.';await recoverClosure(current);return;}
+  document.getElementById('sessionLoadRetry').textContent='Tentar novamente';document.getElementById('sessionLoadRetry').onclick=()=>void loadSession(auth.currentUser);
+  const snapshot=await loadSnapshot();if(activeSession!==session)return;if(!snapshot)throw new Error('Não foi possível obter o estado inicial.');adopt(snapshot);
+  if(!loaded){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/assets/dashboard.js?v='+(document.querySelector('meta[name="painel-build"]')?.content || '');script.onload=resolve;script.onerror=reject;document.body.append(script);});setupIntegrations();initExperience();platformUi=initBusinessTools({request:api,refresh,exportSnapshot:async()=>{if(dirty() || busy)throw new Error('Aguarda a gravação antes de exportar.');const value=await loadSnapshot() || clone(baseline);return Object.fromEntries(groups.map(name=>[name,value[name].map(clean)]));},authenticate:async password=>reauthenticateWithCredential(auth.currentUser,EmailAuthProvider.credential(auth.currentUser.email,password)),deleteLogin:async password=>{try{await deleteUser(auth.currentUser);}catch(error){if(error.code!=='auth/requires-recent-login')throw error;await reauthenticateWithCredential(auth.currentUser,EmailAuthProvider.credential(auth.currentUser.email,password));await deleteUser(auth.currentUser);}}});loaded=true;}
   else window.applyCloudState(desired);
+  platformUi?.apply(account);
   document.getElementById('cloudIdentity').textContent=current.email+(config.emulators?' · Desenvolvimento local':'');
   sessionNotice.hidden=true;loginMessage('');login.hidden=true;wrap.hidden=false;status(dirty() || busy?'A guardar…':'Dados guardados');
   try{await connections();}catch{document.getElementById('shopifyConnectionMessage').textContent='Não foi possível atualizar o estado das integrações. Tenta novamente no menu de utilizador.';}

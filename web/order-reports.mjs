@@ -1,10 +1,12 @@
-import {completedSale,countOrders} from './sales.mjs';
+import {completedSale,countOrders,effectiveSales} from './sales.mjs';
 const $=id=>document.getElementById(id);
 export function orderSummary(rows){
+ rows=effectiveSales(rows);
  const done=rows.filter(completedSale),open=rows.filter(row=>['pendente','remarcado'].includes(row.status));
  return {total:countOrders(rows),done:countOrders(done),open:countOrders(open),review:countOrders(rows.filter(row=>row.status==='concluido' && !completedSale(row))),cancelled:countOrders(rows.filter(row=>row.status==='cancelado')),rescheduled:countOrders(rows.filter(row=>row.status==='remarcado')),revenue:done.reduce((sum,row)=>sum+(row.valor || 0),0)};
 }
 export function sourceCounts(rows){
+ rows=effectiveSales(rows);
  const orders=new Map();for(const row of rows){const id=row.shopifyOrderId || row.id;if(!orders.has(id))orders.set(id,row.fonte || '05.OUTRO');}
  const groups={};for(const source of orders.values())groups[source]=(groups[source] || 0)+1;return groups;
 }

@@ -1,3 +1,4 @@
+import {commercialConfig} from '../server/access.mjs';
 import {createApi} from '../server/api.mjs';
 import {createStore} from '../server/store.mjs';
 import {createProviders} from '../server/providers.mjs';
@@ -12,7 +13,7 @@ export function createRuntime(env,fetcher=fetch){
  const boundedFetch=(url,options)=>{if(++calls>40)throw Object.assign(new Error('O lote atingiu o limite de chamadas da versão gratuita. Aguarde a próxima execução.'),{status:503});return fetcher(url,options);};
  const emulators=env.USE_FIREBASE_EMULATORS==='true';
  if(emulators && !env.FIREBASE_PROJECT_ID?.startsWith('demo-'))throw new Error('Emuladores exigem projeto demo-.');
- const config={emulators,projectId:env.FIREBASE_PROJECT_ID,webApiKey:env.FIREBASE_WEB_API_KEY,authDomain:env.FIREBASE_AUTH_DOMAIN,
+ const config={...commercialConfig(env),emulators,projectId:env.FIREBASE_PROJECT_ID,webApiKey:env.FIREBASE_WEB_API_KEY,authDomain:env.FIREBASE_AUTH_DOMAIN,
   baseUrl:(env.APP_BASE_URL || '').replace(/\/$/,''),encryptionKey:env.INTEGRATION_ENCRYPTION_KEY || '',
   shopifyId:env.SHOPIFY_CLIENT_ID || '',shopifySecret:env.SHOPIFY_CLIENT_SECRET || '',shopifyVersion:env.SHOPIFY_API_VERSION || '2026-07',
   metaId:env.META_APP_ID || '',metaSecret:env.META_APP_SECRET || '',metaVersion:env.META_API_VERSION || 'v24.0'};

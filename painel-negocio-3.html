@@ -757,7 +757,7 @@
         <h2>Desempenho dos pedidos
           <div id="drOverview"></div>
         </h2>
-        <div class="order-audit-control"><button class="btn-ghost" id="verifyOrderCounts" type="button">Verificar contagem na Shopify</button><p class="report-help" id="orderAuditMessage" role="status"></p></div><p class="report-help">Os indicadores mostram os pedidos já carregados no painel, dentro do período escolhido. A taxa de sucesso compara concluídos com concluídos + cancelados.</p><div class="overview">
+        <div class="order-audit-control"><button class="btn-ghost" id="verifyOrderCounts" type="button">Verificar contagem na Shopify</button><button class="btn-ghost" type="button" id="importReportHistory" onclick="window.cloudBackend.importHistory(drOverview.getRange())">Importar pedidos criados no período</button><button class="btn-ghost" type="button" id="stopReportHistory" hidden onclick="window.cloudBackend.cancelHistory()">Parar importação histórica</button><p class="report-help" id="historyImportMessage" role="status"></p><p class="report-help" id="orderAuditMessage" role="status"></p></div><p class="report-help">Os indicadores mostram os pedidos já carregados no painel, dentro do período escolhido. A taxa de sucesso compara concluídos com concluídos + cancelados.</p><div class="overview">
           <div class="ov-card"><span class="v" id="ovTotal">0</span><span class="k">Pedidos</span></div>
           <div class="ov-card"><span class="v" style="color:var(--green)" id="ovConcluido">0</span><span class="k">Concluídos</span></div>
           <div class="ov-card"><span class="v" style="color:var(--red)" id="ovCancelado">0</span><span class="k">Cancelados</span></div>
@@ -1913,13 +1913,13 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
 
   if(vendaEditId){
     const idx = vendasData.findIndex(v=>v.id===vendaEditId);
-    if(idx>-1) vendasData[idx] = {...vendasData[idx], data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: data.slice(0,7)};
+    if(idx>-1) vendasData[idx] = window.captureSaleCost({...vendasData[idx], data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: data.slice(0,7)},produtosData,{force:vendasData[idx].produto!==produto});
     showVendaMsg('Registo atualizado.');
     vendaEditId = null;
     document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
     document.getElementById('vendaCancelEdit').style.display = 'none';
   } else {
-    vendasData.push({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status});
+    vendasData.push(window.captureSaleCost({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, horario, fonte, contacto, local, descricao, produto, quantidade, valor, delivery, comissao, status},produtosData));
     showVendaMsg('Contacto adicionado.');
   }
   mesAtivoVendas=data.slice(0,7);guardarMesPreferido();
@@ -1982,7 +1982,7 @@ function getHistoricoFiltrado(){
   if(!mesHistoricoSelecionado) return [];
   const busca = document.getElementById('histBusca').value.trim().toLowerCase();
   const state=document.getElementById('historyStatus').value;
-  return vendasData.filter(v=>(v.mes===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || v.semana===semanaHistoricoSelecionada)) || (v.reagendamentos || []).some(item=>item.de.slice(0,7)===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || item.semanaAnterior===semanaHistoricoSelecionada)))
+  return window.effectiveSales(vendasData).filter(v=>(v.mes===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || v.semana===semanaHistoricoSelecionada)) || (v.reagendamentos || []).some(item=>item.de.slice(0,7)===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || item.semanaAnterior===semanaHistoricoSelecionada)))
     .filter(v=>!state || (state==='concluido'?window.completedSale(v):state==='verificar'?v.status==='concluido' && !window.completedSale(v):v.status===state))
     .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca))
     .sort((a,b)=> b.data.localeCompare(a.data));
@@ -2050,7 +2050,7 @@ function getVendasFiltradas(){
   const status = document.getElementById('filtroStatus').value;
   const busca = document.getElementById('vendaBusca').value.trim().toLowerCase();
   const range=drOverview?.getRange();
-  return vendasData.filter(v=>!range || (v.data>=range[0] && v.data<=range[1]))
+  return window.effectiveSales(vendasData).filter(v=>!range || (v.data>=range[0] && v.data<=range[1]))
     .filter(v=> status==='todos' || (status==='concluido'?window.completedSale(v):status==='verificar'?v.status==='concluido' && !window.completedSale(v):v.status===status))
     .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca))
     .sort((a,b)=> b.data.localeCompare(a.data));
@@ -2059,7 +2059,7 @@ function getVendasFiltradas(){
 function getPedidosAtivos(){
   const query=(document.getElementById('pedidosBusca')?.value || '').trim().toLowerCase();
   const state=document.getElementById('pedidosEstado')?.value || '';
-  return vendasData.filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'))
+  return window.effectiveSales(vendasData).filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'))
     .filter(v=>!state || v.status===state).filter(v=>!query || [v.contacto,v.local,v.produto].some(value=>String(value || '').toLowerCase().includes(query)));
 }
 
@@ -2228,7 +2228,7 @@ async function markStatus(id, status){
     finally{pedidosAAtualizar.delete(orderId);renderVendasAll();}
   }
   const current=vendasData.find(v=>v.id===id);if(!current)return;
-  current.status = status;current.panelConfirmed=status==='concluido';
+  current.status = status;current.panelConfirmed=status==='concluido';Object.assign(current,window.captureSaleCost(current,produtosData));
   saveVendas();
   renderVendasAll();
 
@@ -2698,7 +2698,8 @@ function initDateRangePickers(){
 
 function renderOverview(){
   const range = drOverview ? drOverview.getRange() : null;
-  const dados = range ? vendasData.filter(v=> v.data >= range[0] && v.data <= range[1]) : vendasData;
+  const source=window.effectiveSales(vendasData);
+  const dados = range ? source.filter(v=> v.data >= range[0] && v.data <= range[1]) : source;
 
   const total = window.countOrders(dados);
   const concluido = window.countOrders(dados.filter(window.completedSale));
@@ -3496,7 +3497,8 @@ function refreshChartMode(){
 }
 
 function renderMetChart(inicio, fim, produtoFiltro){
-  const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(p)===normalizarNomeProduto(produtoFiltro);
+  const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(window.resolveProductName(p,produtosData))===normalizarNomeProduto(window.resolveProductName(produtoFiltro,produtosData));
+  const source=window.effectiveSales(vendasData);
   const dias = [];
   let cursor = new Date(inicio+'T00:00:00');
   const fimDate = new Date(fim+'T00:00:00');
@@ -3508,14 +3510,14 @@ function renderMetChart(inicio, fim, produtoFiltro){
   const gastoPorDia = dias.map(d=>{
     // gasto de vários dias entra fatiado por dia (valor total / dias do período), não inteiro num só dia
     const adsOutros = adSpendData.filter(a=> a.data<=d && adSpendFim(a)>=d && matchProduto(window.resolveExpenseProduct?.(a,produtosData) || a.produto)).reduce((s,a)=>s+a.valor/adSpendDiasTotal(a),0);
-    const vendasDoDia = vendasData.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto));
-    const aquisicao = vendasDoDia.reduce((s,v)=> s + (custoPorProduto[normalizarNomeProduto(v.produto)]||0) * (v.quantidade||1), 0);
+    const vendasDoDia = source.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto));
+    const aquisicao = vendasDoDia.reduce((s,v)=> s + (window.saleCost(v,produtosData)||0) * (v.quantidade||1), 0);
     const entrega = vendasDoDia.reduce((s,v)=> s + (v.comissao||0), 0);
     const operacional = produtoFiltro ? 0 : calcularGastoOperacional(d, d);
     return adsOutros + aquisicao + entrega + operacional;
   });
   const receitaPorDia = dias.map(d=>
-    vendasData.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
+    source.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
   );
 
   const canvas = document.getElementById('metChart');

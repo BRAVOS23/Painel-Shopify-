@@ -7,13 +7,13 @@ export function validateRecord(collection, record) {
   if (Object.keys(record).some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) throw new Error('Campo inválido.');
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
-    vendas: ['id','data','horario','fonte','contacto','local','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus'],
+    vendas: ['id','data','horario','fonte','contacto','local','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
     produtos: ['id','nome','custo','foto','locais','aliases','shopifyProductId','shopifyShop','costConfigured'],
-    ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate'],
+    ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate','unitCost','shopifyLineCount'],
     operacional: ['id','nome','valor','data','recorrente']
   }[collection];
   if (!known || Object.keys(record).some(key => !known.includes(key))) throw new Error('Campo de registo não permitido.');
-  for (const field of ['valor','custo','comissao','quantidade','sourceValue','conversionRate']) {
+  for (const field of ['valor','custo','comissao','quantidade','sourceValue','conversionRate','unitCost','shopifyLineCount']) {
     if (field in record && (typeof record[field] !== 'number' || !Number.isFinite(record[field]) || record[field] < 0)) throw new Error('Valor numérico inválido.');
   }
   for (const field of ['data','dataFim','dataPedido','mes']) if (record[field] && !validDay(field==='mes'?record[field]+'-01':record[field])) throw new Error('Data inválida.');
@@ -23,7 +23,7 @@ export function validateRecord(collection, record) {
   if (collection === 'ads' && !['ads','outros'].includes(record.tipo)) throw new Error('Tipo de gasto inválido.');
   if (record.foto && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(record.foto)) throw new Error('Fotografia inválida.');
   for (const [key,value] of Object.entries(record)) {
-    if (['valor','custo','comissao','quantidade','sourceValue','conversionRate'].includes(key)) continue;
+    if (['valor','custo','comissao','quantidade','sourceValue','conversionRate','unitCost','shopifyLineCount'].includes(key)) continue;
     if(key==='reagendamentos'){
       if(collection!=='vendas' || !Array.isArray(value) || value.length>20)throw new Error('Histórico de reagendamentos inválido.');
       for(const item of value){

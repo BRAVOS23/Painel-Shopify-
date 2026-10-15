@@ -1,3 +1,7 @@
+import {readAll} from '../server/paging.mjs';
+import {createHistoryImport} from '../server/history.mjs';
+import {createPrivacy} from '../server/privacy.mjs';
+import {accountAccess,assertWritable} from '../server/access.mjs';
 import {createStatusAudit} from '../server/status-audit.mjs';
 import {createCatalog} from '../server/catalog.mjs';
 import {decrypt} from '../server/security.mjs';
@@ -9,8 +13,8 @@ export function createFreeSync(store,providers,config){
   try{
    const snapshot=await ref.get();if(!snapshot.exists)throw Object.assign(new Error('Integração não conectada.'),{status:400});
    const connection=snapshot.data(),{token}=decrypt(connection.credentials,config.encryptionKey);
-   const business=(await store.business(uid).get()).data();
-   const productSnapshot=await store.records(uid,'produtos').select('record.id','record.nome','record.aliases').get(),products=productSnapshot.docs.map(doc=>doc.data().record);
+   const business=(await store.business(uid).get()).data();assertWritable(business,config);
+   const productSnapshot=await readAll(store.records(uid,'produtos'),{select:['record.id','record.nome','record.aliases','record.custo','record.costConfigured'],budget:{pages:0,maxPages:5}}),products=productSnapshot.docs.map(doc=>doc.data().record);
    const until=new Date().toISOString();
    const audit=provider==='shopify' && connection.salesPolicyVersion!==2;
    const progress=(!audit || connection.progress?.salesPolicyVersion===2?connection.progress:null) || {since:provider==='shopify'?(!audit && connection.lastSync?new Date(Date.parse(connection.lastSync)-5*60000).toISOString():new Date(Date.now()-59*86400000).toISOString()):new Date(Date.now()-30*86400000).toISOString().slice(0,10),until:provider==='shopify'?until:until.slice(0,10),after:null,offset:0,unmatched:[],salesPolicyVersion:2};
@@ -39,10 +43,13 @@ export function createFreeSync(store,providers,config){
  async function processWebhook(job){
   const value=job.data(),release=await store.claim(value.ownerId,'shopify');if(!release)return {busy:true};
   try{
+   const owner=(await store.business(value.ownerId).get()).data();
+   if(!owner || owner.accountStatus){await job.ref.update({status:'ignored'});return {ignored:true};}
+   if(!accountAccess(owner,config).canWrite){await job.ref.update({status:'paused'});return {paused:true};}
    const connection=(await store.connection(value.ownerId,'shopify').get()).data();
    if(!connection || connection.shop!==value.shop){await job.ref.update({status:'ignored'});return {ignored:true};}
    const {token}=decrypt(connection.credentials,config.encryptionKey),order=await providers.shopifyOrder(connection.shop,token,value.orderId);
-   const business=(await store.business(value.ownerId).get()).data(),snapshot=await store.records(value.ownerId,'produtos').select('record.id','record.nome','record.aliases').get();
+   const business=(await store.business(value.ownerId).get()).data(),snapshot=await readAll(store.records(value.ownerId,'produtos'),{select:['record.id','record.nome','record.aliases','record.custo','record.costConfigured'],budget:{pages:0,maxPages:5}});
    const records=shopifyRecords(order,snapshot.docs.map(doc=>doc.data().record),business.currency);
    const offset=value.sourceUpdatedAt===order.updated_at?(value.offset || 0):0,chunk=records.slice(offset,offset+5);
    await store.importedMany(value.ownerId,'vendas',chunk.map(record=>({record,sourceUpdatedAt:order.updated_at})));
@@ -53,6 +60,7 @@ export function createFreeSync(store,providers,config){
   finally{await release();}
  }
  async function tick(){
+  const closure=await store.db.collection('accountClosures').where('status','==','pending').limit(1).get();if(!closure.empty)return createPrivacy(store,config).step(closure.docs[0].id);
   const pending=await store.db.collection('webhookQueue').where('status','==','pending').limit(1).get();
   if(!pending.empty)return processWebhook(pending.docs[0]);
   const ref=store.db.doc('system/freeScheduler'),scheduler=(await ref.get()).data() || {};
@@ -65,8 +73,11 @@ export function createFreeSync(store,providers,config){
   // O negócio atual volta no ciclo Meta; depois avança para o seguinte.
   const state=provider==='shopify'?{after:scheduler.after || null,provider:'meta'}:{after:owner,provider:'shopify'};
   await ref.set(state);
+  if(!accountAccess(selected.docs[0].data(),config).canWrite)return {paused:true};
+  const paused=await store.db.collection('webhookQueue').where('ownerId','==',owner).where('status','==','paused').limit(1).get();if(!paused.empty)return processWebhook(paused.docs[0]);
   const connection=(await store.connection(owner,provider).get()).data();
   if(!connection || (provider==='meta' && !connection.accountId))return {idle:true};
+  if(provider==='shopify' && connection.historyImport && !connection.historyImport.completedAt)return createHistoryImport(store,providers,config).run(owner);
   if(provider==='shopify' && ((!connection.statusAudit && connection.lastSync) || (connection.statusAudit && !connection.statusAudit.completedAt)))return createStatusAudit(store,providers,config).run(owner);
   if(provider==='shopify' && connection.catalogEnabled && (connection.catalogAfter || !connection.catalogLastSync || Date.now()-Date.parse(connection.catalogLastSync)>86400000)){try{await createCatalog(store,providers,config).refresh(owner,connection);}catch(error){await store.connection(owner,'shopify').update({catalogAfter:null,catalogLastSync:new Date().toISOString(),catalogLastError:error.message});}return {catalog:true};}
   if(!connection.progress && connection.lastSync && Date.now()-Date.parse(connection.lastSync)<15*60000)return {idle:true};

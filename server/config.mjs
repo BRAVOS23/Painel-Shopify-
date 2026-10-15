@@ -1,6 +1,8 @@
+import {commercialConfig} from './access.mjs';
 import {existsSync} from 'node:fs';
 if(existsSync('.env')) process.loadEnvFile('.env');
 export const config={
+  ...commercialConfig(process.env),
   emulators:process.env.USE_FIREBASE_EMULATORS==='true',
   projectId:process.env.FIREBASE_PROJECT_ID || 'demo-painel',webApiKey:process.env.FIREBASE_WEB_API_KEY || 'demo-key',
   authDomain:process.env.FIREBASE_AUTH_DOMAIN || 'demo-painel.firebaseapp.com',

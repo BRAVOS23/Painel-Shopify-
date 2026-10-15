@@ -42,10 +42,11 @@ export function createFirestore({project,accessToken,emulator=false,fetcher=fetc
  }
  function collection(path,filters=[],max=500,options={}){
   const parts=path.split('/'),id=parts.pop(),parent=parts.length?root+'/'+parts.join('/'):root;
-  return {doc:id=>doc(path+'/'+id),where:(field,op,value)=>collection(path,[...filters,{fieldFilter:{field:{fieldPath:field},op:({'==':'EQUAL','>':'GREATER_THAN','<':'LESS_THAN',in:'IN'})[op],value:encode(value)}}],max,options),limit:limit=>collection(path,filters,limit,{...options,explicitLimit:true}),select:(...fields)=>collection(path,filters,max,{...options,select:fields}),startAfter:ref=>collection(path,filters,max,{...options,after:ref.name}),
+  return {doc:id=>doc(path+'/'+id),orderBy:(field,direction='asc')=>{if(field!=='__name__' || direction!=='asc')throw new Error('Ordenação não suportada pelo adaptador.');return collection(path,filters,max,{...options,orderName:true});},where:(field,op,value)=>collection(path,[...filters,{fieldFilter:{field:{fieldPath:field},op:({'==':'EQUAL','>':'GREATER_THAN','<':'LESS_THAN','>=':'GREATER_THAN_OR_EQUAL','<=':'LESS_THAN_OR_EQUAL',in:'IN'})[op],value:encode(value)}}],max,options),limit:limit=>collection(path,filters,limit,{...options,explicitLimit:true}),select:(...fields)=>collection(path,filters,max,{...options,select:fields}),startAfter:ref=>collection(path,filters,max,{...options,after:ref.name}),
    async get(){
     const query={from:[{collectionId:id}],limit:options.explicitLimit?max:max+1};
     if(options.select)query.select={fields:options.select.map(fieldPath=>({fieldPath}))};
+    if(options.orderName || options.after)query.orderBy=[{field:{fieldPath:'__name__'},direction:'ASCENDING'}];
     if(options.after){query.orderBy=[{field:{fieldPath:'__name__'},direction:'ASCENDING'}];query.startAt={values:[{referenceValue:options.after}],before:false};}if(filters.length)query.where=filters.length===1?filters[0]:{compositeFilter:{op:'AND',filters}};
     const response=await call(parent+':runQuery',{method:'POST',body:{structuredQuery:query}});
     const docs=response.filter(item=>item.document).map(item=>snapshot(doc(item.document.name.slice(root.length+1)),item.document));
@@ -68,5 +69,6 @@ export function createFirestore({project,accessToken,emulator=false,fetcher=fetc
    catch(error){try{await call(root+':rollback',{method:'POST',body:{transaction}});}catch{}if(error.code!==10 || attempt===2)throw error;}
   }
  }
- return {doc,collection,runTransaction};
+ function batch(){const writes=[];return {delete(ref){writes.push({delete:ref.name});return this;},set(ref,data){writes.push({update:{name:ref.name,fields:fields(data)}});return this;},async commit(){if(!writes.length)return [];if(writes.length>100)throw new Error('Lote demasiado grande.');return call(root+':commit',{method:'POST',body:{writes}});}};}
+ return {doc,collection,runTransaction,batch};
 }

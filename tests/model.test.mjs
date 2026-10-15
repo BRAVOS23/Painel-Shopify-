@@ -169,3 +169,10 @@ test('verificação Shopify lê apenas estados e não executa mutações',async(
  const calls=[];const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{const body=JSON.parse(options.body);calls.push(body);return Response.json({data:{nodes:[{legacyResourceId:'1',updatedAt:'2026-10-13T00:00:00Z',cancelledAt:null,displayFinancialStatus:'PAID',displayFulfillmentStatus:'FULFILLED'},null]}});});
  const states=await providers.shopifyOrderStatuses('fixture.myshopify.com','fixture',['1','2']);assert.equal(states.length,1);assert.equal(states[0].financial_status,'paid');assert.equal(states[0].fulfillment_status,'fulfilled');assert(calls.every(call=>call.query.startsWith('query') && !call.query.includes('shippingAddress')));assert.deepEqual(calls[0].variables.ids,['gid://shopify/Order/1','gid://shopify/Order/2']);
 });
+
+test('CSV e API do mesmo pedido não duplicam receita, custos nem entregas',()=>{
+ const canonical=shopifyRecords({...order,financial_status:'paid',fulfillment_status:'fulfilled'},[{id:'p',nome:'Produto A',custo:20},{id:'b',nome:'Produto B',custo:10}]).map(row=>({...row,comissao:row.shopifyLineItemId==='1'?30:0}));
+ const legacy={id:'csv_old',shopifyOrderId:'123',data:'2026-10-12',status:'concluido',panelConfirmed:true,produto:'Produto A',valor:230,quantidade:3,comissao:30};
+ const state={vendas:[legacy,...canonical],produtos:[{nome:'Produto A',custo:999},{nome:'Produto B',custo:888}],ads:[],operacional:[]},original=structuredClone(state);
+ const result=calculateMetrics(state,'2026-10-12','2026-10-12');assert.equal(result.orders,1);assert.equal(result.revenue,230);assert.equal(result.acquisition,50);assert.equal(result.delivery,30);assert.equal(result.duplicateRowsIgnored,1);assert.deepEqual(state,original);
+});

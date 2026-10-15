@@ -1,3 +1,5 @@
+import {createHistoryImport} from './history.mjs';
+import {assertWritable,accountAccess} from './access.mjs';
 import { decrypt } from './security.mjs';
 import { shopifyRecords, metaRecords } from './model.mjs';
 export function createSync(store,providers,config) {
@@ -9,7 +11,7 @@ export function createSync(store,providers,config) {
       const snap=await ref.get();
       if(!snap.exists) throw Object.assign(new Error('Integração não conectada.'),{status:400});
       const connection=snap.data(), auth=decrypt(connection.credentials,config.encryptionKey);
-      const business=(await store.business(uid).get()).data(), state=await store.state(uid);
+      const business=(await store.business(uid).get()).data();assertWritable(business,config);const state=await store.state(uid);
       let count=0, unmatched=[];
       if(provider==='shopify') {
         const since=connection.salesPolicyVersion===2 && connection.lastSync ? new Date(Date.parse(connection.lastSync)-24*60*60*1000).toISOString() : new Date(Date.now()-59*24*60*60*1000).toISOString();
@@ -35,10 +37,10 @@ export function createSync(store,providers,config) {
   }
   async function tick() {
     const businesses=await store.db.collection('businesses').get();
-    for(const business of businesses.docs) for(const provider of ['shopify','meta']) {
+    for(const business of businesses.docs.filter(doc=>accountAccess(doc.data(),config).canWrite)) for(const provider of ['shopify','meta']) {
       const connection=await store.connection(business.id,provider).get();
       if(!connection.exists || (provider==='meta' && !connection.data().accountId)) continue;
-      try { await run(business.id,provider); } catch(error) { console.error(`Sincronização ${provider}: ${error.message}`); }
+      try {if(provider==='shopify' && connection.data().historyImport && !connection.data().historyImport.completedAt)await createHistoryImport(store,providers,config).run(business.id);else await run(business.id,provider); } catch(error) { console.error(`Sincronização ${provider}: ${error.message}`); }
     }
   }
   return {run,tick};

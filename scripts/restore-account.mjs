@@ -1,0 +1,17 @@
+import {readFile} from 'node:fs/promises';
+import {validateRecord} from '../web/record-schema.mjs';
+const args=process.argv.slice(2),get=key=>args.includes(key)?args[args.indexOf(key)+1]:null;
+if(!get('--file'))throw new Error('Indica --file com um backup privado.');const root=new URL(get('--url') || 'http://127.0.0.1:8787');if(root.protocol!=='https:' && !['localhost','127.0.0.1'].includes(root.hostname))throw new Error('Usa HTTPS num servidor remoto.');if(!['localhost','127.0.0.1'].includes(root.hostname) && !args.includes('--production'))throw new Error('Confirma --production para restaurar numa conta publicada.');
+const token=process.env.PAINEL_ID_TOKEN;if(!token)throw new Error('Configura PAINEL_ID_TOKEN de forma segura.');
+const backup=JSON.parse(await readFile(get('--file'),'utf8')),groups=['fluxo','vendas','produtos','ads','operacional'];if(backup.version!==1 || !backup.records || groups.some(name=>!Array.isArray(backup.records[name])))throw new Error('Formato de backup inválido.');
+for(const name of groups){const ids=new Set();for(const record of backup.records[name]){validateRecord(name,record);if(ids.has(record.id))throw new Error('IDs repetidos no backup.');ids.add(record.id);}}
+async function api(path,body){const response=await fetch(new URL('/api'+path,root),{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(60000)});const value=await response.json();if(!response.ok)throw new Error(value.error || 'Restauração recusada.');return value;}
+const manifest=await api('/state?manifest=1');if(backup.profile?.uid!==manifest.ownerId && !args.includes('--allow-new-account'))throw new Error('A conta de destino é diferente. Confirma --allow-new-account apenas para uma migração intencional.');
+const stable=value=>JSON.stringify(value,(_key,item)=>item && typeof item==='object' && !Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item),changes={};let total=0;
+for(const name of groups){const existing=new Map();let after=null;do{const part=await api('/state/'+name+'?'+new URLSearchParams({version:String(manifest.version),...(after?{after}:{})}));for(const {_revision,...row} of part.records)existing.set(row.id,row);after=part.after;}while(after);
+ if(existing.size && !args.includes('--resume'))throw new Error('O destino não está vazio. Usa --resume apenas para retomar uma restauração sem substituir registos.');
+ changes[name]=[];for(const row of backup.records[name]){const old=existing.get(row.id);if(old){if(stable(old)!==stable(row))throw new Error('Conflito no registo '+row.id+'. Nenhum registo foi substituído.');}else changes[name].push({id:row.id,revision:0,record:row});}total+=changes[name].length;
+}
+console.log('Prévia: '+total+' registos em falta; nenhum registo existente será substituído.');if(!args.includes('--apply')){console.log('Sem gravações. Acrescenta --apply para executar a prévia validada.');process.exit(0);}
+for(const name of groups){let index=0;while(index<changes[name].length){const batch=[];let size=0;while(index<changes[name].length && batch.length<5){const change=changes[name][index],bytes=Buffer.byteLength(JSON.stringify(change));if(batch.length && size+bytes>700000)break;batch.push(change);size+=bytes;index++;}await api('/data/'+name,{changes:batch});await new Promise(resolve=>setTimeout(resolve,450));}}
+console.log('Restauração concluída. Confere os totais antes de voltar a ligar as integrações.');

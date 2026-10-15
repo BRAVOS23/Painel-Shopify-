@@ -1,3 +1,5 @@
+import {createPrivacy} from './privacy.mjs';
+import {accountAccess} from './access.mjs';
 import {config} from './config.mjs';
 import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
@@ -14,9 +16,10 @@ let working=false;
 async function work() {
   if(working) return; working=true;
   try {
+    const closures=await store.db.collection('accountClosures').where('status','==','pending').limit(1).get();if(!closures.empty){await createPrivacy(store,config).step(closures.docs[0].id);return;}
     const queue=await store.db.collection('webhookQueue').where('status','==','pending').limit(100).get();
     for(const job of queue.docs) {
-      const value=job.data(),release=await store.claim(value.ownerId,'shopify');
+      const value=job.data(),owner=(await store.business(job.data().ownerId).get()).data();if(!owner || owner.accountStatus){await job.ref.update({status:'ignored'});continue;}if(!accountAccess(owner,config).canWrite){await job.ref.update({status:'paused'});continue;}const release=await store.claim(value.ownerId,'shopify');
       if(!release) continue;
       try {
         const connection=(await store.connection(value.ownerId,'shopify').get()).data();

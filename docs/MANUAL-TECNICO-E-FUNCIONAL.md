@@ -2,14 +2,16 @@
 
 Documento de passagem do projeto para manutenção, evolução ou reconstrução.
 
-**Atualizado:** 13 de outubro de 2026, referência de calendário Africa/Maputo.  
-**Código de referência:** commit `47148d4` da branch publicada `main`.  
+**Atualizado:** 15 de outubro de 2026, referência de calendário Africa/Maputo.
+**Código de referência:** preparação comercial de 15/10/2026 na branch `main`; consultar o histórico Git e o relatório desta intervenção.
 **Repositório:** https://github.com/BRAVOS23/Painel-Shopify-  
 **Aplicação publicada:** https://painel-shopify.lobojose348.workers.dev/
 
 Este documento descreve a implementação existente, as decisões confirmadas pelo proprietário e as limitações conhecidas. Não contém tokens, palavras-passe, chaves privadas, backups de clientes ou valores de Secrets. Configuração instalada numa plataforma não deve ser presumida apenas porque aparece num exemplo do repositório: é necessário verificá-la com o proprietário e na consola correspondente.
 
 **Referência principal:** este manual substitui afirmações de estado antigas de README.md, SETUP.md e CLOUDFLARE.md, quando houver divergência. docs/UI-UX.md conserva também o histórico das intervenções; entradas antigas desse histórico não representam necessariamente a interface atual.
+
+**Adenda comercial atual:** ler também [PREPARACAO-COMERCIAL.md](PREPARACAO-COMERCIAL.md), com os contratos de acesso/administração/privacidade, recuperação, capacidades e ativação. Esta adenda prevalece sobre detalhes da fotografia original de 13/10 que ainda figurem abaixo. O modo comercial continua desligado.
 
 ## Índice
 
@@ -179,7 +181,7 @@ CPA e ROAS usam todas as vendas confirmadas do período. Não representam atribu
 
 Limites financeiros relevantes:
 
-- Os custos unitários vêm do catálogo atual, não de snapshots históricos por venda. Alterar um custo pode alterar estimativas históricas.
+- Vendas concluídas podem guardar `unitCost` e `costCapturedAt`; alterar o catálogo não muda estes custos capturados. Registos antigos sem snapshot usam o catálogo como estimativa; não foi reconstruído o custo real histórico.
 - A receita Shopify é preço dos itens × quantidade menos descontos dos itens. Não soma automaticamente frete/impostos nem reconcilia reembolsos parciais.
 - Valores de entrega são por linha. Não repetir a comissão inteira em todas as linhas de um mesmo pedido sem uma decisão explícita de alocação.
 - IDs determinísticos evitam repetir a mesma importação; não constituem uma deduplicação universal de um CSV antigo e linhas API com IDs diferentes para o mesmo pedido. Auditar coexistência antes de certificar totais.
@@ -421,7 +423,7 @@ A sincronização não elimina gastos manuais semelhantes. Evitar lançar manual
 
 A chave de cifragem não pode ser trocada sem plano: tokens existentes deixam de ser legíveis. Rotação exige recifrar com a chave antiga ou reautorizar ligações de forma controlada. O JSON da conta de serviço Firebase é um segredo administrativo, não a configuração Firebase Web pública.
 
-Ainda faltam política/fluxo completo de retenção e eliminação de conta, requisitos de conformidade das plataformas para distribuição, auditoria de negócio e mecanismos de equipas/perfis. Não apresentar a aplicação como já certificada para esses requisitos.
+Há exportação integral e eliminação de conta em lotes com reautenticação. A retenção final, os endpoints de conformidade das plataformas, a distribuição comercial e mecanismos de equipas/perfis continuam pendentes. Não apresentar a aplicação como certificada para esses requisitos.
 
 ## 11. Configuração e ambientes
 
@@ -574,7 +576,7 @@ Isto não significa que todos os pedidos de todos os negócios sincronizam a cad
 
 O runtime limita chamadas controladas a 40 por invocação, reservando margem para a plataforma. Valores comerciais de quota/preço mudam; verificar as páginas oficiais antes de dimensionar. Dry-run/local não certifica a CPU efetiva do Workers Free.
 
-Cada leitura completa de coleção tem limite de 500 registos no adapter Worker. Acima disso retorna erro 422, em vez de truncar silenciosamente. Há paginação de integrações/catálogo, mas ainda não do estado completo do negócio. Planejar essa correção antes de aumentar o histórico de produção.
+O estado carrega por manifesto e páginas de até 250 registos com verificação de versão. Consultas internas completas usam páginas de 500, sem truncar. O cálculo desta instalação tem limite técnico de 10.000 registos somados e orçamento de 28 páginas internas. A exportação paginada permanece disponível. Isto não amplia as quotas gratuitas do Firebase nem garante desempenho para qualquer volume.
 
 Firebase Spark já atingiu quota de leituras durante a utilização. Cache, ETag e sobreposição menor foram introduzidos para reduzir consumo, não para repor quota esgotada. Quotas contam documentos, não só chamadas HTTP. Consultar Usage e os logs antes de atribuir um erro ao login. Não autorizar upgrades por omissão.
 
@@ -586,7 +588,7 @@ Firebase Spark já atingiu quota de leituras durante a utilização. Cache, ETag
 | FIREBASE_ACCESS | Permissões IAM da conta de serviço e projeto correto; não abrir regras do cliente. |
 | FIREBASE_IDENTITY | JSON/identidade recusada, projeto, chave e disponibilidade do serviço Google. |
 | FIREBASE_UNAVAILABLE / TIMEOUT | Disponibilidade/rede/latência; repetir de forma controlada. |
-| Sessão reconhecida, dados não carregam | GET /state, código de diagnóstico e limite 500; usar recuperação de sessão. |
+| Sessão reconhecida, dados não carregam | GET /state e páginas, código de diagnóstico, quota e limite técnico; usar recuperação de sessão. |
 | Integração precisa de administrador | Presença de ID/Secret/chave e APP_BASE_URL em produção; rede/ambiente correto. |
 | Autorização expirada/inválida | Nova tentativa OAuth do painel; state expira/é consumido uma vez. Não recarregar callback antigo. |
 | Domínio Shopify divergente | Domínio .myshopify.com correto e validação da identidade; não retirar HMAC. |
@@ -624,17 +626,17 @@ Antes de migrar ou reescrever: exportar dados, mapear IDs e aliases, confirmar d
 
 Prioridades técnicas e funcionais:
 
-1. Paginar /state, relatórios e consultas para remover o bloqueio de 500 documentos por coleção, sem apresentar totais parciais como completos.
+1. Medir capacidade de paginação e cálculos no volume real antes de ampliar a base de clientes; não apresentar totais parciais como completos.
 2. Definir importação histórica por período, com read_all_orders e cobertura auditável. statusAudit atual revê IDs guardados; não carrega automaticamente todo o ano.
 3. Concluir validação da contagem real reportada pelo proprietário após a nova verificação/autorizações. Não substituir essa validação por testes simulados.
 4. Modelar pedido e linhas de forma explícita para evitar contagens mistas, comissões duplicadas e coexistência de CSV/API. Deduplicação deve preservar histórico e valores legítimos.
-5. Introduzir snapshots de custos, eventos/data de pagamento/conclusão e regras de descontos/frete/impostos/reembolsos se for necessário resultado contabilístico, em vez de estimativa atual.
+5. Snapshots de custos estão preparados para novas conclusões. Continuam pendentes eventos/data própria de pagamento/conclusão e regras integrais de frete/impostos/reembolsos para resultados contabilísticos.
 6. Criar movimentos de stock se for pretendida dedução automática, sempre independente da Shopify conforme a decisão de produto.
 7. Melhorar justiça/prioridade do scheduler, retries/backoff, limpeza de OAuth/jobs antigos e reprocessamento administrativo de jobs falhados.
 8. Versionar uma suite de navegador reprodutível, além dos scripts temporários usados nas revisões; validar dispositivos físicos e navegadores relevantes.
 9. Migrar gradualmente o script clássico/handlers inline para componentes/módulos, mantendo contratos e acessibilidade; tornar CSP mais restritiva.
-10. Acrescentar retenção, eliminação/exportação de conta e endpoints/políticas de conformidade exigidos pelas plataformas.
-11. Se houver comercialização, implementar planos, pagamentos, limites, direitos de acesso, suporte e verificação/distribuição dos apps. Hoje não há cobrança nem bloqueio por assinatura.
+10. Aprovar retenção e documentos e implementar endpoints de conformidade específicos das plataformas; o autoencerramento/exportação já está preparado.
+11. Planos, validade, direitos de acesso e ativação administrativa foram implementados, mas ficam desligados por padrão. Definir preços, pagamentos/recibos, suporte, capacidade e distribuição dos apps antes de ativar a fase comercial. Não há cobrança automática.
 12. Se necessário, suportar outras moedas Shopify, câmbio por data, múltiplas contas Ads e atribuição de campanhas; nenhuma dessas capacidades deve ser presumida pela existência de um filtro por produto.
 
 O CSV de meses anteriores usa a data atual do registo, enquanto a coluna de data no histórico pode mostrar a origem do reagendamento. Clarificar/exportar ambas as datas é uma melhoria pendente; não usar essa diferença como prova de que o registo foi duplicado.
@@ -708,3 +710,7 @@ Na primeira sessão de trabalho:
 7. Registar qualquer mudança de regra com migração e validação do seu efeito nos históricos.
 
 Este manual e a cópia PDF são uma fotografia do código indicado no início. A versão Markdown é a referência editável; atualizar e regenerar a cópia PDF quando houver alterações substanciais.
+
+## Adenda de preparação comercial — 15/10/2026
+
+Consultar [PREPARACAO-COMERCIAL.md](PREPARACAO-COMERCIAL.md) para mapa dos novos módulos, APIs, variáveis de ativação, backup/restauro e trabalho que depende do proprietário. A conta atual continua em piloto; não foram definidos preços, efetuadas cobranças nem alterados pedidos/anúncios reais durante os testes.

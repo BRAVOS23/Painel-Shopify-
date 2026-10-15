@@ -1,3 +1,4 @@
+import {readAll} from '../server/paging.mjs';
 import {createStatusAudit} from '../server/status-audit.mjs';
 import {createCatalog} from '../server/catalog.mjs';
 // Teste do runtime Workerd real (wrangler dev), Auth/Firestore locais e sync com provedores simulados.
@@ -53,14 +54,18 @@ try{
  firstAudit=await audit.run(id);assert(!firstAudit.partial);assert.equal(firstAudit.checked,1);assert(auditCalls<=30);
  const auditedRows=(await store.state(id)).vendas;assert.equal(auditedRows.filter(row=>row.status==='concluido').length,12);assert.equal(auditedRows.find(row=>row.id==='sh_887_12').comissao,7);
  const publicAudit=(await request(a,'/api/connections')).body.shopify.statusAudit;assert.equal(publicAudit.total,1);assert(publicAudit.completedAt);assert(!('ids' in publicAudit));pass('auditoria de estados antigos retoma mais de 10 itens, preserva entregas e respeita o orçamento de chamadas gratuito');
+ // Leitura paginada no runtime publicado, ultrapassando o antigo limite de 500.
+ for(let start=0;start<501;start+=100){const batch=db.batch();for(let index=start;index<Math.min(start+100,501);index++){const record={id:'paged_'+String(index).padStart(4,'0'),data:'2026-10-12',tipo:'ads',produto:'Produto Worker',valor:1};batch.set(store.records(id,'ads').doc(record.id),{record,revision:1});}await batch.commit();}
+ const manifest=await request(a,'/api/state?manifest=1');let after=null,total=0;do{const page=await request(a,'/api/state/ads?version='+manifest.body.version+(after?'&after='+after:''));assert.equal(page.status,200);total+=page.body.records.length;after=page.body.after;}while(after);assert.equal(total,507);assert.equal((await request(a,'/api/state')).body.ads.length,507);assert.equal((await request(a,'/api/metrics?start=2026-10-12&end=2026-10-12')).status,200);pass('mais de 500 documentos são lidos por páginas e calculados no Workerd sem truncar');
  // O scheduler Workerd sem ligações reais não faz chamadas às plataformas.
  await store.connection(id,'shopify').delete();await store.connection(id,'meta').delete();await job.delete();
  const scheduled=await fetch(root+'/__scheduled?cron=*+*+*+*+*');assert.equal(scheduled.status,200);pass('Cron Trigger invocado no runtime Cloudflare local');
+ let closure=await request(a,'/api/account/closure',{action:'start',confirmation:'ELIMINAR'});assert.equal(closure.status,200);for(let step=0;!closure.body.done && step<60;step++){closure=await request(a,'/api/account/closure',{action:'step'});assert.equal(closure.status,200);}assert(closure.body.done);assert.equal((await request(a,'/api/state')).status,423);assert.equal((await request(b,'/api/state')).status,200);pass('encerramento em lotes no Worker apaga apenas a própria conta e impede recriação por sessão antiga');
  console.log(`${checks} verificações Worker passaram; nenhuma plataforma real foi alterada.`);
 }finally{
  for(const user of users){
-  for(const name of ['fluxo','vendas','produtos','ads','operacional','connections','leases']){const items=await db.collection(`businesses/${user.localId}/${name}`).get();for(const item of items.docs)await item.ref.delete();}
-  await db.doc(`businesses/${user.localId}`).delete();await db.doc('webhookQueue/worker-'+user.localId).delete();
+  for(const name of ['fluxo','vendas','produtos','ads','operacional','connections','leases']){const items=await readAll(db.collection(`businesses/${user.localId}/${name}`));for(const item of items.docs)await item.ref.delete();}
+  await db.doc('accountClosures/'+user.localId).delete();await db.doc(`businesses/${user.localId}`).delete();await db.doc('webhookQueue/worker-'+user.localId).delete();
   await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:delete?key=demo-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:user.idToken})});
  }
 }

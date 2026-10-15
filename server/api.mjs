@@ -1,3 +1,9 @@
+import {createHistoryImport} from './history.mjs';
+import {installPrivacyRoutes,LEGAL_VERSION} from './privacy.mjs';
+import {accountAccess,assertWritable} from './access.mjs';
+import {installPlatformRoutes} from './platform.mjs';
+import {readAll} from './paging.mjs';
+import {captureSaleCost,effectiveSales,completedSale,countOrders,saleCost} from '../web/sales.mjs';
 import {createStatusAudit} from './status-audit.mjs';
 import {validDay} from '../web/orders.mjs';
 import {createCatalog} from './catalog.mjs';
@@ -12,6 +18,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     res.set('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://127.0.0.1:9099 http://localhost:9099; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     next();
   });
+  app.get('/api/public-info',(_req,res)=>res.json({supportEmail:config.supportEmail || null,operatorName:config.operatorName || null,legalApproved:config.legalApproved===true,legalVersion:LEGAL_VERSION,pricingConfigured:false,billingAutomated:false}));
   app.get('/api/health',(_req,res)=>res.json({ok:true,mode:config.emulators ? 'emulator' : 'production'}));
   app.get('/api/config',(_req,res)=>res.json({firebase:{apiKey:config.webApiKey,authDomain:config.authDomain,projectId:config.projectId},emulators:config.emulators}));
   app.post('/webhooks/shopify',framework.raw({type:'application/json',limit:'5mb'}),async(req,res)=>{
@@ -27,8 +34,9 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     if(!['orders/create','orders/updated','orders/cancelled'].includes(topic)) return res.sendStatus(400);
     let body; try {body=JSON.parse(req.body.toString());} catch {return res.sendStatus(400);}
     if(!/^\d+$/.test(String(body.id)) || !req.get('X-Shopify-Webhook-Id')) return res.sendStatus(400);
+    const owner=(await store.business(link.data().ownerId).get()).data();if(!owner || owner.accountStatus)return res.sendStatus(200);
     const key=createHash('sha256').update(shop+req.get('X-Shopify-Webhook-Id')).digest('hex');
-    try {await store.db.doc(`webhookQueue/${key}`).create({ownerId:link.data().ownerId,shop,orderId:String(body.id),createdAt:new Date().toISOString(),status:'pending',attempts:0});}
+    try {await store.db.doc(`webhookQueue/${key}`).create({ownerId:link.data().ownerId,shop,orderId:String(body.id),createdAt:new Date().toISOString(),status:accountAccess(owner,config).canWrite?'pending':'paused',attempts:0});}
     catch(error) {if(error.code!==6) throw error;}
     res.sendStatus(200);
   });
@@ -44,20 +52,40 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       if(limit && now-limit.start<60000 && limit.count>=200) return res.status(429).json({error:'Muitos pedidos. Aguarde um minuto.'});
       if(!limit || now-limit.start>=60000) limits.set(user.uid,{start:now,count:1}); else limit.count++;
       if(limits.size>10000) for(const [uid,value] of limits) if(now-value.start>60000) limits.delete(uid);
-      req.user=user; req.business=await store.ensureBusiness(user.uid,user.email); next();
+      req.user=user;req.business=await store.ensureBusiness(user.uid,user.email);
+      res.set('Cache-Control','no-store');
+      if(req.business.accountStatus && !['/api/account','/api/account/closure'].includes(req.originalUrl.split('?')[0]))throw Object.assign(new Error('A conta está em encerramento ou encerrada.'),{status:423});
+      if(req.method==='POST' && /^\/api\/(data|sync|shopify|meta|oauth)(\/|$)/.test(req.originalUrl.split('?')[0]))assertWritable(req.business,config);
+      next();
     } catch(error) {next(error);}
   });
+  installPlatformRoutes(app,{store,config});
+  installPrivacyRoutes(app,{store,config});
   app.get('/api/state',async(req,res)=>{
     const tag='"'+req.user.uid+':'+(req.business.dataVersion || 0)+'"';
     res.set('ETag',tag);res.set('Cache-Control','private, no-cache');
     if(req.get('If-None-Match')===tag)return res.status(304).end();
-    res.json(await store.state(req.user.uid,req.business.dataVersion || 0));
+    if(req.query.manifest==='1')return res.json({ownerId:req.user.uid,version:req.business.dataVersion || 0,collections});
+    const snapshot=await store.state(req.user.uid,req.business.dataVersion || 0);
+    if((await store.business(req.user.uid).get()).data().dataVersion!==(req.business.dataVersion || 0))throw Object.assign(new Error('Os dados mudaram durante a consulta. Tenta novamente.'),{status:409});
+    res.json(snapshot);
+  });
+  app.get('/api/state/:collection',async(req,res)=>{
+    const version=Number(req.query.version);if(!Number.isSafeInteger(version) || version!==(req.business.dataVersion || 0))throw Object.assign(new Error('Os dados mudaram durante a leitura. A atualizar novamente.'),{status:409});
+    res.json({version,...await store.statePage(req.user.uid,req.params.collection,req.query)});
   });
   app.post('/api/data/:collection',async(req,res)=>res.json({revisions:await store.patch(req.user.uid,req.params.collection,req.body.changes)}));
   app.get('/api/metrics',async(req,res)=>{
     const {start,end,product=''}=req.query;
     if(!validDay(start) || !validDay(end) || start>end || Date.parse(end)-Date.parse(start)>366*86400000) return res.status(400).json({error:'Selecione um período até 366 dias.'});
-    res.json(calculateMetrics(await store.state(req.user.uid,req.business.dataVersion || 0),start,end,product));
+    const state=await store.state(req.user.uid,req.business.dataVersion || 0,{financial:true});
+    if((await store.business(req.user.uid).get()).data().dataVersion!==(req.business.dataVersion || 0))throw Object.assign(new Error('Os dados mudaram durante o cálculo. Tenta novamente.'),{status:409});
+    res.json(calculateMetrics(state,start,end,product));
+  });
+  app.get('/api/data-quality',async(req,res)=>{
+    const state=await store.state(req.user.uid,req.business.dataVersion || 0,{financial:true}),rows=effectiveSales(state.vendas),kept=new Set(rows.map(row=>row.id));
+    const duplicateRows=state.vendas.filter(row=>!kept.has(row.id));
+    res.json({duplicateRowsIgnored:duplicateRows.length,duplicateOrderCount:countOrders(duplicateRows),duplicateIds:duplicateRows.slice(0,30).map(row=>row.id),missingCostOrders:countOrders(rows.filter(row=>completedSale(row) && saleCost(row,state.produtos)===null)),legacyReviewOrders:countOrders(rows.filter(row=>row.status==='concluido' && !completedSale(row))),rawRecords:Object.fromEntries(collections.map(name=>[name,state[name].length]))});
   });
   app.get('/api/connections',async(req,res)=>{
     const shop=(await store.connection(req.user.uid,'shopify').get()).data(),meta=(await store.connection(req.user.uid,'meta').get()).data();
@@ -73,9 +101,11 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
     if(!['shopify','meta'].includes(req.params.provider)) return res.sendStatus(400);
     res.json(await sync.run(req.user.uid,req.params.provider));
   });
-  const statusAudit=createStatusAudit(store,providers,config);
+  const statusAudit=createStatusAudit(store,providers,config),historyImport=createHistoryImport(store,providers,config);
+  app.post('/api/shopify/history',async(req,res)=>res.json(await historyImport.run(req.user.uid,req.body)));
   app.post('/api/shopify/orders/reconcile',async(req,res)=>res.json(await statusAudit.run(req.user.uid,{restart:req.body.restart===true})));
   async function orderStatus(req,res){
+    assertWritable(req.business,config);
     const wanted=req.method==='POST'?req.body.status:req.query.status;
     if(!/^\d+$/.test(req.params.id) || !['concluido','cancelado'].includes(wanted))return res.status(400).json({error:'Estado de pedido inválido.'});
     const uid=req.user.uid;
@@ -95,7 +125,8 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       // CSV/backups antigos têm IDs locais, não os IDs sh_ da sincronização.
       // Atualizar todos os registos já existentes deste pedido sem criar duplicados nem substituir contactos/valores.
       const confirmed=order.cancelled_at?'cancelado':done()?wanted:null;
-      const records=confirmed?await store.importedMany(uid,'vendas',owned.docs.map(doc=>({record:{...doc.data().record,status:confirmed,panelConfirmed:confirmed==='concluido',shopifyFinancialStatus:String(order.financial_status || '').toLowerCase(),shopifyFulfillmentStatus:order.fulfillment_status || 'unfulfilled'},sourceUpdatedAt:order.updated_at,statusOnly:true}))):owned.docs.map(doc=>({...doc.data().record,_revision:doc.data().revision}));
+      const products=confirmed==='concluido'?(await readAll(store.records(uid,'produtos'),{select:['record.id','record.nome','record.aliases','record.custo','record.costConfigured']})).docs.map(doc=>doc.data().record):[];
+      const records=confirmed?await store.importedMany(uid,'vendas',owned.docs.map(doc=>({record:captureSaleCost({...doc.data().record,status:confirmed,panelConfirmed:confirmed==='concluido',shopifyFinancialStatus:String(order.financial_status || '').toLowerCase(),shopifyFulfillmentStatus:order.fulfillment_status || 'unfulfilled'},products),sourceUpdatedAt:order.updated_at,statusOnly:true}))):owned.docs.map(doc=>({...doc.data().record,_revision:doc.data().revision}));
       const pending=!done();
       res.status(pending?202:200).json({ok:!pending,pending,records,message:pending?'A Shopify está a processar a alteração. A confirmar o estado do pedido…':null});
     }catch(error){await store.connection(uid,'shopify').update({lastError:error.message});res.status(error.status || 502).json({error:error.message});}
@@ -155,6 +186,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       tx.delete(ref); return state;
     });
     const returnedShop=provider==='shopify'?shopDomain(params.get('shop')):null;
+    const ownerBusiness=(await store.business(saved.ownerId).get()).data();if(!ownerBusiness)throw Object.assign(new Error('Negócio não encontrado.'),{status:404});assertWritable(ownerBusiness,config);
     stage='trocar o código de autorização com a plataforma';
     const result=provider==='shopify' ? await providers.exchangeShopify(returnedShop,params.get('code')) : await providers.exchangeMeta(params.get('code'),`${config.baseUrl}/oauth/meta/callback`);
     if(!result.access_token) throw new Error('A plataforma não devolveu autorização utilizável.');
@@ -172,11 +204,12 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       connection.shop=identity?shopDomain(identity.myshopifyDomain):returnedShop;
       stage='guardar a ligação da loja no Firestore';
       await store.db.runTransaction(async tx=>{
+        const owner=await tx.get(store.business(saved.ownerId));assertWritable(owner.data(),config);
         const link=store.db.doc(`shopLinks/${connection.shop}`),existing=await tx.get(link);
         if(existing.exists && existing.data().ownerId!==saved.ownerId) throw Object.assign(new Error('Esta loja já está ligada a outro negócio.'),{status:409});
         const previous=await tx.get(store.connection(saved.ownerId,provider));
         if(previous.exists && previous.data().shop===connection.shop){const fresh={credentials:connection.credentials,connectedAt:connection.connectedAt,shop:connection.shop,lastError:null};Object.assign(connection,previous.data(),fresh);}
-        if(saved.allOrders){connection.historyReadEnabled=true;connection.statusAudit=null;}
+        if(saved.allOrders){connection.historyReadEnabled=true;connection.historyReadRequired=false;connection.statusAudit=null;}
         tx.set(link,{ownerId:saved.ownerId}); tx.set(store.connection(saved.ownerId,provider),connection);
       });
       stage='registar webhooks e iniciar a importação';
@@ -186,6 +219,7 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
       stage='guardar a ligação Meta no Firestore';
       connection.expiresAt=result.expires_in ? Date.now()+Number(result.expires_in)*1000 : null;
       await store.db.runTransaction(async tx=>{
+        const owner=await tx.get(store.business(saved.ownerId));assertWritable(owner.data(),config);
         const ref=store.connection(saved.ownerId,provider),previous=await tx.get(ref);
         // Reautorizar renova apenas as credenciais do mesmo negócio. A próxima
         // chamada à Meta volta a verificar o acesso à conta selecionada.

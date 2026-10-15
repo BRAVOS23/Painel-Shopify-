@@ -17,7 +17,10 @@
     "check:worker": "npm run build && node scripts/wrangler.mjs deploy --dry-run --env=\"\"",
     "deploy:worker": "npm run build && node scripts/wrangler.mjs deploy --env=\"\"",
     "test:worker": "node tests/worker-integration.mjs",
-    "test:worker:crypto": "node tests/worker-crypto.mjs"
+    "test:worker:crypto": "node tests/worker-crypto.mjs",
+    "test:commercial": "node tests/commercial-integration.mjs",
+    "test:recovery": "node tests/recovery-integration.mjs",
+    "test:browser": "npm run build && node tests/browser-commercial.mjs"
   },
   "dependencies": {
     "chart.js": "4.4.4",

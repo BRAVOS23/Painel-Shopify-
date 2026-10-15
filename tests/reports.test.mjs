@@ -1,3 +1,4 @@
+import {effectiveSales,captureSaleCost} from '../web/sales.mjs';
 import {reconciledStatus} from '../server/status-audit.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,4 +21,12 @@ test('reconciliação mantém confirmações explícitas e reagendamentos, mas c
  const row={id:'legacy',status:'cancelado',data:'2026-01-01',valor:100,comissao:10};
  const paid={financial_status:'paid',fulfillment_status:'fulfilled',cancelled_at:null};assert.equal(reconciledStatus(row,paid).status,'concluido');assert.equal(reconciledStatus(row,{...paid,financial_status:'pending'}).status,'pendente');assert.equal(reconciledStatus({...row,status:'remarcado'},{...paid,fulfillment_status:'unfulfilled'}).status,'remarcado');assert.equal(reconciledStatus({...row,status:'concluido',panelConfirmed:true},{...paid,financial_status:'pending'}).status,'concluido');
  const cancelled=reconciledStatus({...row,panelConfirmed:true},{...paid,cancelled_at:'2026-10-13'});assert.equal(cancelled.status,'cancelado');assert.equal(cancelled.panelConfirmed,false);assert.equal(cancelled.comissao,10);assert.equal(cancelled.data,'2026-01-01');
+});
+
+test('importação canónica incompleta não substitui antecipadamente o resumo CSV',()=>{
+ const legacy={id:'csv',shopifyOrderId:'9',valor:200,status:'concluido',panelConfirmed:true},one={id:'sh_9_1',shopifyOrderId:'9',shopifyLineItemId:'1',shopifyLineCount:2,valor:100,status:'pendente'},two={...one,id:'sh_9_2',shopifyLineItemId:'2'};
+ assert.deepEqual(effectiveSales([legacy,one]),[legacy]);const complete=effectiveSales([legacy,one,two]);assert.equal(complete.length,2);assert(complete.every(row=>row.panelConfirmed && row.status==='concluido'));
+});
+test('custo capturado não muda ao editar o catálogo e não inventa custo desconhecido',()=>{
+ const row={id:'x',produto:'Produto',status:'concluido'},cost=captureSaleCost(row,[{nome:'Produto',custo:20}]);assert.equal(cost.unitCost,20);assert.equal(captureSaleCost(cost,[{nome:'Produto',custo:100}]).unitCost,20);assert.equal(captureSaleCost(row,[{nome:'Produto',custo:0,costConfigured:false}]).unitCost,undefined);assert.equal(row.unitCost,undefined);
 });

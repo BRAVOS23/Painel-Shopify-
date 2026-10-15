@@ -1,4 +1,4 @@
-import {countOrders,completedSale} from './sales.mjs';
+import {countOrders,completedSale,effectiveSales} from './sales.mjs';
 import {initInstallationUi} from './install.mjs';
 import {initUsability} from './usability.mjs';
 import {scheduleOrder} from './orders.mjs';
@@ -62,7 +62,7 @@ export function initExperience(){
  $('summaryProducts').onclick=()=>{window.switchMain('metricas');window.switchMetricasView('produtos');};$('summaryConnections').onclick=()=>window.openAccountMenu('Integracoes');
  async function renderSummary(){
   if(!$('secResumo').classList.contains('active'))return;
-  const month=monthInput.value || today().slice(0,7),state=snapshot(),rows=state.vendas.filter(row=>row.mes===month),openRows=rows.filter(row=>['pendente','remarcado'].includes(row.status));
+  const month=monthInput.value || today().slice(0,7),state=snapshot(),rows=effectiveSales(state.vendas).filter(row=>row.mes===month),openRows=rows.filter(row=>['pendente','remarcado'].includes(row.status));
   $('summaryOpen').textContent=countOrders(openRows);$('summaryDone').textContent=countOrders(rows.filter(completedSale));
   const upcoming=[...openRows].sort((a,b)=>a.data.localeCompare(b.data) || (a.horario || '').localeCompare(b.horario || '')).slice(0,5);
   $('summaryOrders').innerHTML=upcoming.length?upcoming.map(row=>`<div class="summary-row"><div><strong>${escape(row.contacto || 'Pedido sem contacto')}</strong><small>${day(row.data)}${row.horario?' · '+escape(row.horario):''} · ${escape(row.produto || row.local || '')}</small></div><button class="btn-ghost" data-order="${escape(row.id)}">Ver pedido</button></div>`).join(''):'<div class="empty" style="padding:28px 0">Não há entregas em aberto neste mês.</div>';

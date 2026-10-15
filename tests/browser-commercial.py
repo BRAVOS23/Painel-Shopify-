@@ -1,0 +1,51 @@
+import json,os,shutil
+from playwright.sync_api import sync_playwright,expect
+fixture=json.loads(os.environ['PAINEL_BROWSER_FIXTURE'])
+errors=[]
+with sync_playwright() as p:
+    executable=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium')
+    browser=p.chromium.launch(**({'executable_path':executable} if executable else {}),args=['--no-sandbox'])
+    customer=browser.new_page(viewport={'width':390,'height':844})
+    admin=browser.new_page(viewport={'width':1280,'height':900})
+    for page in [customer,admin]:
+        page.on('pageerror',lambda error:errors.append(str(error)))
+    def login(page,email):
+        page.goto(fixture['url'],wait_until='networkidle')
+        page.fill('#cloudEmail',email);page.fill('#cloudPassword',fixture['password']);page.click('#cloudLoginForm button[type=submit]')
+        expect(page.locator('.wrap')).to_be_visible(timeout=30000)
+    login(customer,fixture['customer'])
+    expect(customer.locator('#readOnlyNotice')).to_be_visible()
+    customer.click('#accountMenuButton');expect(customer.locator('#openPlatformAdmin')).to_be_hidden()
+    expect(customer.locator('#businessPlanDescription')).to_contain_text('Aguarda ativação')
+    customer.click('#requestAccess');expect(customer.locator('#businessAccessMessage')).to_contain_text('guardado')
+    customer.click('#accountTabDados')
+    with customer.expect_download() as event:customer.click('#exportAccount')
+    assert event.value.suggested_filename.endswith('.json')
+    customer.click('#inspectDataQuality');expect(customer.locator('#qualityReport')).to_contain_text('Registos guardados')
+    assert customer.evaluate('document.documentElement.scrollWidth<=innerWidth')
+    login(admin,fixture['admin']);admin.click('#accountMenuButton');admin.click('#openPlatformAdmin')
+    expect(admin.locator('#platformBusinesses article').first).to_be_visible()
+    expect(admin.locator('#subscriptionForm')).to_be_hidden()
+    target=admin.locator('[data-grant="'+fixture['customerUid']+'"]')
+    for _ in range(100):
+        if target.count():break
+        expect(admin.locator('#moreBusinesses')).to_be_visible()
+        before=admin.locator('#platformBusinesses article').count();admin.click('#moreBusinesses')
+        expect(admin.locator('#platformBusinesses article')).not_to_have_count(before)
+    target.click()
+    admin.select_option('#subscriptionPlan','standard');admin.fill('#subscriptionExpiry',fixture['expiresOn']);admin.click('#subscriptionForm button[type=submit]')
+    expect(admin.locator('#platformAdminMessage')).to_contain_text('Acesso atualizado')
+    expect(admin.locator('#subscriptionForm')).to_be_hidden()
+    admin.locator('#platformAdminDialog summary').click()
+    admin.click('#loadPlatformAudit')
+    expect(admin.locator('#platformAudit')).to_contain_text(fixture['customerUid'])
+    customer.reload(wait_until='networkidle');expect(customer.locator('.wrap')).to_be_visible(timeout=30000)
+    expect(customer.locator('#readOnlyNotice')).to_be_hidden()
+    customer.click('#accountMenuButton');expect(customer.locator('#businessPlanDescription')).to_contain_text('Ativo')
+    customer.click('#accountTabDados');customer.locator('summary',has_text='Encerrar e eliminar').click();customer.click('#openCloseAccount')
+    customer.fill('#closeAccountConfirmation','ELIMINAR');customer.fill('#closeAccountPassword',fixture['password']);customer.check('#closeAccountBackup');customer.click('#closeAccountForm button[type=submit]')
+    expect(customer.locator('.cloud-login').first).to_be_visible(timeout=60000)
+    admin.screenshot(path='/tmp/painel-commercial-admin.png',full_page=True)
+    assert not errors,errors
+    print('PASS: mobile apenas consulta, exportação, qualidade, ativação administrativa, auditoria e eliminação Firebase reais nos emuladores; sem erros JavaScript')
+    browser.close()
