@@ -21,6 +21,8 @@ Passaram 52 testes unitários, 25 cenários de integração, 9 comerciais, 2 de 
 
 Os testes usaram emuladores e dados sintéticos. Não apagaram dados reais nem concluíram/cancelaram pedidos reais na Shopify. As aprovações das plataformas, os totais reais da conta e o resultado de futuros testes GitHub Actions não estão certificados por estes testes.
 
+Publicação confirmada em `main`, commit `11d9f62`, compilação `9a42e6e54840`. A saúde pública respondeu em produção; as páginas de ajuda/privacidade e o download deste PDF foram confirmados. O estado dos testes remotos GitHub Actions não foi verificado.
+
 ## Para tratar contigo quando voltares
 
 1. Escolher a conta administradora e configurar os acessos em segurança.
