@@ -2021,7 +2021,7 @@ function renderHistoricoMesTable(){
     </tr>`).join('');
 }
 
-function toggleHistoryDetails(button){const expanded=button.closest('tr').classList.toggle('history-row-expanded');button.setAttribute('aria-expanded',String(expanded));button.textContent=expanded?'Ocultar detalhes':'Ver detalhes';}
+function toggleHistoryDetails(button){const row=button.closest('tr'),expanded=row.classList.toggle('history-row-expanded');if(row.dataset.orderId){if(expanded)pedidosListaExpandidos.add(row.dataset.orderId);else pedidosListaExpandidos.delete(row.dataset.orderId);for(const toggle of row.querySelectorAll('button[aria-expanded]'))toggle.setAttribute('aria-expanded',String(expanded));}button.setAttribute('aria-expanded',String(expanded));if(button.classList.contains('compact-order-toggle'))button.setAttribute('aria-label',expanded?'Recolher pedido':'Expandir pedido');else button.textContent=expanded?'Ocultar detalhes':'Ver detalhes';}
 
 function exportHistoricoMesCSV(){
   const list = getHistoricoFiltrado();
@@ -2245,6 +2245,7 @@ async function markStatus(id, status){
 
 }
 
+const pedidosListaExpandidos = new Set();
 function renderVendaTable(){
   const list = getVendasFiltradas();
   const tbody = document.getElementById('vendaTableBody');
@@ -2253,7 +2254,8 @@ function renderVendaTable(){
   else {
     empty.style.display='none';
     tbody.innerHTML = list.map(v=>`
-      <tr>
+      <tr data-order-id="${v.id}" class="${pedidosListaExpandidos.has(v.id)?'history-row-expanded':''}">
+        <td class="order-list-toggle"><button type="button" class="compact-order-toggle" aria-label="${pedidosListaExpandidos.has(v.id)?'Recolher pedido':'Expandir pedido'}" aria-expanded="${pedidosListaExpandidos.has(v.id)}" onclick="toggleHistoryDetails(this)">⌄</button></td>
         <td class="mono" data-label="Data">${fmtData(v.data)}</td>
         <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
         <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}</td>

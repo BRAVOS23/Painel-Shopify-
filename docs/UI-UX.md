@@ -94,3 +94,7 @@ As validações de navegação usam contas dos emuladores, incluindo catálogo, 
 Os cartões do catálogo precisavam de uma largura mínima de grelha igual a zero e de contenção individual; medir apenas o scroll da página não detetava os cartões a sair do painel. Os nomes passam a quebrar por palavras e a pesquisa usa a largura disponível. O valor em stock tem uma linha própria.
 
 Na lista de pedidos, contacto e ações deixam o layout de duas colunas comprimidas. Nome/números e atalhos ficam em linhas próprias, com números indivisíveis e botões distribuídos em grelha. A etiqueta de ações deixa de consumir largura. Os testes agora usam quatro produtos com nomes longos e contactos fictícios com dois números, entre 320 e 1280 px, e verificam limites dos cartões, dimensões dos botões e ausência de quebra nos telefones.
+
+### Pedidos compactos no telemóvel
+
+A lista por período volta a cartões compactos: data, estado, nome/telefone, produto e valor, sem etiquetas em cada linha. A seta mostra contactos rápidos, informações adicionais e ações. A expansão é preservada quando a lista é redesenhada. Navegação, filtros e tabela de computador mantêm-se. O teste móvel verifica altura recolhida até 260 px com contactos compridos, ações ocultas ao recolher e botões legíveis ao expandir, de 320 a 412 px.

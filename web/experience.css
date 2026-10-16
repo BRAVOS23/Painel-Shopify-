@@ -57,3 +57,26 @@ body{font-size:14px;line-height:1.5}.mono,.card .v,.roi-hero-value,.summary-stat
  #vendaTableBody .row-actions button[onclick^="window.openReschedule"],#vendaTableBody .row-actions .history-row-toggle{grid-column:1/-1}
  #vendaTableBody .pill{justify-self:start}
 }
+/* Pedidos compactos: informação essencial primeiro, detalhes e ações ao expandir. */
+#vendaTableBody .order-list-toggle{display:none}
+@media(max-width:600px){
+ #vendaTableBody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;position:relative;padding:14px}
+ #vendaTableBody td{display:block;padding:0;font-size:14px;min-width:0}
+ #vendaTableBody td::before{display:none!important}
+ #vendaTableBody td[data-label="Data"]{grid-column:1;grid-row:1;font-size:12px;color:var(--sand-dim);align-self:center}
+ #vendaTableBody td[data-label="Estado"]{grid-column:2;grid-row:1;padding-right:37px;align-self:center}
+ #vendaTableBody td[data-label="Estado"] .pill{font-size:11px;white-space:nowrap}
+ #vendaTableBody td[data-label="Contacto"]{grid-column:1/-1;grid-row:2;margin:5px 0}
+ #vendaTableBody .contacto-texto{font-size:14px;line-height:1.6;font-weight:500}
+ #vendaTableBody .contacto-bloco{gap:6px}
+ #vendaTableBody td[data-label="Produto"]{grid-column:1;grid-row:3;color:var(--sand-dim);font-size:13px}
+ #vendaTableBody td[data-label="Valor"]{grid-column:2;grid-row:3;align-self:start;text-align:right;font-weight:600;font-size:13px;white-space:nowrap}
+ #vendaTableBody .order-list-toggle{display:block;position:absolute;top:6px;right:6px;width:36px;padding:0}
+ #vendaTableBody .compact-order-toggle{width:36px;min-height:44px;border:0;border-radius:8px;background:transparent;color:var(--sand-dim);font-size:21px;cursor:pointer}
+ #vendaTableBody .compact-order-toggle[aria-expanded="true"]{transform:rotate(180deg)}
+ #vendaTableBody .history-row-toggle{display:none!important}
+ #vendaTableBody tr:not(.history-row-expanded) td[data-label="Ações"],#vendaTableBody tr:not(.history-row-expanded) .contacto-acoes{display:none}
+ #vendaTableBody tr.history-row-expanded td:is([data-label="Fonte"],[data-label="Local"],[data-label="Qtd"],[data-label="Entregador"]){grid-column:1/-1;display:grid;grid-template-columns:88px minmax(0,1fr);margin-top:5px}
+ #vendaTableBody tr.history-row-expanded td:is([data-label="Fonte"],[data-label="Local"],[data-label="Qtd"],[data-label="Entregador"])::before{display:block!important}
+ #vendaTableBody td[data-label="Ações"]{grid-column:1/-1;margin-top:6px}
+}

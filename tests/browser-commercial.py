@@ -62,9 +62,16 @@ with sync_playwright() as p:
             if key=='Produtos':
                 assert customer.evaluate('''()=>[...document.querySelectorAll('#produtosGrid .produto-card')].every(card=>{const a=card.getBoundingClientRect(),b=document.getElementById('produtosGrid').getBoundingClientRect();return a.right<=b.right+1 && a.left>=b.left-1 && card.scrollWidth<=card.clientWidth+1;})'''),('cartão fora da grelha',width)
             if key=='Vendas' and width<=600:
+                row=customer.locator('#vendaTableBody tr').first
+                toggle=row.locator('.compact-order-toggle')
+                if toggle.get_attribute('aria-expanded')=='true':toggle.click()
+                expect(row.locator('td[data-label="Ações"]')).to_be_hidden()
+                assert row.bounding_box()['height']<=260,('cartão deixou de ser compacto',width)
+                toggle.click();expect(row.locator('td[data-label="Ações"]')).to_be_visible()
                 assert customer.evaluate('''()=>[...document.querySelectorAll('#vendaTableBody .row-actions button')].filter(button=>button.getClientRects().length).every(button=>button.clientWidth>=44 && button.scrollWidth<=button.clientWidth+1 && button.clientHeight<=70)'''),('botão comprimido',width)
                 assert customer.evaluate('''()=>[...document.querySelectorAll('#vendaTableBody .tel-ativo')].every(number=>number.getBoundingClientRect().height<40 && number.scrollWidth<=number.clientWidth+1)'''),('telefone partido',width)
 
+    customer.locator('#vendaTableBody .compact-order-toggle[aria-expanded="true"]').evaluate_all('(buttons)=>buttons.forEach(button=>button.click())')
     customer.screenshot(path='/tmp/painel-navigation-desktop.png',full_page=True,animations='disabled')
     customer.set_viewport_size({'width':390,'height':844});customer.click('#tabBtnVendas');customer.screenshot(path='/tmp/painel-orders-mobile-fix.png',full_page=True,animations='disabled');customer.click('#tabBtnProdutos');customer.screenshot(path='/tmp/painel-navigation-mobile.png',full_page=True,animations='disabled')
     customer.click('#accountMenuButton');expect(customer.locator('#businessPlanDescription')).to_contain_text('Ativo')
