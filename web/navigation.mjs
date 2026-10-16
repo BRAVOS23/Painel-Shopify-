@@ -9,7 +9,7 @@ export function initNavigation(){
  $('secVendas').prepend(heading,period);$('ordersNewOrder').onclick=()=>window.openNewOrder(new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Maputo',year:'numeric',month:'2-digit'}).format(new Date()));
  const planning=document.createElement('details');planning.id='deliveryPlanning';planning.className='delivery-planning';planning.innerHTML='<summary>Organizar entregas por mês e semana</summary><p class="report-help">Esta organização é independente do período usado para consultar a lista e os relatórios.</p>';
  for(const panel of [...$('vendasViewPedidos').children])planning.append(panel);
- const list=$('vendaTableBody').closest('.panel');$('vendasViewPedidos').append(list,planning);
+ const list=$('vendaTableBody').closest('.panel');$('vendasViewPedidos').append(planning,list);
  const reportHeading=$('vendasViewRelatorios').querySelector('h2');reportHeading.textContent='Desempenho das entregas';
  $('reportRevenue').parentElement.hidden=true;
  const delivery=$('entregasBody').closest('.panel');delivery.querySelector('.report-help').textContent='Unidades e entregas concluídas no período escolhido.';
