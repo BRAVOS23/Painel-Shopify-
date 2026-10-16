@@ -76,3 +76,15 @@ Validação: 38 testes unitários, 22 cenários de integração e 14 verificaç�
 Concluir no painel, em pedidos ligados à Shopify, agora solicita processamento e registo do pagamento recebido via orderMarkAsPaid. Pré-verificação cancelledAt/displayFinancialStatus/canMarkAsPaid evita processar pedidos que não permitem o registo. Reutiliza processamento/pagamento já realizados; final e polling exigem fulfilled + paid antes de confirmar localmente. Se a segunda etapa falhar, o painel comunica a falha e não assume conclusão; repetir a ação retoma apenas estados em falta. Não utiliza captura/cobrança de cartão. A integração esclarece que Concluir significa confirmar pagamento recebido.
 
 Validação: 40 testes unitários, 22 cenários de integração e dry-run Worker. Cobrem ambos os estados em falta, apenas pagamento em falta, apenas processamento em falta, repetição sem mutações, canMarkAsPaid=false sem efeitos e polling com processamento confirmado/pagamento pendente sem falsa conclusão. Provedores simulados; nenhum pedido real foi alterado nos testes.
+
+## 16/10/2026 — navegação por tarefa
+
+- Quatro áreas principais: Resumo, Pedidos, Produtos e Resultados; a mesma ordem no computador e na barra inferior móvel.
+- Produtos saiu de Resultados. Conserva catálogo, associação Shopify, custo e stock local independente.
+- Resultados apresenta Resultados e Gastos. Registar gasto abre um diálogo com as categorias existentes; os atalhos de edição mantêm-se.
+- Pedidos apresenta Lista de pedidos e Relatórios. Um seletor de período partilhado permite consultar meses anteriores na mesma lista com pesquisa e estado.
+- A lista permite concluir, cancelar e reagendar. A organização semanal e o formulário continuam em “Organizar entregas por mês e semana”; criar/editar abre essa área automaticamente.
+- Relatórios focam pedidos, conclusões, cancelamentos, origens e entregas; a receita e os valores pagos ao entregador deixaram de ser apresentados ali.
+- O antigo histórico separado foi retirado da navegação. O código de leitura legado permanece para compatibilidade; nenhum registo foi removido ou migrado.
+
+As validações de navegação usam contas dos emuladores, incluindo catálogo, pedidos atuais/antigos, gastos e ecrãs de 360 a 1280 px. Não substituem um teste de usabilidade com novos utilizadores.

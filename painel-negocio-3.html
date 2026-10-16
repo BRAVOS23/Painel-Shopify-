@@ -545,6 +545,7 @@
       <div class="maintabs" role="navigation" aria-label="Navegação principal">
         <button id="tabBtnResumo" class="active" onclick="switchMain('resumo')">Resumo</button><button id="tabBtnFluxo" hidden onclick="switchMain('resumo')">Movimentos antigos</button>
         <button id="tabBtnVendas" onclick="switchMain('vendas')">Pedidos</button>
+        <button id="tabBtnProdutos" onclick="switchMain('produtos')">Produtos</button>
         <button id="tabBtnMetricas" onclick="switchMain('metricas')">Resultados</button>
       </div>
       <button type="button" class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
@@ -876,6 +877,7 @@
   </section>
 
   <!-- ================= CPA / ROI / ROAS ================= -->
+  <section id="secProdutos" class="section"></section>
   <section id="secMetricas" class="section">
 
     <div class="subnav">
@@ -1151,6 +1153,7 @@ let mesAtivoVendas = '';
 let historicoAberto = false;
 let vendaFormAberto = false;
 function abrirVendaForm(){
+  const planning=document.getElementById('deliveryPlanning');if(planning)planning.open=true;
   if(vendaFormAberto) return;
   vendaFormAberto = true;
   const t = document.getElementById('vendaFormToggle');
@@ -1314,6 +1317,10 @@ function refreshChartsForTheme(){
 
 function switchMain(which){
   if(which==='fluxo')which='resumo';
+  document.getElementById('secProdutos').classList.toggle('active',which==='produtos');
+  document.getElementById('tabBtnProdutos').classList.toggle('active',which==='produtos');
+  if(which==='produtos'){document.getElementById('metricasViewProdutos').classList.add('active');produtosViewAberta=true;renderProdutosView();}
+  else produtosViewAberta=false;
   document.getElementById('secResumo').classList.toggle('active',which==='resumo');
   document.getElementById('tabBtnResumo').classList.toggle('active',which==='resumo');
   document.getElementById('secFluxo').classList.toggle('active', which==='fluxo');
@@ -1322,9 +1329,10 @@ function switchMain(which){
   document.getElementById('tabBtnFluxo').classList.toggle('active', which==='fluxo');
   document.getElementById('tabBtnVendas').classList.toggle('active', which==='vendas');
   document.getElementById('tabBtnMetricas').classList.toggle('active', which==='metricas');
-  ['Resumo','Vendas','Metricas'].forEach((key,index)=>document.getElementById('tabBtn'+key).setAttribute('aria-pressed',String(which===['resumo','vendas','metricas'][index])));
+  ['Resumo','Vendas','Produtos','Metricas'].forEach((key,index)=>document.getElementById('tabBtn'+key).setAttribute('aria-pressed',String(which===['resumo','vendas','produtos','metricas'][index])));
   if(which==='resumo')window.renderExperience?.();
   if(which==='metricas'){
+    if(!document.querySelector('#secMetricas > .subview.active'))switchMetricasView('resultados');
     if(opHistAberto) renderOpTable();
     renderAdAll();
   }
@@ -1345,7 +1353,10 @@ function switchVendasView(which){
 }
 
 function switchMetricasView(which){
+  if(which==='produtos')return switchMain('produtos');
+  if(which==='cadastros' && window.openExpenseDialog){if(!document.getElementById('secMetricas').classList.contains('active'))switchMain('metricas');window.openExpenseDialog();return;}
   ['resultados','gastos','produtos','cadastros'].forEach(v=>{
+    if(v==='produtos' || (v==='cadastros' && window.openExpenseDialog))return;
     document.getElementById('metricasView'+v.charAt(0).toUpperCase()+v.slice(1)).classList.toggle('active', which===v);
     document.getElementById('subnavMet'+v.charAt(0).toUpperCase()+v.slice(1)).classList.toggle('active', which===v);
   });
@@ -2252,7 +2263,7 @@ function renderVendaTable(){
         <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}</td>
         <td data-label="Entregador">${escapeHtml(v.delivery||'—')}</td>
         <td data-label="Estado"><span class="pill st-${v.status==='concluido'&&!window.completedSale(v)?'verificar':v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':v.status==='concluido'&&!window.completedSale(v)?'A verificar':STATUS_LABEL[v.status]}</span></td>
-        <td data-label="Ações"><div class="row-actions"><button class="btn-ghost history-row-toggle" aria-expanded="false" onclick="toggleHistoryDetails(this)">Ver detalhes</button>
+        <td data-label="Ações"><div class="row-actions">${['pendente','remarcado'].includes(v.status)?`<button class="btn-ghost" onclick="markStatus('${v.id}','concluido')" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''}>Concluir</button><button class="btn-ghost" onclick="markStatus('${v.id}','cancelado')" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''}>Cancelar</button><button class="btn-ghost" onclick="window.openReschedule('${v.id}')">Reagendar</button>`:''}<button class="btn-ghost history-row-toggle" aria-expanded="false" onclick="toggleHistoryDetails(this)">Ver detalhes</button>
           <button class="icon-btn" onclick="editVenda('${v.id}')" title="Editar">✎</button>
           <button class="icon-btn" onclick="deleteVenda('${v.id}')" title="Apagar">✕</button>
         </div></td>
