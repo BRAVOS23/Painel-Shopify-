@@ -36,3 +36,24 @@ body{font-size:14px;line-height:1.5}.mono,.card .v,.roi-hero-value,.summary-stat
 .orders-period{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;color:var(--sand-dim)}.delivery-planning{border:1px solid var(--panel-line);border-radius:14px;padding:16px;margin:20px 0;background:var(--panel)}.delivery-planning>summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center;gap:10px}.delivery-planning>summary::before{content:'▸';color:var(--brand)}.delivery-planning[open]>summary::before{content:'▾'}.delivery-planning>.panel{box-shadow:none;border:0;padding:12px 0}.delivery-planning>.report-help{margin-top:10px}.operational-deliveries th:last-child,.operational-deliveries td:last-child:not([colspan]){display:none}.expense-dialog{width:min(860px,calc(100vw - 28px))}.expense-dialog .panel{box-shadow:none;border:0;padding:8px 0}.expense-dialog .subview{display:block}#secProdutos .subview.active{display:block}#secProdutos .section-heading p{max-width:62ch}
 @media(max-width:1023px){.maintabs button{font-size:13px;padding:10px 4px;min-width:0}.orders-heading{gap:10px}.orders-heading h2{font-size:22px}.orders-heading .btn-primary{white-space:nowrap}.orders-period{gap:8px}.orders-period>span{width:100%}.orders-period .daterange{max-width:100%}.expense-dialog .dialog-body{padding:16px}.delivery-planning{padding:12px}}
 @media(max-width:600px){#secProdutos .cards3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#secProdutos .cards3 .card{padding:12px 9px}#secProdutos .cards3 .k{font-size:11px;line-height:1.45}#secProdutos .cards3 .v{font-size:19px;overflow-wrap:anywhere}#secProdutos .section-heading{margin-bottom:16px}}
+/* O conteúdo deve caber no cartão, não apenas na largura total da página. */
+.produto-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));min-width:0}.produto-card{min-width:0;max-width:100%;box-sizing:border-box}.produto-card-top{min-width:0}.produto-card-nome{white-space:normal;overflow-wrap:anywhere;line-height:1.45}.produto-expand-chev{flex:0 0 44px}
+@media(max-width:600px){
+ #produtosGrid{grid-template-columns:minmax(0,1fr)}.product-toolbar .filters{width:100%;min-width:0}.product-toolbar input{width:100%;box-sizing:border-box}
+ #secProdutos .cards3{grid-template-columns:repeat(2,minmax(0,1fr))}#secProdutos .cards3 .card:last-child{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px}#secProdutos .cards3 .card:last-child .k{max-width:45%;margin:0}#secProdutos .cards3 .card:last-child .v{font-size:21px;text-align:right}
+ #vendaTableBody tr{min-width:0;box-sizing:border-box;padding:14px}
+ #vendaTableBody td{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:start;gap:10px;text-align:left;min-width:0;overflow-wrap:break-word}
+ #vendaTableBody td::before{white-space:nowrap;word-break:normal;overflow-wrap:normal;line-height:1.6;font-size:12px}
+ #vendaTableBody td[data-label="Contacto"],#vendaTableBody td[data-label="Ações"]{display:block}
+ #vendaTableBody td[data-label="Contacto"]::before{display:block;margin-bottom:6px}
+ #vendaTableBody .contacto-bloco{display:flex;flex-direction:column;gap:10px;min-width:0;width:100%}
+ #vendaTableBody .contacto-texto{display:block;font-size:16px;line-height:1.65;text-align:left;overflow-wrap:break-word;word-break:normal}
+ #vendaTableBody .tel-ativo,#vendaTableBody .tel-inativo{white-space:nowrap;display:inline-block;max-width:100%}
+ #vendaTableBody .contacto-acoes{display:flex;flex-wrap:wrap;margin:0;gap:8px}
+ #vendaTableBody .contacto-acoes a,#vendaTableBody .contacto-acoes button{width:44px;min-width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center}
+ #vendaTableBody td[data-label="Ações"]::before{display:none}
+ #vendaTableBody .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;padding-top:8px}
+ #vendaTableBody .row-actions button{width:100%;min-width:0;min-height:44px;white-space:normal;word-break:normal;overflow-wrap:normal;line-height:1.4;padding:10px 8px}
+ #vendaTableBody .row-actions button[onclick^="window.openReschedule"],#vendaTableBody .row-actions .history-row-toggle{grid-column:1/-1}
+ #vendaTableBody .pill{justify-self:start}
+}

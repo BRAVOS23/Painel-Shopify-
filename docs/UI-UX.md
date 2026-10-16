@@ -88,3 +88,9 @@ Validação: 40 testes unitários, 22 cenários de integração e dry-run Worker
 - O antigo histórico separado foi retirado da navegação. O código de leitura legado permanece para compatibilidade; nenhum registo foi removido ou migrado.
 
 As validações de navegação usam contas dos emuladores, incluindo catálogo, pedidos atuais/antigos, gastos e ecrãs de 360 a 1280 px. Não substituem um teste de usabilidade com novos utilizadores.
+
+### Correção móvel após a revisão visual
+
+Os cartões do catálogo precisavam de uma largura mínima de grelha igual a zero e de contenção individual; medir apenas o scroll da página não detetava os cartões a sair do painel. Os nomes passam a quebrar por palavras e a pesquisa usa a largura disponível. O valor em stock tem uma linha própria.
+
+Na lista de pedidos, contacto e ações deixam o layout de duas colunas comprimidas. Nome/números e atalhos ficam em linhas próprias, com números indivisíveis e botões distribuídos em grelha. A etiqueta de ações deixa de consumir largura. Os testes agora usam quatro produtos com nomes longos e contactos fictícios com dois números, entre 320 e 1280 px, e verificam limites dos cartões, dimensões dos botões e ausência de quebra nos telefones.

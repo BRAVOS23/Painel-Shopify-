@@ -54,13 +54,19 @@ with sync_playwright() as p:
     customer.fill('#adValor','15');customer.click('#adSubmitBtn');expect(customer.locator('#adMsg')).to_contain_text('adicionado')
     expect(customer.locator('#cloudSaveStatus')).to_have_text('Dados guardados',timeout=20000)
     customer.click('#expenseDialog .dialog-close');expect(customer.locator('#metricasViewGastos')).to_contain_text('15,00')
-    for width in [360,390,768,1280]:
+    for width in [320,360,390,412,768,1280]:
         customer.set_viewport_size({'width':width,'height':900})
         for key in ['Vendas','Produtos','Metricas']:
             customer.click('#tabBtn'+key)
             assert customer.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,key)
+            if key=='Produtos':
+                assert customer.evaluate('''()=>[...document.querySelectorAll('#produtosGrid .produto-card')].every(card=>{const a=card.getBoundingClientRect(),b=document.getElementById('produtosGrid').getBoundingClientRect();return a.right<=b.right+1 && a.left>=b.left-1 && card.scrollWidth<=card.clientWidth+1;})'''),('cartão fora da grelha',width)
+            if key=='Vendas' and width<=600:
+                assert customer.evaluate('''()=>[...document.querySelectorAll('#vendaTableBody .row-actions button')].filter(button=>button.getClientRects().length).every(button=>button.clientWidth>=44 && button.scrollWidth<=button.clientWidth+1 && button.clientHeight<=70)'''),('botão comprimido',width)
+                assert customer.evaluate('''()=>[...document.querySelectorAll('#vendaTableBody .tel-ativo')].every(number=>number.getBoundingClientRect().height<40 && number.scrollWidth<=number.clientWidth+1)'''),('telefone partido',width)
+
     customer.screenshot(path='/tmp/painel-navigation-desktop.png',full_page=True,animations='disabled')
-    customer.set_viewport_size({'width':390,'height':844});customer.click('#tabBtnProdutos');customer.screenshot(path='/tmp/painel-navigation-mobile.png',full_page=True,animations='disabled')
+    customer.set_viewport_size({'width':390,'height':844});customer.click('#tabBtnVendas');customer.screenshot(path='/tmp/painel-orders-mobile-fix.png',full_page=True,animations='disabled');customer.click('#tabBtnProdutos');customer.screenshot(path='/tmp/painel-navigation-mobile.png',full_page=True,animations='disabled')
     customer.click('#accountMenuButton');expect(customer.locator('#businessPlanDescription')).to_contain_text('Ativo')
     customer.click('#accountTabDados');customer.locator('summary',has_text='Encerrar e eliminar').click();customer.click('#openCloseAccount')
     customer.fill('#closeAccountConfirmation','ELIMINAR');customer.fill('#closeAccountPassword',fixture['password']);customer.check('#closeAccountBackup');customer.click('#closeAccountForm button[type=submit]')
