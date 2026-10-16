@@ -1153,7 +1153,7 @@ let mesAtivoVendas = '';
 let historicoAberto = false;
 let vendaFormAberto = false;
 function abrirVendaForm(){
-  const planning=document.getElementById('deliveryPlanning');if(planning)planning.open=true;
+  window.openDeliveryWorkspace?.();
   if(vendaFormAberto) return;
   vendaFormAberto = true;
   const t = document.getElementById('vendaFormToggle');
@@ -1339,6 +1339,9 @@ function switchMain(which){
 }
 
 function switchVendasView(which){
+  document.getElementById('secVendas').dataset.view=which;
+  document.getElementById('vendasViewEntregas')?.classList.toggle('active',which==='entregas');
+  document.getElementById('subnavVendasEntregas')?.classList.toggle('active',which==='entregas');
   document.getElementById('vendasViewPedidos').classList.toggle('active', which==='pedidos');
   document.getElementById('vendasViewRelatorios').classList.toggle('active', which==='relatorios');
   document.getElementById('vendasViewMeses').classList.toggle('active', which==='meses');

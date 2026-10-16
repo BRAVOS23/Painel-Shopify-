@@ -100,3 +100,7 @@ Na lista de pedidos, contacto e ações deixam o layout de duas colunas comprimi
 A lista por período volta a cartões compactos: data, estado, nome/telefone, produto e valor, sem etiquetas em cada linha. A seta mostra contactos rápidos, informações adicionais e ações. A expansão é preservada quando a lista é redesenhada. Navegação, filtros e tabela de computador mantêm-se. O teste móvel verifica altura recolhida até 260 px com contactos compridos, ações ocultas ao recolher e botões legíveis ao expandir, de 320 a 412 px.
 
 A opção “Organizar entregas por mês e semana” fica acima da lista de pedidos, recolhida até ser aberta. Criar/editar continua a abri-la automaticamente.
+
+### Separação das tarefas em Pedidos
+
+Para reduzir a saturação, a área tem três vistas no topo: Lista, Entregas e Relatórios. A lista contém apenas pesquisa, filtros por período/estado e cartões compactos. Mês, semana, formulário e entregas da semana ficam na vista Entregas. Novo pedido e Editar levam diretamente a essa vista. O período de consulta não aparece em Entregas, que usa o seu próprio mês. Foram retirados o texto introdutório, o título repetido da lista e a caixa recolhível que misturava os dois fluxos.
