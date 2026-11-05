@@ -18,10 +18,12 @@ export function shopifyRecords(order, products = [], currency = 'MZN') {
     const discounts = (item.discount_allocations || []).reduce((sum, d) => sum + Number(d.amount), 0);
     if (![gross,discounts,quantity].every(Number.isFinite)) throw new Error('Valores inválidos no pedido Shopify.');
     const address = order.shipping_address || {};
+    const attributes=order.note_attributes || [];
+    const province=String(address.province || attributes.find(item=>['provincia','province','provincia do cliente','provincia de entrega'].includes(String(item.name || item.key || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()))?.value || '').trim();
     return captureSaleCost({ id:`sh_${order.id}_${item.id}`, shopifyOrderId:String(order.id), shopifyLineItemId:String(item.id),panelConfirmed:false,shopifyFinancialStatus:financial,shopifyFulfillmentStatus:fulfillment,
       data:date, mes:date.slice(0,7), semana:weekFor(date), horario:'', fonte:'04.SHOPIFY',
       contacto:[address.name || [order.customer?.first_name,order.customer?.last_name].filter(Boolean).join(' '),address.phone || order.phone].filter(Boolean).join(' '),
-      local:[address.address1,address.city].filter(Boolean).join(', '), descricao:order.note || '',
+      provincia:province,local:[address.address1,address.city].filter(Boolean).join(', '), descricao:order.note || '',
       produto:productResolver(products)(item.title), quantidade:quantity,
       valor:Math.max(0,gross-discounts), delivery:'', comissao:0, status, sourceCurrency:currency,shopifyLineCount:order.line_items.length },products);
   });

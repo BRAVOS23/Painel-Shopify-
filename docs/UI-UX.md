@@ -104,3 +104,7 @@ A opção “Organizar entregas por mês e semana” fica acima da lista de pedi
 ### Separação das tarefas em Pedidos
 
 Para reduzir a saturação, a área tem três vistas no topo: Lista, Entregas e Relatórios. A lista contém apenas pesquisa, filtros por período/estado e cartões compactos. Mês, semana, formulário e entregas da semana ficam na vista Entregas. Novo pedido e Editar levam diretamente a essa vista. O período de consulta não aparece em Entregas, que usa o seu próprio mês. Foram retirados o texto introdutório, o título repetido da lista e a caixa recolhível que misturava os dois fluxos.
+
+### Província do cliente — 05/11/2026
+
+A província é um campo separado e opcional nos pedidos, incluído na leitura Shopify (`shippingAddress.province` e alternativa em `customAttributes` com chave de província), importação CSV, edição manual, pesquisa, exportação CSV e PDF. Aparece na vista semanal, nos detalhes do endereço e no cartão compacto. Uma cidade não é interpretada como província. Importações sem província não apagam um valor já guardado. Registos antigos sem o campo podem ser preenchidos ao reler o seu período pela importação histórica; não foi executada uma migração de dados reais.

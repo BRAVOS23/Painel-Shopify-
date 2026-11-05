@@ -7,7 +7,7 @@ export function validateRecord(collection, record) {
   if (Object.keys(record).some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) throw new Error('Campo inválido.');
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
-    vendas: ['id','data','horario','fonte','contacto','local','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
+    vendas: ['id','data','horario','fonte','contacto','local','provincia','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
     produtos: ['id','nome','custo','foto','locais','aliases','shopifyProductId','shopifyShop','costConfigured'],
     ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate','unitCost','shopifyLineCount'],
     operacional: ['id','nome','valor','data','recorrente']

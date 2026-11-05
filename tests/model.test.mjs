@@ -97,11 +97,11 @@ test('GraphQL informa bloqueio de dados protegidos sem expor resposta de cliente
 
 test('importação usa contacto de entrega sem exigir acesso ao perfil Customer',async()=>{
  const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{
-  const {query}=JSON.parse(options.body);assert(!/customer\s*\{/.test(query));
-  return Response.json({data:{orders:{nodes:[{legacyResourceId:'123',createdAt:'2026-10-12T08:00:00Z',updatedAt:'2026-10-12T09:00:00Z',displayFulfillmentStatus:'UNFULFILLED',currencyCode:'MZN',shippingAddress:{name:'Cliente Entrega',phone:'865123456',address1:'Matola',city:'Maputo'},lineItems:{nodes:[{id:'gid://shopify/LineItem/1',title:'Produto',quantity:1,originalUnitPriceSet:{shopMoney:{amount:'100'}},discountAllocations:[]}],pageInfo:{hasNextPage:false}}}],pageInfo:{hasNextPage:false}}}});
+  const {query}=JSON.parse(options.body);assert(!/customer\s*\{/.test(query));assert(query.includes('province'));assert(query.includes('customAttributes'));
+  return Response.json({data:{orders:{nodes:[{legacyResourceId:'123',createdAt:'2026-10-12T08:00:00Z',updatedAt:'2026-10-12T09:00:00Z',displayFulfillmentStatus:'UNFULFILLED',currencyCode:'MZN',shippingAddress:{name:'Cliente Entrega',phone:'865123456',address1:'Matola',city:'Maputo',province:'Maputo'},customAttributes:[{key:'Província',value:'Gaza'}],lineItems:{nodes:[{id:'gid://shopify/LineItem/1',title:'Produto',quantity:1,originalUnitPriceSet:{shopMoney:{amount:'100'}},discountAllocations:[]}],pageInfo:{hasNextPage:false}}}],pageInfo:{hasNextPage:false}}}});
  });
  const page=await providers.shopifyOrdersPage('fixture.myshopify.com','fixture','2026-10-01','2026-10-12');
- const rows=shopifyRecords(page.orders[0]);assert.equal(rows[0].contacto,'Cliente Entrega 865123456');assert.equal(rows[0].local,'Matola, Maputo');assert.equal(rows[0].valor,100);
+ const rows=shopifyRecords(page.orders[0]);assert.equal(rows[0].provincia,'Maputo');assert.equal(page.orders[0].note_attributes[0].value,'Gaza');assert.equal(rows[0].contacto,'Cliente Entrega 865123456');assert.equal(rows[0].local,'Matola, Maputo');assert.equal(rows[0].valor,100);
 });
 
 test('Meta reconhece datas finais sem confundir números ou campanhas de vários produtos',()=>{
@@ -175,4 +175,11 @@ test('CSV e API do mesmo pedido não duplicam receita, custos nem entregas',()=>
  const legacy={id:'csv_old',shopifyOrderId:'123',data:'2026-10-12',status:'concluido',panelConfirmed:true,produto:'Produto A',valor:230,quantidade:3,comissao:30};
  const state={vendas:[legacy,...canonical],produtos:[{nome:'Produto A',custo:999},{nome:'Produto B',custo:888}],ads:[],operacional:[]},original=structuredClone(state);
  const result=calculateMetrics(state,'2026-10-12','2026-10-12');assert.equal(result.orders,1);assert.equal(result.revenue,230);assert.equal(result.acquisition,50);assert.equal(result.delivery,30);assert.equal(result.duplicateRowsIgnored,1);assert.deepEqual(state,original);
+});
+
+test('província acompanha cada item, com endereço prioritário e atributos como alternativa',()=>{
+ const fromAddress=shopifyRecords({...order,shipping_address:{...order.shipping_address,province:'Sofala'},note_attributes:[{name:'Província',value:'Manica'}]});
+ assert(fromAddress.every(row=>row.provincia==='Sofala'));assert.equal(fromAddress[0].local,'Maputo');validateRecord('vendas',fromAddress[0]);
+ const fromForm=shopifyRecords({...order,note_attributes:[{key:'Província',value:'Nampula'}]});assert(fromForm.every(row=>row.provincia==='Nampula'));
+ assert.equal(shopifyRecords({...order,shipping_address:{city:'Beira'}})[0].provincia,'');
 });

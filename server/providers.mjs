@@ -27,7 +27,8 @@ export function createProviders(config, fetcher = fetch) {
     }),'Shopify',query)).data;
   }
   const fields=`id legacyResourceId createdAt updatedAt cancelledAt displayFulfillmentStatus displayFinancialStatus currencyCode note phone
-    shippingAddress { name phone address1 city }
+    shippingAddress { name phone address1 city province }
+    customAttributes { key value }
     lineItems(first:100) { nodes { id title quantity originalUnitPriceSet { shopMoney { amount } }
       discountAllocations { allocatedAmountSet { shopMoney { amount } } } } pageInfo { hasNextPage } }`;
   const normalize = order => {
@@ -35,7 +36,7 @@ export function createProviders(config, fetcher = fetch) {
     return { id:String(order.legacyResourceId),created_at:order.createdAt,updated_at:order.updatedAt,cancelled_at:order.cancelledAt,
       financial_status:String(order.displayFinancialStatus || '').toLowerCase(),fulfillment_status:order.displayFulfillmentStatus==='FULFILLED' ? 'fulfilled' : 'unfulfilled',currency:order.currencyCode,
       note:order.note,phone:order.phone,customer:{first_name:order.customer?.firstName,last_name:order.customer?.lastName},
-      shipping_address:order.shippingAddress,line_items:order.lineItems.nodes.map(item => ({
+      shipping_address:order.shippingAddress,note_attributes:order.customAttributes || [],line_items:order.lineItems.nodes.map(item => ({
         id:item.id.split('/').pop(),title:item.title,quantity:item.quantity,price:item.originalUnitPriceSet.shopMoney.amount,
         discount_allocations:item.discountAllocations.map(d=>({amount:d.allocatedAmountSet.shopMoney.amount})) })) };
   };
