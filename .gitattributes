@@ -1,0 +1,2 @@
+# PDFs são artefactos binários; não aplicar normalização de texto ou diffs por linha.
+*.pdf binary
