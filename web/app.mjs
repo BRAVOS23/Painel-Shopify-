@@ -1,3 +1,4 @@
+import {deliveryAllocations} from './delivery.mjs';
 import {initBusinessTools} from './business-tools.mjs';
 import {validateRecord} from './record-schema.mjs';
 import {sourceCounts} from './order-reports.mjs';
@@ -8,6 +9,7 @@ import {initializeApp} from 'firebase/app';
 import {getAuth,connectAuthEmulator,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,sendEmailVerification,sendPasswordResetEmail,reauthenticateWithCredential,EmailAuthProvider,deleteUser} from 'firebase/auth';
 import Chart from 'chart.js/auto';
 import {jsPDF} from 'jspdf';
+window.deliveryAllocations=deliveryAllocations;
 window.resolveExpenseProduct=effectiveExpenseProduct;
 window.resolveProductName=(value,products)=>productResolver(products)(value);
 window.sourceCounts=sourceCounts;window.effectiveSales=effectiveSales;window.saleCost=saleCost;window.captureSaleCost=captureSaleCost;window.completedSale=completedSale;window.countOrders=countOrders;window.csvOrderStatus=csvOrderStatus;
@@ -72,10 +74,10 @@ async function flush(){
    const changes=[];let bytes=0;for(const change of changed(name)){const size=new TextEncoder().encode(JSON.stringify(change)).length;if(changes.length && (changes.length>=5 || bytes+size>700000))break;changes.push(change);bytes+=size;}const result=await api('/data/'+name,{method:'POST',body:JSON.stringify({changes})});
    if(activeSession!==session)return;
    const revisions=new Map(result.revisions.map(r=>[r.id,r.revision])),records=new Map(baseline[name].map(r=>[r.id,r]));
-   for(const change of changes){if(change.record===null)records.delete(change.id);else records.set(change.id,{...change.record,_revision:revisions.get(change.id)});}
+   for(const change of changes){if(change.record===null)records.delete(change.id);else {const canonical=result.revisions.find(row=>row.id===change.id)?.record || change.record;records.set(change.id,{...canonical,_revision:revisions.get(change.id)});const index=desired[name].findIndex(row=>row.id===change.id);if(index>=0 && JSON.stringify(desired[name][index])===JSON.stringify(change.record))desired[name][index]=clone(canonical);};}
    baseline[name]=[...records.values()];
   }}
-  failure=null;document.getElementById('cloudRetry').hidden=true;status('Dados guardados');
+  window.applyCloudState?.(desired);failure=null;document.getElementById('cloudRetry').hidden=true;status('Dados guardados');
  }catch(error){if(activeSession!==session)return;failure=error;status('Não guardado: '+error.message);document.getElementById('cloudRetry').hidden=false;}
  finally{busy=false;if(!failure && dirty())void flush();else if(!failure)window.refreshCloudMetrics?.();}
 }

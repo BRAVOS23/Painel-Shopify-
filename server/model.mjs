@@ -1,3 +1,4 @@
+import {deliveryAllocations} from '../web/delivery.mjs';
 import {csvOrderStatus,completedSale,countOrders,effectiveSales,saleCost,captureSaleCost} from '../web/sales.mjs';
 import {productResolver,metaProductResolver,effectiveExpenseProduct} from '../web/catalog.mjs';
 export const collections = ['fluxo', 'vendas', 'produtos', 'ads', 'operacional'];
@@ -55,7 +56,8 @@ export function calculateMetrics(state, start, end, product = '') {
   const allocated=expense=>expense.valor*days(expense.data>start?expense.data:start,(expense.dataFim || expense.data)<end?(expense.dataFim || expense.data):end)/days(expense.data,expense.dataFim || expense.data);
   const costs = new Map(state.produtos.map(p => [normalName(p.nome), p.custo]));
   const acquisition = sales.reduce((s,v) => s+(saleCost(v,state.produtos) || 0)*(v.quantidade || 1),0);
-  const delivery = sales.reduce((s,v) => s+(v.comissao || 0),0);
+  const deliveryFees=deliveryAllocations(sourceSales);
+  const delivery = sales.reduce((s,v) => s+(deliveryFees.get(v.id) || 0),0);
   const ads = expenses.filter(a => a.tipo === 'ads').reduce((s,a) => s+allocated(a),0);
   const other = expenses.filter(a => a.tipo === 'outros').reduce((s,a) => s+allocated(a),0);
   let operational = 0;

@@ -1155,6 +1155,7 @@ let mesAtivoVendas = '';
 let historicoAberto = false;
 let vendaFormAberto = false;
 function abrirVendaForm(){
+  if(!vendaEditId)window.configureDeliveryEditor?.();
   window.openDeliveryWorkspace?.();
   if(vendaFormAberto) return;
   vendaFormAberto = true;
@@ -1923,7 +1924,10 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
   const quantidade = parseInt(document.getElementById('vQuantidade').value,10)||1;
   const valor = parseFloat(document.getElementById('vValor').value)||0;
   const delivery = document.getElementById('vDelivery').value.trim();
-  const comissao = parseFloat(document.getElementById('vComissao').value)||0;
+  let comissao = parseFloat(document.getElementById('vComissao').value)||0;
+  const feeMode=document.getElementById('vDeliveryFeeMode')?.value || 'auto';
+  if(feeMode==='legacy')comissao=vendasData.find(row=>row.id===vendaEditId)?.comissao || 0;
+  const feeFields=feeMode==='manual'?{deliveryFeeMode:'manual',deliveryFee:comissao}:{deliveryFeeMode:'auto'};
   const edited=vendaEditId?vendasData.find(v=>v.id===vendaEditId):null;
   const status = edited?.shopifyOrderId?edited.status:document.getElementById('vStatus').value;
 
@@ -1940,6 +1944,8 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
     vendasData.push(window.captureSaleCost({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, horario, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status},produtosData));
     showVendaMsg('Contacto adicionado.');
   }
+  const target=edited?vendasData.find(row=>row.id===edited.id):vendasData.at(-1);
+  if(target && feeMode!=='legacy')for(const row of vendasData.filter(row=>row.id===target.id || (target.shopifyOrderId && row.shopifyOrderId===target.shopifyOrderId))){const changedMode=row.deliveryFeeMode!==feeMode;row.comissao=0;if(changedMode || feeMode==='manual')delete row.deliveryFee;Object.assign(row,feeFields);}
   mesAtivoVendas=data.slice(0,7);guardarMesPreferido();
   saveVendas();
   document.getElementById('vendaForm').reset();
@@ -2034,7 +2040,8 @@ function exportHistoricoMesCSV(){
   const list = getHistoricoFiltrado();
   if(list.length===0){ alert('Não há dados para exportar.'); return; }
   const header = ['Data','Horário','Fonte de Aquisição','Contacto','Local da Entrega','Província','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
-  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, v.comissao||0, STATUS_LABEL[v.status]]);
+  const deliveryFees=window.deliveryAllocations(vendasData);
+  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, deliveryFees.get(v.id)||0, STATUS_LABEL[v.status]]);
   downloadCSV(header, rows, 'pedidos-'+mesHistoricoSelecionado+(semanaHistoricoSelecionada?'-'+semanaHistoricoSelecionada:'')+'.csv');
 }
 
@@ -2296,13 +2303,14 @@ function renderSaidaProdutos(dados){
 }
 
 function renderEntregas(dados){
-  const doPeriodo = dados.filter(v=>window.completedSale(v) && v.delivery);
-  const grupos = {};
+  const doPeriodo = dados.filter(window.completedSale);
+  const grupos = {},fees=window.deliveryAllocations(vendasData);
   doPeriodo.forEach(v=>{
-    if(!grupos[v.delivery]) grupos[v.delivery] = {count:0, total:0,ids:new Set()};
-    grupos[v.delivery].ids.add(v.shopifyOrderId || v.id);
-    grupos[v.delivery].count = grupos[v.delivery].ids.size;
-    grupos[v.delivery].total += (v.comissao||0);
+    const deliveryName=v.delivery || 'Não atribuído';
+    if(!grupos[deliveryName]) grupos[deliveryName] = {count:0, total:0,ids:new Set()};
+    grupos[deliveryName].ids.add(v.shopifyOrderId || v.id);
+    grupos[deliveryName].count = grupos[deliveryName].ids.size;
+    grupos[deliveryName].total += (fees.get(v.id)||0);
   });
   const entregadores = Object.keys(grupos);
   const totalEntregas = entregadores.reduce((s,e)=>s+grupos[e].count,0);
@@ -2335,7 +2343,7 @@ function editVenda(id){
   document.getElementById('vQuantidade').value = v.quantidade;
   document.getElementById('vValor').value = v.valor||'';
   document.getElementById('vDelivery').value = v.delivery;
-  document.getElementById('vComissao').value = v.comissao||'';
+  window.configureDeliveryEditor?.(v,vendasData);
   document.getElementById('vStatus').value = v.status;
   document.getElementById('vStatus').disabled=!!v.shopifyOrderId;
   document.getElementById('shopifyEditStatusHelp').hidden=!v.shopifyOrderId;
@@ -2364,7 +2372,8 @@ function exportVendasCSV(){
   const list = getVendasFiltradas();
   if(list.length===0){ alert('Não há dados para exportar nesta semana.'); return; }
   const header = ['Data','Horário','Fonte de Aquisição','Contacto','Local da Entrega','Província','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
-  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, v.comissao||0, STATUS_LABEL[v.status]]);
+  const deliveryFees=window.deliveryAllocations(vendasData);
+  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, deliveryFees.get(v.id)||0, STATUS_LABEL[v.status]]);
   downloadCSV(header, rows, 'pedidos-'+(drOverview?.getRange()?.join('_') || 'todos')+'.csv');
 }
 
@@ -3520,7 +3529,7 @@ function refreshChartMode(){
 
 function renderMetChart(inicio, fim, produtoFiltro){
   const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(window.resolveProductName(p,produtosData))===normalizarNomeProduto(window.resolveProductName(produtoFiltro,produtosData));
-  const source=window.effectiveSales(vendasData);
+  const source=window.effectiveSales(vendasData),fees=window.deliveryAllocations(vendasData);
   const dias = [];
   let cursor = new Date(inicio+'T00:00:00');
   const fimDate = new Date(fim+'T00:00:00');
@@ -3534,7 +3543,7 @@ function renderMetChart(inicio, fim, produtoFiltro){
     const adsOutros = adSpendData.filter(a=> a.data<=d && adSpendFim(a)>=d && matchProduto(window.resolveExpenseProduct?.(a,produtosData) || a.produto)).reduce((s,a)=>s+a.valor/adSpendDiasTotal(a),0);
     const vendasDoDia = source.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto));
     const aquisicao = vendasDoDia.reduce((s,v)=> s + (window.saleCost(v,produtosData)||0) * (v.quantidade||1), 0);
-    const entrega = vendasDoDia.reduce((s,v)=> s + (v.comissao||0), 0);
+    const entrega = vendasDoDia.reduce((s,v)=> s + (fees.get(v.id)||0), 0);
     const operacional = produtoFiltro ? 0 : calcularGastoOperacional(d, d);
     return adsOutros + aquisicao + entrega + operacional;
   });

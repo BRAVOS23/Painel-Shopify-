@@ -1,12 +1,14 @@
 import {createHash} from 'node:crypto';
-import {PLAN_CATALOG,accountAccess,subscriptionChange,LEGAL_VERSION} from './access.mjs';
+import {assertWritable,PLAN_CATALOG,accountAccess,subscriptionChange,LEGAL_VERSION} from './access.mjs';
 import {safeId,publicConnection} from './security.mjs';
 import {page,pageOptions} from './paging.mjs';
 const uid=value=>safeId(value);
 export function installPlatformRoutes(app,{store,config}){
+ app.post('/api/delivery-policy',async(req,res)=>{assertWritable(req.business,config);const body=req.body;if(!body || typeof body!=='object' || Array.isArray(body) || Object.keys(body).some(key=>!['enabled','amount','revision'].includes(key)) || typeof body.enabled!=='boolean' || !Number.isFinite(body.amount) || body.amount<0 || body.amount>1000000 || Math.abs(body.amount*100-Math.round(body.amount*100))>0.000001 || (!Number.isSafeInteger(body.revision) || body.revision<0))throw Object.assign(new Error('Indica uma taxa válida em MT, com até duas casas decimais.'),{status:400});let policy;await store.db.runTransaction(async tx=>{const ref=store.business(req.user.uid),snap=await tx.get(ref);assertWritable(snap.data(),config);const old=snap.data().deliveryPolicy || {};if((old.revision || 0)!==body.revision)throw Object.assign(new Error('A taxa mudou noutro aparelho. Atualiza antes de guardar.'),{status:409});policy={enabled:body.enabled,amount:body.amount,revision:body.revision+1,updatedAt:new Date().toISOString()};tx.update(ref,{deliveryPolicy:policy,dataVersion:(snap.data().dataVersion || 0)+1});});res.json({policy});
+ });
  const isAdmin=req=>(config.adminUids || []).includes(req.user.uid);
  const admin=(req,_res,next)=>{if(!isAdmin(req))throw Object.assign(new Error('Acesso reservado à administração.'),{status:403});next();};
- app.get('/api/account',async(req,res)=>res.json({uid:req.user.uid,email:req.user.email,access:accountAccess(req.business,config),admin:isAdmin(req),plans:PLAN_CATALOG,pricingConfigured:false,supportEmail:config.supportEmail || null,legalApproved:config.legalApproved===true,legalVersion:LEGAL_VERSION,activationRequestedAt:req.business.activationRequestedAt || null,accountStatus:req.business.accountStatus || null}));
+ app.get('/api/account',async(req,res)=>res.json({uid:req.user.uid,email:req.user.email,deliveryPolicy:req.business.deliveryPolicy || null,access:accountAccess(req.business,config),admin:isAdmin(req),plans:PLAN_CATALOG,pricingConfigured:false,supportEmail:config.supportEmail || null,legalApproved:config.legalApproved===true,legalVersion:LEGAL_VERSION,activationRequestedAt:req.business.activationRequestedAt || null,accountStatus:req.business.accountStatus || null}));
  app.post('/api/account/access-request',async(req,res)=>{
   await store.db.runTransaction(async tx=>{const ref=store.business(req.user.uid),snap=await tx.get(ref);if(snap.data().activationRequestStatus==='pending')return;tx.update(ref,{activationRequestedAt:new Date().toISOString(),activationRequestStatus:'pending'});});res.json({ok:true,message:'Pedido de ativação guardado para a administração. Não foi efetuada nenhuma cobrança.'});
  });

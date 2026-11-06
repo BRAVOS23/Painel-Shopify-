@@ -1,9 +1,11 @@
+import {initDeliverySettings} from './delivery-settings.mjs';
 import {initPrivacyTools} from './privacy-tools.mjs';
 const $=id=>document.getElementById(id);
 const money=value=>value===null?'Preço por definir':new Intl.NumberFormat('pt-MZ',{style:'currency',currency:'MZN'}).format(value);
 const escape=value=>String(value ?? '').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 export function initBusinessTools({request,refresh,exportSnapshot,authenticate,deleteLogin}){
  let account=null,adminAfter=null,adminRows=[];
+ const deliverySettings=initDeliverySettings({request,refresh});
  const privacy=initPrivacyTools({request,exportSnapshot,authenticate,deleteLogin});
  const card=document.createElement('section');card.className='business-card';card.innerHTML='<h3>Plano e acesso</h3><p id="businessPlanDescription"></p><p class="muted" id="businessPlanExpiry"></p><div class="cloud-actions"><button class="btn-ghost" id="requestAccess">Pedir ativação ou renovação</button><button class="btn-ghost" id="openPlatformAdmin" hidden>Administração</button></div><p id="businessAccessMessage" role="status"></p>';$('accountPaneConta').prepend(card);
  const notice=document.createElement('div');notice.id='readOnlyNotice';notice.className='access-notice';notice.hidden=true;notice.setAttribute('role','status');notice.innerHTML='<span>O acesso está apenas para consulta. Podes consultar e exportar os teus dados.</span><button class="btn-ghost" id="openAccessMenu">Ver plano</button>';document.querySelector('.wrap header')?.after(notice);if(!notice.isConnected)document.querySelector('.wrap').prepend(notice);
@@ -18,7 +20,7 @@ export function initBusinessTools({request,refresh,exportSnapshot,authenticate,d
   for(const button of document.querySelectorAll(selector)){if(disabled && !button.disabled){button.disabled=true;button.dataset.accessDisabled='true';}else if(!disabled && button.dataset.accessDisabled){button.disabled=false;delete button.dataset.accessDisabled;}}
  }
  let pending=false;new MutationObserver(()=>{if(pending)return;pending=true;queueMicrotask(()=>{pending=false;readonly();});}).observe(document.querySelector('.wrap'),{childList:true,subtree:true});
- function apply(value){account=value;privacy.apply(value);notice.querySelector('span').textContent=value.access.legalRequired?'Lê os termos e a privacidade publicados no menu de conta para continuar.':'O acesso está apenas para consulta. Podes consultar e exportar os teus dados.';notice.hidden=value.access.canWrite;$('openPlatformAdmin').hidden=!value.admin;
+ function apply(value){account=value;deliverySettings.apply(value);privacy.apply(value);notice.querySelector('span').textContent=value.access.legalRequired?'Lê os termos e a privacidade publicados no menu de conta para continuar.':'O acesso está apenas para consulta. Podes consultar e exportar os teus dados.';notice.hidden=value.access.canWrite;$('openPlatformAdmin').hidden=!value.admin;
   const status={pilot:'Piloto',pending:'Aguarda ativação',active:'Ativo',trial:'Teste autorizado',expired:'Validade terminada',suspended:'Suspenso'}[value.access.status] || value.access.status;
   const plan=value.plans.find(plan=>plan.id===value.access.planId)?.name || value.access.planId;
   $('businessPlanDescription').textContent=plan+' · '+status;$('businessPlanExpiry').textContent=value.access.expiresAt?'Validade: '+new Date(value.access.expiresAt).toLocaleString('pt-MZ',{timeZone:'Africa/Maputo'}):value.access.mode==='pilot'?'O painel continua em modo piloto. Ainda não há cobrança automática.':'A ativação é confirmada pela administração.';
@@ -40,5 +42,5 @@ export function initBusinessTools({request,refresh,exportSnapshot,authenticate,d
  $('loadPlatformAudit').onclick=async()=>{try{const result=await request('/admin/audit');$('platformAudit').replaceChildren(...result.events.map(event=>{const p=document.createElement('p');p.textContent=event.at+' · '+event.action+' · '+event.targetUid+' · '+(event.next?.status || '');return p;}));}catch(error){$('platformAdminMessage').textContent=error.message;}};
  async function reload(){const value=await request('/account');apply(value);return value;}
  window.addEventListener('account-access-changed',()=>void reload());
- return {apply,reload,canWrite:()=>account?.access.canWrite!==false,reset(){account=null;notice.hidden=true;$('openPlatformAdmin').hidden=true;dialog.close();$('platformBusinesses').replaceChildren();$('platformAudit').replaceChildren();adminRows=[];}};
+ return {apply,reload,canWrite:()=>account?.access.canWrite!==false,reset(){deliverySettings.reset();account=null;notice.hidden=true;$('openPlatformAdmin').hidden=true;dialog.close();$('platformBusinesses').replaceChildren();$('platformAudit').replaceChildren();adminRows=[];}};
 }

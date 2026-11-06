@@ -67,3 +67,5 @@ Novas verificações locais: `npm run test:commercial`, `npm run test:recovery` 
 Limites das integrações: pedidos Shopify com mais de 100 itens são recusados com aviso; no Node uma execução limita-se a 10.000 pedidos, e no Worker os dados são retomados em lotes de até 5 itens por execução. Receita importada é o total dos itens após descontos, sem acrescentar frete/impostos nem reconciliar reembolsos parciais; não deve ser apresentada como conciliação financeira completa. Só lojas em MZN são aceites nesta fase. Meta noutra moeda exige uma taxa explicitamente indicada; a taxa é fixa por ligação e fica registada em cada gasto, não é um serviço de câmbio diário. Não acrescente manualmente gastos já importados do Meta. Reautorização de tokens expirados, mapeamento manual de campanhas e moedas/taxas por data precisam de acabamento para comercialização.
 
 Nunca coloque tokens, ficheiros de contas de serviço ou `.env` no Git.
+
+A taxa padrão de entrega por pedido concluído é configurável por negócio, com exceções por pedido e snapshots para preservar custos anteriores. Ver [TAXA-DE-ENTREGA.md](docs/TAXA-DE-ENTREGA.md) para regras de cálculo, configuração e testes.

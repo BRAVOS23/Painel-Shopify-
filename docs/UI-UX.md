@@ -108,3 +108,7 @@ Para reduzir a saturação, a área tem três vistas no topo: Lista, Entregas e 
 ### Província do cliente — 05/11/2026
 
 A província é um campo separado e opcional nos pedidos, incluído na leitura Shopify (`shippingAddress.province` e alternativa em `customAttributes` com chave de província), importação CSV, edição manual, pesquisa, exportação CSV e PDF. Aparece na vista semanal, nos detalhes do endereço e no cartão compacto. Uma cidade não é interpretada como província. Importações sem província não apagam um valor já guardado. Registos antigos sem o campo podem ser preenchidos ao reler o seu período pela importação histórica; não foi executada uma migração de dados reais.
+
+### Taxa de entrega por contrato
+
+Conta passa a incluir “Taxa de entrega padrão”, com atalho no cartão de custo de entrega de Resultados. O formulário de pedido permite usar o padrão ou um valor específico por pedido, incluindo zero. Valores antigos têm uma opção de conservação explícita. A taxa é contada uma vez por pedido concluído e mantém o valor capturado quando o padrão muda. Detalhes em [TAXA-DE-ENTREGA.md](TAXA-DE-ENTREGA.md).

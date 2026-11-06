@@ -1,3 +1,4 @@
+import {captureDelivery} from '../web/delivery.mjs';
 import {readAll,page as readPage,pageOptions} from './paging.mjs';
 import { collections, validateRecord } from './model.mjs';
 import { safeId } from './security.mjs';
@@ -56,7 +57,7 @@ export function createStore(db,{stateCache=null}={}) {
       const usage=owner.data()?.usage;if(usage?.counts){const delta=changes.reduce((sum,change,index)=>sum+(change.record===null?(snapshots[index].exists?-1:0):snapshots[index].exists?0:1),0);const counts={...usage.counts,[name]:Math.max(0,(usage.counts[name] || 0)+delta)};if(Object.values(counts).reduce((sum,value)=>sum+value,0)>10000)throw Object.assign(new Error('Esta instalação suporta até 10.000 registos por negócio. Exporta os dados e contacta o suporte antes de ampliar.'),{status:422,diagnosticCode:'PROCESSING_LIMIT'});tx.update(business(uid),{usage:{counts,updatedAt:new Date().toISOString()},dataVersion:(owner.data()?.dataVersion || 0)+1});}else tx.update(business(uid),{dataVersion:(owner.data()?.dataVersion || 0)+1});
       return changes.map((change,index) => {
         if (change.record === null) tx.delete(refs[index]);
-        else tx.set(refs[index],{record:change.record,revision:change.revision+1,updatedAt:new Date().toISOString()});
+        else {const record=name==='vendas' && (snapshots[index].exists || change.record.deliveryFeeMode!==undefined)?captureDelivery(change.record,owner.data().deliveryPolicy,snapshots[index].data()?.record):change.record;validateRecord(name,record);tx.set(refs[index],{record,revision:change.revision+1,updatedAt:new Date().toISOString()});return {id:change.id,revision:change.revision+1,...(name==='vendas'?{record}:{})};}
         return {id:change.id, revision:change.revision+1};
       });
     });
@@ -73,7 +74,8 @@ export function createStore(db,{stateCache=null}={}) {
       for(let i=0;i<incoming.length;i++){
         const {record:source,sourceUpdatedAt,statusOnly}=incoming[i],old=snapshots[i].data();
         if(sourceUpdatedAt && old?.sourceUpdatedAt && sourceUpdatedAt<old.sourceUpdatedAt)continue;
-        const record=statusOnly && old?{...old.record,status:source.status,panelConfirmed:source.panelConfirmed===true,...Object.fromEntries(['shopifyFinancialStatus','shopifyFulfillmentStatus','unitCost','costCapturedAt'].filter(key=>source[key]!==undefined).map(key=>[key,source[key]]))}:name==='vendas' && old ? {...source,...(!source.provincia && old.record.provincia?{provincia:old.record.provincia}:{}),...Object.fromEntries(['unitCost','costCapturedAt','horario','delivery','comissao','semana','mes','descricao','data','dataPedido','reagendamentos'].filter(key=>old.record[key]!==undefined).map(key=>[key,old.record[key]])),panelConfirmed:source.status==='cancelado'?false:old.record.panelConfirmed===true,status:source.status==='pendente'?(old.record.panelConfirmed===true?'concluido':old.record.status==='remarcado'?'remarcado':'pendente'):source.status} : source;
+        let record=statusOnly && old?{...old.record,status:source.status,panelConfirmed:source.panelConfirmed===true,...Object.fromEntries(['shopifyFinancialStatus','shopifyFulfillmentStatus','unitCost','costCapturedAt'].filter(key=>source[key]!==undefined).map(key=>[key,source[key]]))}:name==='vendas' && old ? {...source,...(!source.provincia && old.record.provincia?{provincia:old.record.provincia}:{}),...Object.fromEntries(['deliveryFee','deliveryFeeMode','deliveryFeeCapturedAt','unitCost','costCapturedAt','horario','delivery','comissao','semana','mes','descricao','data','dataPedido','reagendamentos'].filter(key=>old.record[key]!==undefined).map(key=>[key,old.record[key]])),panelConfirmed:source.status==='cancelado'?false:old.record.panelConfirmed===true,status:source.status==='pendente'?(old.record.panelConfirmed===true?'concluido':old.record.status==='remarcado'?'remarcado':'pendente'):source.status} : source;
+        if(name==='vendas')record=captureDelivery(record,owner.data().deliveryPolicy,old?.record);
         validateRecord(name,record);
         if(old && recordEqual(old.record,record) && (!sourceUpdatedAt || sourceUpdatedAt===old.sourceUpdatedAt))continue;
         updated[i]={...record,_revision:(old?.revision || 0)+1};

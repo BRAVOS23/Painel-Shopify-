@@ -60,6 +60,10 @@ try{
  // O scheduler Workerd sem ligações reais não faz chamadas às plataformas.
  await store.connection(id,'shopify').delete();await store.connection(id,'meta').delete();await job.delete();
  const scheduled=await fetch(root+'/__scheduled?cron=*+*+*+*+*');assert.equal(scheduled.status,200);pass('Cron Trigger invocado no runtime Cloudflare local');
+ const deliveryDay=new Date(Date.now()+7200000).toISOString().slice(0,10);assert.equal((await request(a,'/api/delivery-policy',{enabled:true,amount:150,revision:0})).status,200);
+ const deliveryRecord={id:'worker_delivery_fee',deliveryFeeMode:'auto',data:deliveryDay,mes:deliveryDay.slice(0,7),status:'concluido',produto:'Produto Worker',quantidade:1,valor:100};
+ const deliverySaved=await request(a,'/api/data/vendas',{changes:[{id:deliveryRecord.id,revision:0,record:deliveryRecord}]});assert.equal(deliverySaved.status,200);assert.equal(deliverySaved.body.revisions[0].record.deliveryFee,150);
+ assert.equal((await request(a,'/api/delivery-policy',{enabled:true,amount:200,revision:1})).status,200);assert.equal((await request(a,'/api/metrics?start='+deliveryDay+'&end='+deliveryDay)).body.delivery,150);pass('taxa configurável e custo capturado funcionam nas transações do Workerd');
  let closure=await request(a,'/api/account/closure',{action:'start',confirmation:'ELIMINAR'});assert.equal(closure.status,200);for(let step=0;!closure.body.done && step<60;step++){closure=await request(a,'/api/account/closure',{action:'step'});assert.equal(closure.status,200);}assert(closure.body.done);assert.equal((await request(a,'/api/state')).status,423);assert.equal((await request(b,'/api/state')).status,200);pass('encerramento em lotes no Worker apaga apenas a própria conta e impede recriação por sessão antiga');
  console.log(`${checks} verificações Worker passaram; nenhuma plataforma real foi alterada.`);
 }finally{
