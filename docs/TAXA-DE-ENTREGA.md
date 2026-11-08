@@ -26,3 +26,9 @@ Os custos automáticos/específicos de um pedido são repartidos pelos produtos 
 Os snapshots de custo integram os registos exportados e são preservados ao restaurar. A configuração do padrão também aparece nos metadados da exportação completa da conta; os scripts de restauro recuperam os registos, sem reativar configurações da conta. Confirmar/configurar o padrão no destino após uma migração.
 
 Testes: `npm test`, `npm run test:delivery` (API/emuladores), `npm run test:browser` e `npm run test:worker`. Cobrem pedidos com vários itens, rateio por produto, alteração de taxa sem recalcular conclusões, valor específico zero, cancelados/pendentes, revisões concorrentes, isolamento por conta, sincronização, restauro e UI móvel. Os testes usam apenas contas sintéticas.
+
+## Valor ao concluir um pedido
+
+Desde 08/11/2026, ao clicar em **Concluir**, se o pedido ainda não tiver um custo de entrega registado e não existir uma taxa padrão ativa, aparece o diálogo **Custo da entrega**. É necessário indicar o valor pago ao entregador, incluindo 0 MT quando não houve custo. **Voltar**, fechar ou premir Escape deixa o pedido por concluir.
+
+O valor é guardado como custo específico do pedido antes de pedir a conclusão na Shopify; se a gravação falhar, a conclusão não é enviada. Se a Shopify não concluir, o custo fica guardado para a próxima tentativa. Pedidos com vários produtos usam uma única taxa por pedido. Uma taxa específica já guardada (incluindo zero), um custo antigo positivo ou uma taxa padrão ativa evitam a pergunta repetida.

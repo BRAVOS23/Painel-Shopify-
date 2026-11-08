@@ -89,6 +89,12 @@ window.cloudBackend={
  async linkCatalog(bindings){if(dirty() || busy)throw new Error('Aguarda a gravação dos dados.');const result=await api('/shopify/products/link',{method:'POST',body:JSON.stringify({bindings:bindings.map(item=>({...item,revision:baseline.produtos.find(row=>row.id===item.productId)?._revision || 0}))})});await refresh();return result;},
  read:name=>clone(desired[name] || []),
  save(name,records){if(platformUi && !platformUi.canWrite()){status('Acesso apenas para consulta. Pede a renovação no menu de conta.');return false;}desired[name]=clone(records);mutation++;status('A guardar…');if(!failure)void flush();},
+ async saveCompletionDelivery(records){
+  if(this.save('vendas',records)===false)throw new Error('Não foi possível guardar o custo da entrega.');
+  const deadline=Date.now()+30000;
+  while(busy && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,50));
+  if(failure || dirty() || busy)throw new Error(failure?.message || 'Aguarda a gravação do custo e tenta concluir novamente.');
+ },
  async reflectStatus(id,status){
   if(dirty() || busy)throw new Error('Aguarde a gravação dos dados antes de alterar a Shopify.');
   const activeSession=session;let result=await api(`/shopify/orders/${id}/status`,{method:'POST',body:JSON.stringify({status})});

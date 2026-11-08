@@ -1,9 +1,19 @@
 import {effectiveSales,completedSale} from './sales.mjs';
-import {deliveryAllocations} from './delivery.mjs';
+import {deliveryAllocations,needsDeliveryAmount} from './delivery.mjs';
 const $=id=>document.getElementById(id);
 export function initDeliverySettings({request,refresh}){
  let policy=null,owner=null,editing=false,legacyAmount=0,autoFee=null;
  const card=document.createElement('section');card.id='deliverySettings';card.className='business-card';card.innerHTML='<h3>Taxa de entrega padrão</h3><p class="muted">Define o valor combinado com o entregador, por pedido concluído. Conta uma vez mesmo com vários produtos. Podes usar um valor diferente ao editar um pedido.</p><form id="deliveryPolicyForm"><label class="chart-mode"><input type="checkbox" id="deliveryPolicyEnabled">Usar uma taxa padrão</label><label for="deliveryPolicyAmount">Valor por entrega (MT)</label><input id="deliveryPolicyAmount" type="number" min="0" max="1000000" step="0.01" required><p class="muted">Aplica-se às próximas conclusões. Alterar ou desligar a taxa mantém os valores já guardados. Pedidos antigos importados já concluídos, com data anterior à configuração atual, ficam sem taxa automática.</p><button type="submit" class="btn-primary">Guardar taxa</button></form><p id="deliveryPolicyMessage" role="status"></p>';$('accountPaneConta').append(card);
+ const feeDialog=document.createElement('dialog');feeDialog.className='app-dialog';feeDialog.setAttribute('aria-labelledby','completeDeliveryTitle');feeDialog.innerHTML='<div class="dialog-head"><h2 id="completeDeliveryTitle">Custo da entrega</h2><button type="button" class="dialog-close" aria-label="Voltar">×</button></div><form class="dialog-body"><p>Quanto pagaste ao entregador por este pedido?</p><label for="completeDeliveryAmount">Valor da entrega (MT)</label><input id="completeDeliveryAmount" type="number" min="0" max="1000000" step="0.01" inputmode="decimal" required><p class="muted">Conta uma vez por pedido. Se não houve custo, coloca 0.</p><div class="schedule-actions"><button type="button" class="btn-ghost">Voltar</button><button type="submit" class="btn-primary">Guardar e concluir</button></div></form>';document.body.append(feeDialog);
+ let resolveFee=null;
+ feeDialog.addEventListener('close',()=>{resolveFee?.(null);resolveFee=null;});
+ for(const button of feeDialog.querySelectorAll('button[type=button]'))button.onclick=()=>feeDialog.close();
+ feeDialog.querySelector('form').onsubmit=event=>{event.preventDefault();if(!event.target.reportValidity())return;const resolve=resolveFee;resolveFee=null;resolve?.(Number($('completeDeliveryAmount').value));feeDialog.close();};
+ window.askCompletionDelivery=async(row,rows)=>{
+  if(!needsDeliveryAmount(row,rows,policy))return undefined;
+  if(feeDialog.open)return null;
+  $('completeDeliveryAmount').value='';feeDialog.showModal();$('completeDeliveryAmount').focus();return new Promise(resolve=>{resolveFee=resolve;});
+ };
  const input=$('vComissao'),mode=document.createElement('select');mode.id='vDeliveryFeeMode';mode.setAttribute('aria-label','Custo de entrega do pedido');mode.innerHTML='<option value="auto">Usar taxa padrão</option><option value="manual">Definir valor deste pedido</option><option value="legacy" hidden>Manter custo já registado</option>';input.before(mode);input.closest('.field').querySelector('label').textContent='Custo de entrega por pedido (MT)';
  function syncMode(){mode.options[0].textContent=autoFee!==null?'Taxa guardada: '+autoFee.toLocaleString('pt-MZ')+' MT':policy?.enabled?'Taxa padrão: '+policy.amount.toLocaleString('pt-MZ')+' MT':'Sem taxa padrão (configurar em Conta)';input.readOnly=mode.value!=='manual';if(mode.value==='auto')input.value=String(autoFee ?? (policy?.enabled?policy.amount:0));if(mode.value==='legacy')input.value=String(legacyAmount);}
  mode.onchange=syncMode;$('vendaForm').addEventListener('reset',()=>queueMicrotask(()=>{autoFee=null;syncMode();}));

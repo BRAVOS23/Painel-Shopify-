@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {captureDelivery,deliveryAllocations} from '../web/delivery.mjs';
+import {captureDelivery,deliveryAllocations,needsDeliveryAmount} from '../web/delivery.mjs';
 import {calculateMetrics} from '../server/model.mjs';
 const base={data:'2026-11-06',status:'concluido',shopifyOrderId:'10',shopifyFinancialStatus:'paid',shopifyFulfillmentStatus:'fulfilled',quantidade:1};
 const rows=[{...base,id:'a',produto:'A',valor:100},{...base,id:'b',produto:'B',valor:200}];
@@ -23,4 +23,15 @@ test('valor específico pode ser zero; cancelados não geram custo e cêntimos f
  assert.equal(deliveryAllocations([{...rows[0],status:'cancelado',deliveryFee:150}]).size,0);
  const thirds=Array.from({length:3},(_,index)=>({...rows[0],id:'r'+index,deliveryFee:1}));assert.equal([...deliveryAllocations(thirds).values()].reduce((a,b)=>a+b,0),1);
  const late={...rows[1],deliveryFee:200,deliveryFeeCapturedAt:'2026-11-07T10:00:00Z'},early={...rows[0],deliveryFee:150,deliveryFeeCapturedAt:'2026-11-06T10:00:00Z'};assert.equal([...deliveryAllocations([late,early]).values()].reduce((a,b)=>a+b,0),150);
+});
+
+test('conclusão pede entrega apenas se faltar custo em todo o pedido e não houver padrão',()=>{
+ const row={id:'a',shopifyOrderId:'10',status:'pendente'};
+ assert.equal(needsDeliveryAmount(row,[row],null),true);
+ assert.equal(needsDeliveryAmount(row,[row],{enabled:true,amount:0}),false);
+ for(const saved of [{deliveryFeeMode:'manual',deliveryFee:0},{deliveryFeeMode:'manual',deliveryFee:75},{deliveryFeeMode:'auto',deliveryFee:0,deliveryFeeCapturedAt:'2026-11-08'},{comissao:50}]){
+  assert.equal(needsDeliveryAmount(row,[row,{...row,id:'b',...saved}],null),false);
+  assert.equal(needsDeliveryAmount(row,[row,{...row,id:'b',shopifyOrderId:'20',...saved}],null),true);
+ }
+ assert.equal(needsDeliveryAmount(row,[{...row,deliveryFeeMode:'auto'}],{enabled:false}),true);
 });

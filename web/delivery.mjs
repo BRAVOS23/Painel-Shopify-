@@ -22,3 +22,8 @@ export function deliveryAllocations(input){
  }
  return result;
 }
+
+export function needsDeliveryAmount(row,rows,policy){
+ const group=rows.filter(item=>item.id===row.id || (row.shopifyOrderId && item.shopifyOrderId===row.shopifyOrderId));
+ return !policy?.enabled && !group.some(item=>(item.deliveryFeeMode==='manual' && Number.isFinite(item.deliveryFee)) || (Number.isFinite(item.deliveryFee) && item.deliveryFeeCapturedAt) || Number(item.comissao)>0);
+}

@@ -2235,6 +2235,21 @@ const pedidosAAtualizar=new Set(),pedidosMensagens=new Map();
 async function markStatus(id, status){
   const idx = vendasData.findIndex(v=>v.id===id);
   if(idx===-1) return;
+  if(status==='concluido'){
+    const key=vendasData[idx].shopifyOrderId || id;
+    if(pedidosAAtualizar.has(key))return;
+    pedidosAAtualizar.add(key);
+    try{
+      const fee=await window.askCompletionDelivery(vendasData[idx],vendasData);
+      if(fee===null)return;
+      if(fee!==undefined){
+        const current=vendasData.find(row=>row.id===id);if(!current)return;
+        for(const row of vendasData.filter(row=>row.id===id || (current.shopifyOrderId && row.shopifyOrderId===current.shopifyOrderId))){row.deliveryFeeMode='manual';row.deliveryFee=fee;row.comissao=0;}
+        await window.cloudBackend.saveCompletionDelivery(vendasData);
+      }
+    }catch(error){showVendaMsg(error.message);return;}
+    finally{pedidosAAtualizar.delete(key);}
+  }
   if(vendasData[idx].shopifyOrderId && ['concluido','cancelado'].includes(status)){
     const orderId=vendasData[idx].shopifyOrderId;
     if(pedidosAAtualizar.has(orderId))return;
