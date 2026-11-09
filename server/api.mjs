@@ -137,24 +137,26 @@ export function createApi({store,auth,providers,sync,config,framework,limits=new
   const catalog=createCatalog(store,providers,config);
   app.get('/api/shopify/products',async(req,res)=>{const after=req.query.after || null;if(after && (typeof after!=='string' || after.length>1000))return res.status(400).json({error:'Cursor inválido.'});res.json(await catalog.list(req.user.uid,after));});
   app.post('/api/shopify/products/link',async(req,res)=>res.json(await catalog.bind(req.user.uid,req.body.bindings,req.business.dataVersion || 0)));
-  app.get('/api/meta/accounts',async(req,res)=>{
-    const snap=await store.connection(req.user.uid,'meta').get();
-    if(!snap.exists) return res.status(400).json({error:'Ligue a conta Meta primeiro.'});
-    const {token}=decrypt(snap.data().credentials,config.encryptionKey);
-    res.json({accounts:await providers.metaAccounts(token)});
-  });
+  async function metaAccountAccess(uid){
+    const ref=store.connection(uid,'meta'),snap=await ref.get();
+    if(!snap.exists)throw Object.assign(new Error('Ligue a conta Meta primeiro.'),{status:400});
+    let token;try{token=decrypt(snap.data().credentials,config.encryptionKey).token;if(typeof token!=='string' || !token)throw new Error();}
+    catch{throw Object.assign(new Error('Não foi possível ler a autorização Meta guardada. Clica em Reautorizar. Se persistir, verifica a chave de proteção das integrações no servidor.'),{status:409,diagnosticCode:'META_CREDENTIALS'});}
+    let accounts;try{accounts=await providers.metaAccounts(token);}
+    catch(error){if(error.status)throw error;throw Object.assign(new Error('A ligação Meta está guardada, mas não foi possível consultar as contas de anúncios. Tenta novamente.'),{status:502,diagnosticCode:'META_AD_ACCOUNTS'});}
+    if(!Array.isArray(accounts) || accounts.some(account=>!/^act_\d+$/.test(account?.id) || !/^[A-Z]{3}$/.test(account?.currency || '')))throw Object.assign(new Error('A Meta devolveu informações incompletas das contas de anúncios. Tenta consultar novamente.'),{status:502,diagnosticCode:'META_INVALID_RESPONSE'});
+    return {ref,snap,accounts};
+  }
+  app.get('/api/meta/accounts',async(req,res)=>{const {accounts}=await metaAccountAccess(req.user.uid);res.json({accounts});});
   app.post('/api/meta/account',async(req,res)=>{
     if(!/^act_\d+$/.test(req.body.accountId)) return res.status(400).json({error:'Conta de anúncios inválida.'});
-    const ref=store.connection(req.user.uid,'meta'),snap=await ref.get();
-    if(!snap.exists) return res.status(400).json({error:'Ligue a conta Meta primeiro.'});
-    const {token}=decrypt(snap.data().credentials,config.encryptionKey);
-    const accounts=await providers.metaAccounts(token), account=accounts.find(a=>a.id===req.body.accountId);
+    const {ref,snap,accounts}=await metaAccountAccess(req.user.uid),account=accounts.find(a=>a.id===req.body.accountId);
     if(!account) return res.status(403).json({error:'Não tem acesso a esta conta de anúncios.'});
     const rate=Number(req.body.conversionRate);
     if(account.currency!=='MZN' && (!Number.isFinite(rate) || rate<=0)) return res.status(400).json({error:`Informe a taxa de conversão de ${account.currency} para MZN.`});
     // Não misturar gastos de duas contas no mesmo negócio sem uma migração explícita.
     if(snap.data().accountId && snap.data().accountId!==account.id) return res.status(409).json({error:'Desligue a integração antes de mudar de conta. Os gastos já importados ficam no histórico.'});
-    await ref.update({accountId:account.id,currency:account.currency,conversionRate:account.currency==='MZN' ? 1 : rate,timezone:account.timezone_name});
+    await ref.update({accountId:account.id,currency:account.currency,conversionRate:account.currency==='MZN' ? 1 : rate,timezone:account.timezone_name || null});
     res.json(await sync.run(req.user.uid,'meta'));
   });
   app.post('/api/oauth/:provider',async(req,res)=>{

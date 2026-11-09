@@ -5,7 +5,8 @@ fixture=json.loads(os.environ['PAINEL_BROWSER_FIXTURE'])
 errors=[]
 with sync_playwright() as p:
     browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),args=['--no-sandbox'])
-    page=browser.new_page(viewport={'width':390,'height':844})
+    context=browser.new_context(viewport={'width':390,'height':844})
+    page=context.new_page()
     page.on('pageerror',lambda error:errors.append(str(error)))
     page.goto(fixture['url'],wait_until='networkidle')
     page.fill('#cloudEmail',fixture['customer']);page.fill('#cloudPassword',fixture['password']);page.click('#cloudLoginForm button[type=submit]')
@@ -131,6 +132,20 @@ with sync_playwright() as p:
           page.screenshot(path='/tmp/painel-review-orders-'+theme+'.png',full_page=True,animations='disabled')
     missing=page.evaluate(r'''()=>[...document.querySelectorAll('[onclick]')].flatMap(node=>{const match=node.getAttribute('onclick').match(/^(?:window\.)?([A-Za-z_$][\w$]*)\(/);return match && typeof window[match[1]]!=='function'?[match[1]]:[];})''')
     assert not missing,missing
+    # Uma consulta Meta indisponível não esconde o painel nem desfaz a autorização.
+    meta_page=page.context.new_page()
+    meta_page.route('**/api/connections',lambda route:route.fulfill(json={'shopify':{'connected':False,'configured':False},'meta':{'connected':True,'configured':True,'currency':'USD','conversionRate':65,'accountId':'act_123'}}))
+    attempts={'count':0}
+    def meta_accounts(route):
+        attempts['count']+=1
+        if attempts['count']==1:route.fulfill(status=503,json={'error':'A Meta está temporariamente indisponível.','code':'META_UNAVAILABLE'})
+        else:route.fulfill(json={'accounts':[{'id':'act_123','name':'Conta de teste','currency':'USD'}]})
+    meta_page.route('**/api/meta/accounts',meta_accounts)
+    meta_page.goto(fixture['url'],wait_until='networkidle');expect(meta_page.locator('.wrap')).to_be_visible(timeout=30000)
+    meta_page.click('#accountMenuButton');meta_page.click('#accountTabIntegracoes')
+    expect(meta_page.locator('#metaStatusTag')).to_contain_text('Ligada');expect(meta_page.locator('#metaConnectionMessage')).to_contain_text('META_UNAVAILABLE');expect(meta_page.locator('#chooseMetaAccount')).to_be_disabled()
+    meta_page.click('#retryMetaAccounts');expect(meta_page.locator('#metaAccount')).to_have_value('act_123');expect(meta_page.locator('#chooseMetaAccount')).to_be_enabled();expect(meta_page.locator('#metaRate')).to_have_value('65')
+    meta_page.close()
     # Trocar de conta limpa rascunhos e o domínio da loja anterior.
     page.click('#ordersNewOrder');page.fill('#vContacto','Rascunho privado de revisão')
     page.click('#accountMenuButton');page.click('#accountTabIntegracoes');page.fill('#cloudShop','old-example.myshopify.com')

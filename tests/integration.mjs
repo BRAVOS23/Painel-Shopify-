@@ -66,6 +66,14 @@ try{
  const metaParams=new URLSearchParams({state:new URL(metaAttempt.body.url).searchParams.get('state'),code:'fixture'});
  assert.equal((await fetch(root+'/oauth/meta/callback?'+metaParams,{redirect:'manual'})).status,302);
  const metaRenewed=(await store.connection(b.localId,'meta').get()).data();assert.equal(metaRenewed.accountId,'act_saved');assert.equal(metaRenewed.conversionRate,65);assert.equal(metaRenewed.currency,'USD');assert.equal(metaRenewed.progress.after,'saved-cursor');assert.equal(metaRenewed.lastSync,'2026-10-13T08:00:00Z');assert.equal(decrypt(metaRenewed.credentials,config.encryptionKey).token,'renewed-fixture');
+ providers.metaAccounts=async()=>{throw new Error('private URL or token');};
+ const accountsFailure=await request(b,'/api/meta/accounts');assert.equal(accountsFailure.status,502);assert.equal(accountsFailure.body.code,'META_AD_ACCOUNTS');assert(!JSON.stringify(accountsFailure.body).includes('private URL'));assert((await store.connection(b.localId,'meta').get()).exists);
+ providers.metaAccounts=async()=>[{id:'act_123',name:'Fixture account',currency:'MZN'}];
+ assert.equal((await request(b,'/api/meta/accounts')).status,200);
+ await store.connection(b.localId,'meta').update({accountId:'act_123'});
+ const runSync=sync.run;sync.run=async()=>({count:0});
+ assert.equal((await request(b,'/api/meta/account',{accountId:'act_123',conversionRate:1})).status,200);assert.equal((await store.connection(b.localId,'meta').get()).data().timezone,null);sync.run=runSync;
+ delete providers.metaAccounts;pass('falha de consulta Meta mantém ligação e devolve diagnóstico; conta sem fuso horário não causa HTTP 500');
  await store.connection(b.localId,'meta').delete();pass('reautorizar Meta preserva a conta, o câmbio e a importação em curso');
 
  const stateA=await request(a,'/api/state'),stateB=await request(b,'/api/state');assert.equal(stateA.status,200);assert.equal(stateB.status,200);

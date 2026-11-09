@@ -130,3 +130,9 @@ Tocar numa aba principal repõe a rolagem no topo, em vez de conservar a posiç�
 A mudança automática de contexto aplica-se aos botões da navegação principal. Editar, Ver pedido, reagendar e outros atalhos explícitos mantêm o mês/semana do registo e o foco no cartão/formulário. Os botões de subabas também voltam ao topo. A abertura de Novo pedido pelo formulário recolhido inicia um novo registo, sem recuperar uma edição escondida.
 
 Verificação: 65 testes unitários (incluindo viragem de dia e mês em Maputo), suíte de revisão Chromium e suíte comercial de navegador. A regressão simula estar no fundo, num mês diferente, e confirma o destino, a semana ativa e scrollY=0; confirma também que Ver pedido continua a abrir um pedido de outro mês.
+
+## Ligação Meta guardada e consulta de contas — 09/11/2026
+
+A consulta das contas de anúncios já não propaga uma falha para o carregamento da sessão inteira. A integração mantém o estado Ligada, mostra diagnóstico e disponibiliza Voltar a consultar contas. Uma lista vazia explica que é necessário confirmar o acesso do perfil; Usar esta conta fica indisponível enquanto não houver uma seleção válida. A reconsulta conserva o câmbio em edição e não altera dados importados.
+
+A API distingue autorização expirada, falta de permissão ads_read, limites Meta, indisponibilidade, resposta inválida e credenciais guardadas ilegíveis, sem devolver respostas integrais ou tokens. A seleção de uma conta sem timezone_name guarda null em vez de enviar undefined ao Firestore (erro HTTP 500). Regressões cobrem a consulta falhada após autenticação, a recuperação pelo botão e a conservação da ligação.

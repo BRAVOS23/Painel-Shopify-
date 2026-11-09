@@ -12,9 +12,15 @@ function graphqlDiagnostic(errors,query){
   return `${safeCode}${fields.length?' · '+[...new Set(fields)].join(', '):''}${hint?' · '+hint:''}`;
  }).join('; ');
 }
+function metaFailure(code){
+ const details=[190,102].includes(code)?[401,'META_AUTH_EXPIRED','A autorização Meta expirou ou foi recusada. Clica em Reautorizar e confirma o acesso às contas de anúncios.']:[10,200,294].includes(code)?[403,'META_ADS_PERMISSION','A Meta não autorizou a leitura das contas de anúncios. Confirma a permissão ads_read e o acesso do teu perfil à conta.']:[4,17,32,613,80004].includes(code)?[429,'META_RATE_LIMIT','A Meta limitou temporariamente as consultas. Aguarda alguns minutos e volta a consultar as contas.']:[502,'META_REQUEST_REJECTED','A Meta recusou a consulta. Verifica as permissões e o estado da aplicação Meta.'];
+ return Object.assign(new Error(details[2]),{status:details[0],diagnosticCode:details[1]});
+}
 async function jsonResponse(response, provider,query='') {
   let body;
-  try { body=await response.json(); } catch { throw Object.assign(new Error(`${provider}: resposta inválida.`),{status:502}); }
+  try { body=await response.json(); } catch { throw Object.assign(new Error(`${provider}: resposta inválida.`),{status:502,...(provider==='Meta Ads'?{diagnosticCode:'META_INVALID_RESPONSE'}:{})}); }
+  if(provider==='Meta Ads' && (!body || typeof body!=='object'))throw Object.assign(new Error('A Meta devolveu uma resposta inválida. Tenta consultar novamente.'),{status:502,diagnosticCode:'META_INVALID_RESPONSE'});
+  if(provider==='Meta Ads' && (!response.ok || body.error))throw metaFailure(Number(body.error?.code));
   if(response.ok && Array.isArray(body.errors) && body.errors.length && query)throw Object.assign(new Error(`${provider}: ${graphqlDiagnostic(body.errors,query)}`),{status:502});
   if (!response.ok || body.error || (body.errors && (!Array.isArray(body.errors) || body.errors.length))) throw Object.assign(new Error(`${provider}: pedido recusado (HTTP ${response.status}). Verifique as credenciais do aplicativo, o callback e as permissões.`),{status:502});
   return body;
@@ -114,19 +120,23 @@ export function createProviders(config, fetcher = fetch) {
       if (data.webhookSubscriptionCreate.userErrors.length){const fields=[...new Set(data.webhookSubscriptionCreate.userErrors.flatMap(error=>error.field || []).filter(field=>['callbackUrl','topic','format','webhookSubscription','uri'].includes(field)))];throw new Error(`A Shopify recusou o webhook ${topic}${fields.length?' ('+fields.join(', ')+')':''}. Verifique a configuração do aplicativo e o endereço HTTPS.`);}
     }
   }
+  async function metaResponse(url){
+    try{return await jsonResponse(await fetcher(url,{signal:AbortSignal.timeout(30000)}),'Meta Ads');}
+    catch(error){if(error.status)throw error;const timeout=['TimeoutError','AbortError'].includes(error.name);throw Object.assign(new Error(timeout?'A Meta demorou demasiado a responder. Volta a consultar as contas.':'Não foi possível contactar a Meta. Volta a consultar as contas dentro de alguns instantes.'),{status:timeout?504:503,diagnosticCode:timeout?'META_TIMEOUT':'META_UNAVAILABLE'});}
+  }
   async function meta(path,token,params={}) {
     const url=new URL(`https://graph.facebook.com/${config.metaVersion}/${path}`);
     url.searchParams.set('access_token',token);
     url.searchParams.set('appsecret_proof',createHmac('sha256',config.metaSecret).update(token).digest('hex'));
     for(const [key,value] of Object.entries(params)) url.searchParams.set(key,typeof value==='object' ? JSON.stringify(value) : String(value));
-    return jsonResponse(await fetcher(url,{signal:AbortSignal.timeout(30000)}),'Meta Ads');
+    return metaResponse(url);
   }
   async function metaPages(path,token,params) {
     const rows=[]; let after;
     do {
-      const body=await meta(path,token,{...params,...(after ? {after} : {})}); rows.push(...body.data);
+      const body=await meta(path,token,{...params,...(after ? {after} : {})});if(!Array.isArray(body.data))throw Object.assign(new Error('A Meta devolveu uma lista inválida. Volta a consultar as contas.'),{status:502,diagnosticCode:'META_INVALID_RESPONSE'});rows.push(...body.data);
       after=body.paging?.next ? body.paging?.cursors?.after : null;
-      if (body.paging?.next && !after) throw new Error('Meta Ads: paginação sem cursor.');
+      if (body.paging?.next && !after) throw Object.assign(new Error('A Meta devolveu paginação incompleta. Tenta consultar novamente.'),{status:502,diagnosticCode:'META_INVALID_RESPONSE'});
       if (rows.length>50000) throw new Error('Meta Ads: período demasiado grande.');
     } while(after);
     return rows;

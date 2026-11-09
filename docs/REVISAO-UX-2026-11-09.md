@@ -72,8 +72,8 @@ Os atributos `onclick` da interface também são inspecionados no navegador para
 
 Todas as verificações abaixo terminaram com sucesso nesta revisão:
 
-- 65 testes unitários, incluindo o reagendamento por pedido com várias linhas e a preservação dos originais em caso de erro.
-- 25 verificações de integração de API, 9 verificações comerciais e 2 cenários de recuperação/restauro.
+- 68 testes unitários, incluindo o reagendamento por pedido com várias linhas e a preservação dos originais em caso de erro.
+- 26 verificações de integração de API, 9 verificações comerciais e 2 cenários de recuperação/restauro.
 - Cenário integrado da taxa de entrega: isolamento por conta, revisões, múltiplos produtos, custo zero e exportação.
 - Duas suítes Chromium: comercial/administração e revisão de UX, sem erros JavaScript nos percursos executados.
 - Layouts em 320, 390, 768 e 1280 px, nos temas claro e escuro, incluindo detalhes do formulário abertos.
@@ -97,3 +97,9 @@ A nova suíte `npm run test:review` compila o painel e percorre criação/ediç�
 Os testes de Shopify e Meta usam fornecedores simulados e não certificam o conteúdo ou as permissões atuais das contas de produção. Não foi feita uma conclusão/cancelamento real, nem uma nova autorização nas plataformas. Instalação física, teclado virtual e comportamento do Safari/iPhone exigem verificação nos aparelhos. Não é possível garantir ausência absoluta de erros; os percursos e regressões acima ficam reproduzíveis.
 
 A publicação automática é acionada pelo envio para `main`; o envio, por si só, não confirma que o ambiente público já terminou a publicação. O manual consolidado de 06/11/2026 permanece uma fotografia daquela data; este relatório descreve as alterações posteriores desta revisão.
+
+## Correção posterior: consulta de contas Meta após autorização
+
+Quando a Meta aparece Ligada, uma falha ao consultar contas de anúncios é tratada nessa secção, sem bloquear o carregamento do painel. Foi acrescentado Voltar a consultar contas, preservando a autorização, o câmbio em edição e os registos existentes. Falhas de permissão, expiração, limite e rede devolvem códigos públicos fixos sem dados sensíveis. Uma conta sem timezone_name deixa de tentar gravar undefined no Firestore.
+
+Os testes reproduzem uma recusa de consulta mantendo a ligação, a recuperação subsequente, uma lista vazia e uma conta sem fuso horário. Não foi confirmada por acesso direto a causa exata da falha reportada na conta real; a mensagem específica da próxima consulta permite distingui-la.
