@@ -1,3 +1,5 @@
+import {normalizeDeliveryTime} from './orders.mjs';
+window.normalizeDeliveryTime=normalizeDeliveryTime;
 import {deliveryAllocations} from './delivery.mjs';
 import {initBusinessTools} from './business-tools.mjs';
 import {validateRecord} from './record-schema.mjs';

@@ -1,3 +1,4 @@
+import {normalizeDeliveryTime} from '../web/orders.mjs';
 import {deliveryAllocations} from '../web/delivery.mjs';
 import {csvOrderStatus,completedSale,countOrders,effectiveSales,saleCost,captureSaleCost} from '../web/sales.mjs';
 import {productResolver,metaProductResolver,effectiveExpenseProduct} from '../web/catalog.mjs';
@@ -22,7 +23,7 @@ export function shopifyRecords(order, products = [], currency = 'MZN') {
     const attributes=order.note_attributes || [];
     const province=String(address.province || attributes.find(item=>['provincia','province','provincia do cliente','provincia de entrega'].includes(String(item.name || item.key || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()))?.value || '').trim();
     return captureSaleCost({ id:`sh_${order.id}_${item.id}`, shopifyOrderId:String(order.id), shopifyLineItemId:String(item.id),panelConfirmed:false,shopifyFinancialStatus:financial,shopifyFulfillmentStatus:fulfillment,
-      data:date, mes:date.slice(0,7), semana:weekFor(date), horario:'', fonte:'04.SHOPIFY',
+      data:date, mes:date.slice(0,7), semana:weekFor(date), horario:normalizeDeliveryTime(attributes.find(item=>['hora da entrega','horario da entrega','horario de entrega','hora de entrega','horario','hora preferida','hora'].includes(String(item.name || item.key || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()))?.value), fonte:'04.SHOPIFY',
       contacto:[address.name || [order.customer?.first_name,order.customer?.last_name].filter(Boolean).join(' '),address.phone || order.phone].filter(Boolean).join(' '),
       provincia:province,local:[address.address1,address.city].filter(Boolean).join(', '), descricao:order.note || '',
       produto:productResolver(products)(item.title), quantidade:quantity,

@@ -1642,14 +1642,7 @@ function showShopifyMsg(t, isError){
 }
 
 function normalizeHorario(raw){
-  const v = (raw||'').trim();
-  if(!v) return '';
-  if(/^\d{1,2}:\d{2}$/.test(v)){
-    const [h,m] = v.split(':');
-    return h.padStart(2,'0') + ':' + m;
-  }
-  if(/^\d{1,2}$/.test(v)) return v.padStart(2,'0') + ':00';
-  return v;
+  return window.normalizeDeliveryTime(raw);
 }
 
 /* ---- Importar a exportação NATIVA de pedidos da Shopify (Pedidos → Exportar → CSV) ----
@@ -1837,12 +1830,15 @@ function importarCSVShopifyNativo(){
         const status=window.csvOrderStatus(finStatus,iFulfillment>=0?cols[iFulfillment]:'',cancelledAt);
 
         const provinciaCSV=String(cols[col('Shipping Province Name')] || campoMapeado(parseNoteAttributes(cols[iNotas]),'provincia') || cols[col('Shipping Province')] || '').trim();
+        const horarioCSV=normalizeHorario(campoMapeado(parseNoteAttributes(cols[iNotas]),'horario'));
         const existenteIdx = vendasData.findIndex(v=>v.shopifyOrderId===shopifyOrderId);
         if(existenteIdx>-1){
+          for(const existenteIdx of vendasData.map((row,index)=>row.shopifyOrderId===shopifyOrderId?index:-1).filter(index=>index>=0)){
           const old=vendasData[existenteIdx],fulfillment=String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase();
           const nextStatus=status==='pendente' && old.panelConfirmed?'concluido':status;
-          if(old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV)){
-            vendasData[existenteIdx]={...old,...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
+          if(old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
+            vendasData[existenteIdx]={...old,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
+          }
           }
           continue;
         }

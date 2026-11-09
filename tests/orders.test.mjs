@@ -12,3 +12,8 @@ test('reagendamento rejeita datas impossíveis e pedidos já concluídos',()=>{
  assert.throws(()=>scheduleOrder(row,{date:'2026-02-30'}),/data válida/);assert.throws(()=>scheduleOrder({...row,status:'concluido'},{date:'2026-10-03'}),/Só podes/);assert.throws(()=>scheduleOrder(row,{date:'2026-10-03',group:'invalid'}),/grupo válido/);
  const next=scheduleOrder(row,{date:'2026-10-03'});assert.throws(()=>validateRecord('vendas',{...next,reagendamentos:[{...next.reagendamentos[0],para:'2026-02-30'}]}),/Data/);
 });
+
+test('horários de checkout aceitam hora simples e rejeitam respostas inválidas',async()=>{
+ const {normalizeDeliveryTime}=await import('../web/orders.mjs');
+ for(const [raw,expected] of [['23','23:00'],['15:00','15:00'],['9:30','09:30'],['0','00:00'],['88',''],['24:00',''],['12:60',''],['TESTE - NAO ENTREGAR',''],['','']])assert.equal(normalizeDeliveryTime(raw),expected);
+});

@@ -112,3 +112,7 @@ A província é um campo separado e opcional nos pedidos, incluído na leitura S
 ### Taxa de entrega por contrato
 
 Conta passa a incluir “Taxa de entrega padrão”, com atalho no cartão de custo de entrega de Resultados. O formulário de pedido permite usar o padrão ou um valor específico por pedido, incluindo zero. Valores antigos têm uma opção de conservação explícita. A taxa é contada uma vez por pedido concluído e mantém o valor capturado quando o padrão muda. Detalhes em [TAXA-DE-ENTREGA.md](TAXA-DE-ENTREGA.md).
+
+## Horários do checkout — 09/11/2026
+
+A importação CSV preenche horários em falta em todas as linhas de um pedido já existente, respeitando o mapeamento escolhido. Horários existentes e reagendamentos são preservados. A sincronização automática reconhece os atributos usuais de hora da entrega (incluindo Hora da entrega); horas simples como 23 são normalizadas para 23:00 e valores inválidos ficam vazios. Reimportar o CSV é a forma de recuperar os horários válidos em falta nos pedidos existentes; não é necessário apagar pedidos.

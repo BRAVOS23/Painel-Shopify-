@@ -10,3 +10,10 @@ export function scheduleOrder(record,{date,time=record.horario || '',group},now=
  const history=[...(record.reagendamentos || []),{de:record.data,para:date,semanaAnterior:record.semana || 'semana1',semanaNova:week,horario:time,alteradoEm:now}].slice(-20);
  return {...record,dataPedido:record.dataPedido || record.data,data:date,mes:date.slice(0,7),semana:week,horario:time,status:'remarcado',reagendamentos:history};
 }
+
+export function normalizeDeliveryTime(raw){
+ const value=String(raw ?? '').trim();
+ const match=/^(\d{1,2})(?::(\d{2}))?$/.exec(value);
+ if(!match || Number(match[1])>23 || Number(match[2] || 0)>59)return '';
+ return match[1].padStart(2,'0')+':'+(match[2] || '00');
+}
