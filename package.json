@@ -21,7 +21,8 @@
     "test:commercial": "node tests/commercial-integration.mjs",
     "test:recovery": "node tests/recovery-integration.mjs",
     "test:browser": "npm run build && node tests/browser-commercial.mjs",
-    "test:delivery": "node tests/delivery-integration.mjs"
+    "test:delivery": "node tests/delivery-integration.mjs",
+    "test:review": "npm run build && node tests/browser-review.mjs"
   },
   "dependencies": {
     "chart.js": "4.4.4",

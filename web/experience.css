@@ -95,3 +95,26 @@ body{font-size:14px;line-height:1.5}.mono,.card .v,.roi-hero-value,.summary-stat
 #shopifyMapBox{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
 #shopifyMapBox .field{display:flex;flex-direction:column;min-width:0;gap:6px}#shopifyMapBox label{font-size:13px;line-height:1.5}#shopifyMapBox select{width:100%;min-width:0;min-height:46px;font-size:16px;padding:10px 12px}#shopifyMapBoxActions{flex-wrap:wrap}#shopifyMapResumo{font-family:inherit;overflow-wrap:anywhere;line-height:1.7}
 @media(max-width:600px){#shopifyMapBox{grid-template-columns:minmax(0,1fr)}#shopifyMapBoxActions>button{width:100%;white-space:normal}#accountCsvSlot .toolbar{flex-direction:column;align-items:stretch}#accountCsvSlot .toolbar>button{width:100%}.import-sources{padding-inline:12px}#accountCsvSlot .panel{padding:14px}}
+
+/* Revisão dos fluxos: pesquisa visível, diálogos legíveis e estado explícito. */
+.order-search-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.order-search-row input,.order-search-row select{min-width:0;min-height:44px;border:1px solid var(--panel-line);border-radius:9px;padding:10px 12px;background:var(--ink-2);color:var(--sand);font:inherit;font-size:14px}
+.order-search-row input{flex:1 1 240px}.order-search-row select{flex:0 1 180px}
+.delivery-cost-form{display:flex;flex-direction:column;align-items:stretch;gap:14px}
+.delivery-cost-form p{font-size:14px;line-height:1.65}.delivery-cost-form label{font-size:13px}
+.delivery-cost-form input{width:100%;min-width:0;min-height:48px;padding:12px;border:1px solid var(--panel-line);border-radius:9px;background:var(--panel);color:var(--sand);font:inherit;font-size:18px}
+.delivery-cost-form .schedule-actions{flex-wrap:wrap}.delivery-cost-form button{min-height:44px;white-space:normal}
+button:disabled{cursor:not-allowed}.pedido-card:focus{outline:2px solid var(--brand);outline-offset:3px}.dialog-close{flex-shrink:0;min-width:44px;min-height:44px}
+#summaryOrders .summary-row>div{min-width:0}#summaryOrders strong{overflow-wrap:anywhere}#summaryOrders .summary-row button{min-height:44px;flex-shrink:0}
+#metricasViewGastos .card small{display:block;max-width:65ch;margin-top:10px;line-height:1.6}
+@media(max-width:600px){.order-search-row input,.order-search-row select{flex-basis:100%;width:100%;font-size:16px}.delivery-cost-form .schedule-actions>button{flex:1;min-width:0}.dialog-head h2{font-size:19px}.dialog-head{gap:10px}}
+
+.secondary-fields,.form-secondary{min-width:0;max-width:100%}.secondary-fields>.field{min-width:0}.secondary-fields input,.secondary-fields select{width:100%;min-width:0;max-width:100%}
+.order-line-hint{display:block;color:var(--sand-dim);font-size:11px;line-height:1.6;margin:6px 0}
+@media(max-width:600px){.secondary-fields{grid-template-columns:minmax(0,1fr)}}
+
+.sync-scope-help{margin-top:16px}.cloud-integration label{display:inline-block;margin-top:10px;line-height:1.6}#shopifyHistoryShortcut{white-space:normal;max-width:100%}
+
+button.pedido-checkbox{min-width:44px;min-height:44px;cursor:pointer;flex-shrink:0;font:inherit}
+
+@media(max-width:1023px){.pedido-card:not(.expanded) .order-line-hint{display:none}}

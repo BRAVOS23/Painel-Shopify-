@@ -27,3 +27,14 @@ export function appendAlternateContact(contact,alternative){
  if(existing.some(phone=>phone.replace(/\D/g,'').slice(-9)===key))return current;
  return [current,extra].filter(Boolean).join(' / ');
 }
+
+// A operação é por pedido, mesmo quando a Shopify o divide por produtos.
+export const orderKey=row=>String(row.shopifyOrderId || row.id);
+export function uniqueOrders(rows){return [...new Map(rows.map(row=>[orderKey(row),row])).values()];}
+export function rescheduleOrders(rows,ids,options,now=new Date().toISOString()){
+ if(!ids.length || ids.some(id=>!rows.some(row=>row.id===id)))throw new Error('Um pedido mudou entretanto. Fecha e abre novamente o reagendamento.');
+ const selected=rows.filter(row=>ids.includes(row.id));
+ if(selected.some(row=>!['pendente','remarcado'].includes(row.status)))throw new Error('Só podes reagendar pedidos pendentes ou remarcados.');
+ const keys=new Set(selected.map(orderKey));
+ return rows.map(row=>keys.has(orderKey(row)) && ['pendente','remarcado'].includes(row.status)?scheduleOrder(row,options,now):row);
+}

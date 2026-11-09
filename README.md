@@ -2,6 +2,8 @@
 
 **Começar pelo [Manual técnico e funcional unificado](docs/MANUAL-TECNICO-E-FUNCIONAL.md)** — atualizado em 06/11/2026, referência consolidada de produto, arquitetura, dados, APIs, regras, operação, limitações e reconstrução do zero. Existe também uma [cópia PDF completa para download](docs/PAINEL-DO-NEGOCIO-MANUAL-COMPLETO-2026-11-06.pdf), com índice e navegação por secções. As notas abaixo incluem contexto de fases anteriores; em caso de divergência de estado, consultar o manual e o código atual.
 
+A [revisão funcional e de experiência de 09/11/2026](docs/REVISAO-UX-2026-11-09.md) documenta as correções posteriores ao manual, os percursos verificados e os limites dos testes.
+
 Aplicação de gestão de negócios com pagamento na entrega (COD), em português de Moçambique. O protótipo de ficheiro único foi ligado a Firebase Authentication e Firestore, com backend Node para desenvolvimento e Cloudflare Workers para publicação. A especificação funcional vem do plano de negócio fornecido pelo proprietário; as funcionalidades são verificadas separadamente, sem assumir que as integrações descritas no documento já funcionavam.
 
 A interface atual vem de `public/index.html` da branch `claude/painel-negocio-validation-ui-j9360b` (commit `f63727163ecd67c6816f6394a959cf1654e25a57`), adaptada ao backend existente. Inclui tema claro/escuro, meses anteriores, contactos clicáveis, PDF de pedidos selecionados, stock por local, gastos por período e lucro líquido. O modo instalável guarda apenas a interface pública; login, consulta e gravação de dados exigem ligação à Internet. Backups desta versão podem ser importados numa conta vazia, sem substituir registos existentes.

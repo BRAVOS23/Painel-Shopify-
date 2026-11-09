@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 const button=(text,handler,className='btn-ghost')=>{const node=document.createElement('button');node.type='button';node.className=className;node.textContent=text;node.onclick=handler;return node;};
 export function initUsability(){
  // Pedidos: pesquisa e estado disponíveis sem abrir relatórios.
- const search=document.createElement('div');search.className='order-search-row';search.innerHTML='<input id="pedidosBusca" type="search" placeholder="Procurar nome, telefone, produto ou local" aria-label="Procurar pedidos"><select id="pedidosEstado" aria-label="Estado dos pedidos"><option value="">Todos em aberto</option><option value="pendente">Pendentes</option><option value="remarcado">Remarcados</option></select>';
+ const search=document.createElement('div');search.className='order-search-row';search.innerHTML='<input id="pedidosBusca" type="search" placeholder="Nome, telefone, produto, local ou província" aria-label="Procurar pedidos"><select id="pedidosEstado" aria-label="Estado dos pedidos"><option value="">Todos em aberto</option><option value="pendente">Pendentes</option><option value="remarcado">Remarcados</option></select>';
  $('pedidosBody').parentElement.querySelector('.toolbar').before(search);search.style.marginBottom='16px';
  $('pedidosBusca').oninput=()=>window.renderPedidos();$('pedidosEstado').onchange=()=>window.renderPedidos();
  const orderForm=$('vendaForm'),extra=document.createElement('details');extra.className='form-secondary';extra.id='orderExtraFields';extra.innerHTML='<summary>Mais detalhes: origem, nota e entregador</summary><div class="secondary-fields"></div>';
@@ -23,11 +23,11 @@ export function initUsability(){
  window.chooseExpenseType=type=>{choices.forEach(([key,,help],index)=>{panels[index].hidden=key!==type;types.children[index].setAttribute('aria-pressed',String(key===type));if(key===type)intro.textContent=help;});};
  for(const [key,label]of choices)types.append(button(label,()=>window.chooseExpenseType(key),'expense-type'));
  window.chooseExpenseType('ads');
- window.openExpenseEntry=(type='ads')=>{window.switchMain('metricas');window.switchMetricasView('cadastros');window.chooseExpenseType(type);$(type==='ads'?'adValor':type==='outros'?'outroNome':'opNome').focus();};
+ window.openExpenseEntry=(type='ads')=>{window.cancelAdEdit();window.cancelOutroEdit();window.cancelOpEdit();$('expenseDialogTitle').textContent='Registar gasto';window.switchMain('metricas');window.switchMetricasView('cadastros');window.chooseExpenseType(type);$(type==='ads'?'adValor':type==='outros'?'outroNome':'opNome').focus();};
  // O catálogo é a entrada de Produtos; criar/editar usa o mesmo formulário num diálogo.
  const productPanel=$('produtoForm').closest('.panel'),productDialog=document.createElement('dialog');productDialog.id='productDialog';productDialog.className='app-dialog product-dialog';productDialog.setAttribute('aria-labelledby','productDialogTitle');productDialog.innerHTML='<div class="dialog-head"><h2 id="productDialogTitle">Novo produto</h2><button type="button" class="dialog-close" aria-label="Fechar produto">×</button></div><div class="dialog-body"></div>';
  productDialog.querySelector('.dialog-body').append(productPanel);document.body.append(productDialog);
- productDialog.querySelector('.dialog-close').onclick=()=>productDialog.close();productDialog.addEventListener('close',()=>window.cancelProdutoEdit());
+ productDialog.querySelector('.dialog-close').onclick=()=>productDialog.close();productDialog.addEventListener('close',()=>{if(!productDialog.open)window.cancelProdutoEdit();});$('produtoCancelEdit').onclick=()=>productDialog.close();
  window.openProductEditor=editing=>{if(!editing)window.cancelProdutoEdit();$('productDialogTitle').textContent=editing?'Editar produto':'Novo produto';if(!productDialog.open)productDialog.showModal();$('pNome').focus();};
  window.closeProductEditor=()=>productDialog.close();
  const productToolbar=$('produtosBusca').closest('.toolbar');productToolbar.classList.add('product-toolbar');productToolbar.append(button('Adicionar produto',()=>window.openProductEditor(false),'btn-primary'));

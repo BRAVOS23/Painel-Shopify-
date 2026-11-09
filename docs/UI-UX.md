@@ -1,4 +1,6 @@
-# Revisão da interface — 12 de outubro de 2026
+> Revisão mais recente: [revisão funcional e UX de 09/11/2026](REVISAO-UX-2026-11-09.md), com problemas corrigidos, matriz de percursos e limites de validação.
+
+# Histórico de revisão da interface
 
 > Referência atual (13/10/2026): [Manual técnico e funcional](MANUAL-TECNICO-E-FUNCIONAL.md). Este ficheiro conserva instruções/notas de fases anteriores. Afirmações de que o painel ainda não foi publicado, integrações nunca foram ligadas ou certas ações permanecem na interface podem estar desatualizadas; usar o manual e o código atual para o estado do projeto.
 

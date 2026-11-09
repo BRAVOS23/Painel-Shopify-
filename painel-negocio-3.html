@@ -1077,7 +1077,7 @@
       </table>
       <div class="empty" id="gastosViewEmpty" style="display:none;">Nenhum gasto registado ainda.</div>
       <div class="cards3" style="margin-top:16px;">
-        <div class="card destaque"><span class="k">Total no filtro</span><span class="v mono" id="gastosViewTotal">0 MT</span></div>
+        <div class="card destaque"><span class="k">Soma dos valores registados</span><span class="v mono" id="gastosViewTotal">0 MT</span><small class="muted">Cada gasto mensal entra uma vez nesta lista. Consulta Resultados para os custos calculados por período.</small></div>
       </div>
     </div>
     </div>
@@ -1353,6 +1353,7 @@ function switchVendasView(which){
   document.getElementById('subnavVendasRelatorios').classList.toggle('active', which==='relatorios');
   document.getElementById('subnavVendasMeses').classList.toggle('active', which==='meses');
   document.getElementById('subnavVendasConfig').classList.toggle('active', which==='config');
+  for(const [key,id] of [['pedidos','subnavVendasPedidos'],['entregas','subnavVendasEntregas'],['relatorios','subnavVendasRelatorios']])document.getElementById(id)?.setAttribute('aria-pressed',String(which===key));
   historicoMesesAberto = which==='meses';
   if(which==='relatorios') renderOverview();
   if(which==='meses') renderHistoricoMeses();
@@ -1366,6 +1367,7 @@ function switchMetricasView(which){
     document.getElementById('metricasView'+v.charAt(0).toUpperCase()+v.slice(1)).classList.toggle('active', which===v);
     document.getElementById('subnavMet'+v.charAt(0).toUpperCase()+v.slice(1)).classList.toggle('active', which===v);
   });
+  for(const [key,id] of [['resultados','subnavMetResultados'],['gastos','subnavMetGastos']])document.getElementById(id)?.setAttribute('aria-pressed',String(which===key));
   gastosViewAberta = which==='gastos';
   produtosViewAberta = which==='produtos';
   if(which==='resultados') renderMetricas();
@@ -1839,7 +1841,7 @@ function importarCSVShopifyNativo(){
           for(const existenteIdx of vendasData.map((row,index)=>row.shopifyOrderId===shopifyOrderId?index:-1).filter(index=>index>=0)){
           const old=vendasData[existenteIdx],fulfillment=String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase();
           const contactoCSV=window.appendAlternateContact(old.contacto,alternativoCSV);
-          const nextStatus=status==='pendente' && old.panelConfirmed?'concluido':status;
+          const nextStatus=status==='pendente'?(old.panelConfirmed?'concluido':old.status==='remarcado'?'remarcado':'pendente'):status;
           if(old.contacto!==contactoCSV || old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
             vendasData[existenteIdx]={...old,contacto:contactoCSV,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
           }
@@ -1943,7 +1945,7 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
     document.getElementById('vendaCancelEdit').style.display = 'none';
   } else {
     vendasData.push(window.captureSaleCost({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, horario, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status},produtosData));
-    showVendaMsg('Contacto adicionado.');
+    showVendaMsg('Pedido adicionado.');
   }
   const target=edited?vendasData.find(row=>row.id===edited.id):vendasData.at(-1);
   if(target && feeMode!=='legacy')for(const row of vendasData.filter(row=>row.id===target.id || (target.shopifyOrderId && row.shopifyOrderId===target.shopifyOrderId))){const changedMode=row.deliveryFeeMode!==feeMode;row.comissao=0;if(changedMode || feeMode==='manual')delete row.deliveryFee;Object.assign(row,feeFields);}
@@ -1954,6 +1956,8 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
   document.getElementById('shopifyEditStatusHelp').hidden=true;
   dpVData.setValue(mesAtivoVendas===drISO(new Date()).slice(0,7)?drISO(new Date()):mesAtivoVendas+'-01');
   document.getElementById('vQuantidade').value = 1;
+  if(vendaFormAberto)toggleVendaForm();
+  if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=false;
   renderVendasAll();
 });
 
@@ -2053,13 +2057,13 @@ function iniciarNovoMesVendas(){
 }
 function guardarMesPreferido(){try{localStorage.setItem(window.cloudBackend.preferenceKey('painel_mes_vendas'),mesAtivoVendas);}catch{}}
 window.navigateOrders=function(month,week){if(month)mesAtivoVendas=month;if(week)semanaAtiva=week;guardarMesPreferido();switchMain('vendas');switchVendasView('pedidos');renderVendasAll();};
-window.openNewOrder=function(month){window.navigateOrders(month);if(!vendaEditId){const today=drISO(new Date());const date=mesAtivoVendas===today.slice(0,7)?today:mesAtivoVendas+'-01';dpVData.setValue(date);semanaAtiva=semanaPorDia(date);renderVendasAll();}abrirVendaForm();document.getElementById('vContacto').focus();};
+window.openNewOrder=function(month){cancelVendaEdit();window.configureDeliveryEditor?.();window.navigateOrders(month);const today=drISO(new Date());const date=mesAtivoVendas===today.slice(0,7)?today:mesAtivoVendas+'-01';dpVData.setValue(date);semanaAtiva=semanaPorDia(date);renderVendasAll();abrirVendaForm();document.getElementById('vContacto').focus();};
 
 function renderSemanaTabs(){
   document.getElementById('semanaTabs').innerHTML = SEMANAS.map(s=>{
-    const pendentes = vendasData.filter(v=> v.semana===s.key && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado')).length;
+    const pendentes = window.countOrders(window.effectiveSales(vendasData).filter(v=> v.semana===s.key && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado')));
     const badge = pendentes>0 ? `<span class="tab-badge">${pendentes}</span>` : '';
-    return `<button class="${s.key===semanaAtiva?'active':''}" onclick="selecionarSemana('${s.key}')">${s.label}${badge}</button>`;
+    return `<button aria-pressed="${s.key===semanaAtiva}" class="${s.key===semanaAtiva?'active':''}" onclick="selecionarSemana('${s.key}')">${s.label}${badge}</button>`;
   }).join('');
   const lbl = SEMANAS.find(s=>s.key===semanaAtiva).label;
   document.getElementById('semanaAtivaTag').textContent = lbl;
@@ -2111,18 +2115,21 @@ function cancelarModoSelecaoPedidos(){
   renderPedidos();
 }
 function toggleSelecaoPedido(id){
-  if(pedidosSelecionadosPDF.has(id)) pedidosSelecionadosPDF.delete(id); else pedidosSelecionadosPDF.add(id);
+  const source=vendasData.find(row=>row.id===id);if(!source)return;
+  const rows=window.effectiveSales(vendasData).filter(row=>row.id===id || (source.shopifyOrderId && row.shopifyOrderId===source.shopifyOrderId));
+  const selected=rows.every(row=>pedidosSelecionadosPDF.has(row.id));
+  for(const row of rows){if(selected)pedidosSelecionadosPDF.delete(row.id);else pedidosSelecionadosPDF.add(row.id);}
   renderPedidos();
 }
 function exportarPDFSelecionados(){
   if(typeof jspdf==='undefined'){ alert('Não consegui carregar a biblioteca de PDF — confira sua ligação à internet e tente de novo.'); return; }
   if(pedidosSelecionadosPDF.size===0){ alert('Selecione pelo menos um pedido primeiro.'); return; }
-  const pedidos = vendasData.filter(v=>pedidosSelecionadosPDF.has(v.id))
+  const pedidos = window.effectiveSales(vendasData).filter(v=>pedidosSelecionadosPDF.has(v.id))
     .sort((a,b)=> a.data===b.data ? (a.horario||'99:99').localeCompare(b.horario||'99:99') : a.data.localeCompare(b.data));
   const doc = new jspdf.jsPDF();
   doc.setFontSize(15);
   doc.setFont(undefined,'bold');
-  doc.text('Pedidos selecionados (' + pedidos.length + ')', 20, 16);
+  doc.text('Pedidos selecionados (' + window.countOrders(pedidos) + ')', 20, 16);
   let y = 26;
   pedidos.forEach(v=>{
     if(y > 245){ doc.addPage(); y = 20; }
@@ -2143,7 +2150,7 @@ function renderPedidos(){
   btnSelecao.textContent = modoSelecaoPedidos ? '✕ Sair da seleção' : '☑ Selecionar para PDF';
   barSelecao.style.display = modoSelecaoPedidos ? 'flex' : 'none';
   if(modoSelecaoPedidos){
-    const n = pedidosSelecionadosPDF.size;
+    const n = window.countOrders(window.effectiveSales(vendasData).filter(row=>pedidosSelecionadosPDF.has(row.id)));
     document.getElementById('pedidosSelecaoCount').textContent = n + (n===1 ? ' pedido selecionado' : ' pedidos selecionados');
   }
 
@@ -2155,9 +2162,11 @@ function renderPedidos(){
     return;
   }
   empty.style.display = 'none';
-  tag.textContent = list.length + (list.length===1 ? ' pedido em aberto' : ' pedidos em aberto');
+  const ordersCount=window.countOrders(list);
+  tag.textContent = ordersCount + (ordersCount===1 ? ' pedido em aberto' : ' pedidos em aberto')+(list.length>ordersCount?' · '+list.length+' linhas de produto':'');
 
-  const hojeStr = new Date().toISOString().slice(0,10);
+  const lineCounts=new Map();for(const row of window.effectiveSales(vendasData)){if(row.shopifyOrderId)lineCounts.set(row.shopifyOrderId,(lineCounts.get(row.shopifyOrderId) || 0)+1);}
+  const hojeStr = drISO(new Date());
   const grupos = {};
   list.forEach(v=>{ (grupos[v.data] = grupos[v.data] || []).push(v); });
   let datas = Object.keys(grupos).sort();
@@ -2176,13 +2185,13 @@ function renderPedidos(){
       const onclickCard = modoSelecaoPedidos ? `toggleSelecaoPedido('${v.id}')` : `togglePedidoCard('${v.id}')`;
       const classeExtra = modoSelecaoPedidos ? (' selecionavel'+(selecionado?' selecionado':'')) : (expandido?' expanded':'');
       return `
-      <div class="pedido-card${classeExtra}" onclick="${onclickCard}">
+      <div id="pedido_${v.id}" class="pedido-card${classeExtra}" onclick="${onclickCard}">
         <div class="pedido-card-top">
           <span class="pedido-hora">${v.horario ? '🕒 '+v.horario : 'Sem horário'}</span>
           <span style="display:flex; align-items:center; gap:8px;">
             <span class="pill st-${v.status==='concluido'&&!window.completedSale(v)?'verificar':v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':v.status==='concluido'&&!window.completedSale(v)?'A verificar':STATUS_LABEL[v.status]}</span>
             ${modoSelecaoPedidos
-              ? `<span class="pedido-checkbox${selecionado?' checked':''}">${selecionado?'✓':''}</span>`
+              ? `<button type="button" class="pedido-checkbox${selecionado?' checked':''}" aria-label="${selecionado?'Retirar seleção do pedido':'Selecionar pedido'}" aria-pressed="${selecionado}" onclick="event.stopPropagation();toggleSelecaoPedido('${v.id}')">${selecionado?'✓':''}</button>`
               : `<button type="button" class="pedido-expand-chev" aria-expanded="${expandido}" aria-label="Mostrar ações do pedido" onclick="event.stopPropagation();togglePedidoCard('${v.id}')">⌄</button>`}
           </span>
         </div>
@@ -2191,6 +2200,7 @@ function renderPedidos(){
           <div class="pedido-detalhes">${escapeHtml(v.local||'Local não indicado')}</div>${v.provincia?`<div class="order-province">Província: ${escapeHtml(v.provincia)}</div>`:''}
           ${v.data<drISO(new Date())?'<div class="order-overdue">Entrega em atraso · escolhe uma nova data</div>':''}
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
+          ${(lineCounts.get(v.shopifyOrderId) || 0)>1?`<small class="order-line-hint pedido-extra">Pedido com ${lineCounts.get(v.shopifyOrderId)} linhas de produto. Concluir, cancelar e reagendar aplicam-se ao pedido inteiro.</small>`:''}
           ${v.dataPedido && v.dataPedido!==v.data?`<div class="order-schedule-note">Pedido de ${fmtData(v.dataPedido)} · entrega reagendada para ${fmtData(v.data)}</div>`:''}
         </div>
         ${pedidosMensagens.has(v.shopifyOrderId)?`<div role="status" style="font-size:13px;color:var(--gold);margin:8px 0">${escapeHtml(pedidosMensagens.get(v.shopifyOrderId))}</div>`:''}
@@ -2225,7 +2235,8 @@ function moverPedidoSemana(id, novaSemana){
   const idx = vendasData.findIndex(v=>v.id===id);
   if(idx===-1) return;
   const semanaAntiga = vendasData[idx].semana;
-  vendasData[idx].semana = novaSemana;
+  const source=vendasData[idx];
+  for(const row of vendasData.filter(row=>row.id===id || (source.shopifyOrderId && row.shopifyOrderId===source.shopifyOrderId)))row.semana=novaSemana;
   saveVendas();
   renderVendasAll();
   const nomeNova = SEMANAS.find(s=>s.key===novaSemana)?.label || novaSemana;
@@ -3021,7 +3032,7 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
     .map(r=>({ id:r.id, local:(r.local||'').trim(), quantidade: parseInt(r.quantidade,10)||0 }))
     .filter(r=> r.local || r.quantidade>0);
   if(!nome){ showProdutoMsg('Preencha o nome do produto.'); return; }
-  if(produtoEditId && produtosData.some(p=>p.id!==produtoEditId && normalizarNomeProduto(p.nome)===normalizarNomeProduto(nome))){showProdutoMsg('Este nome já pertence a outro produto. Escolhe outro nome.');return;}
+  if(produtosData.some(p=>p.id!==produtoEditId && normalizarNomeProduto(p.nome)===normalizarNomeProduto(nome))){showProdutoMsg('Este nome já pertence a outro produto. Escolhe outro nome.');return;}
   const foto = pendingFotoBase64;
 
   if(produtoEditId){
@@ -3033,7 +3044,7 @@ document.getElementById('produtoForm').addEventListener('submit', function(e){
     document.getElementById('produtoCancelEdit').style.display = 'none';
   } else {
     const existente = produtosData.find(p=>normalizarNomeProduto(p.nome)===normalizarNomeProduto(nome));
-    if(existente){ existente.custo = custo; existente.locais = locais; if(foto) existente.foto = foto; showProdutoMsg('Produto já existia — atualizado.'); }
+    if(existente){showProdutoMsg('Este produto já existe. Abre o produto no catálogo e escolhe Editar.');return;}
     else { produtosData.push({id:uid(), nome, custo, locais, foto: foto||''}); showProdutoMsg('Produto cadastrado.'); }
   }
   saveProdutos();
@@ -3086,7 +3097,7 @@ function cancelProdutoEdit(){
   document.getElementById('produtoCancelEdit').style.display = 'none';
 }
 function deleteProduto(id){
-  if(!confirm('Apagar este produto? O custo de aquisição dele deixa de contar no ROI.')) return;
+  if(!confirm('Apagar este produto do catálogo e o seu stock local? Os pedidos e os custos já guardados nas vendas mantêm-se.')) return;
   produtosData = produtosData.filter(p=>p.id!==id);
   saveProdutos();
   renderProdutosAll();
@@ -3262,7 +3273,7 @@ function editOp(id){
   const o = operacionaisData.find(x=>x.id===id);
   if(!o) return;
   switchMain('metricas');
-  switchMetricasView('cadastros');window.chooseExpenseType?.('operacional');
+  switchMetricasView('cadastros');document.getElementById('expenseDialogTitle').textContent='Editar gasto';window.chooseExpenseType?.('operacional');
   document.getElementById('opNome').value = o.nome;
   document.getElementById('opValor').value = o.valor;
   dpOpData.setValue(o.data);
@@ -3270,7 +3281,7 @@ function editOp(id){
   opEditId = id;
   document.getElementById('opSubmitBtn').textContent = 'Atualizar';
   document.getElementById('opCancelEdit').style.display = 'inline-block';
-  window.scrollTo({top: document.getElementById('opForm').offsetTop - 20, behavior:'smooth'});
+  document.getElementById('opNome').focus();
 }
 function cancelOpEdit(){
   opEditId = null;
@@ -3419,14 +3430,14 @@ function editAd(id){
   const a = adSpendData.find(x=>x.id===id);
   if(!a || a.source==='meta') return;
   switchMain('metricas');
-  switchMetricasView('cadastros');window.chooseExpenseType?.('ads');
+  switchMetricasView('cadastros');document.getElementById('expenseDialogTitle').textContent='Editar gasto';window.chooseExpenseType?.('ads');
   dpAdData.setRange([a.data, adSpendFim(a)], null);
   document.getElementById('adProduto').value = a.produto||'';
   document.getElementById('adValor').value = a.valor;
   adEditId = id;
   document.getElementById('adSubmitBtn').textContent = 'Atualizar gasto';
   document.getElementById('adCancelEdit').style.display = 'inline-block';
-  window.scrollTo({top: document.getElementById('adForm').offsetTop - 20, behavior:'smooth'});
+  document.getElementById('adValor').focus();
 }
 function cancelAdEdit(){
   adEditId = null;
@@ -3465,14 +3476,14 @@ function editOutro(id){
   const a = adSpendData.find(x=>x.id===id);
   if(!a) return;
   switchMain('metricas');
-  switchMetricasView('cadastros');window.chooseExpenseType?.('outros');
+  switchMetricasView('cadastros');document.getElementById('expenseDialogTitle').textContent='Editar gasto';window.chooseExpenseType?.('outros');
   dpOutroData.setRange([a.data, adSpendFim(a)], null);
   document.getElementById('outroNome').value = a.nome||'';
   document.getElementById('outroValor').value = a.valor;
   outroEditId = id;
   document.getElementById('outroSubmitBtn').textContent = 'Atualizar gasto';
   document.getElementById('outroCancelEdit').style.display = 'inline-block';
-  window.scrollTo({top: document.getElementById('outroForm').offsetTop - 20, behavior:'smooth'});
+  document.getElementById('outroNome').focus();
 }
 function cancelOutroEdit(){
   outroEditId = null;
@@ -3663,6 +3674,7 @@ function renderGastosView(){
 
   const tbody = document.getElementById('gastosViewBody');
   const empty = document.getElementById('gastosViewEmpty');
+  empty.textContent=(tipoFiltro || busca)?'Nenhum gasto corresponde aos filtros. Limpa a pesquisa ou escolhe outro tipo.':'Ainda não há gastos registados. Usa Registar gasto para adicionar o primeiro.';
   if(itens.length===0){
     tbody.innerHTML=''; empty.style.display='block';
     document.getElementById('gastosViewTotal').textContent = fmtMT(0);
@@ -3703,6 +3715,7 @@ function renderProdutosView(){
 
   const grid = document.getElementById('produtosGrid');
   const empty = document.getElementById('produtosGridEmpty');
+  empty.textContent=busca?'Nenhum produto corresponde à pesquisa.':'Ainda não há produtos. Adiciona um produto ou vincula os produtos da Shopify.';
   if(list.length===0){
     grid.innerHTML='';
     empty.style.display='block';
@@ -3780,6 +3793,17 @@ renderFluxoAll();
 renderVendasAll();
 populateProdutosMetricas();
 
+window.resetBusinessWorkspace=function(){
+ cancelVendaEdit();cancelProdutoEdit();cancelAdEdit();cancelOutroEdit();cancelOpEdit();
+ pedidosExpandidos.clear();pedidosListaExpandidos.clear();produtosExpandidos.clear();pedidosSelecionadosPDF.clear();pedidosMensagens.clear();modoSelecaoPedidos=false;shopifyChavesDescobertas=[];
+ if(vendaFormAberto)toggleVendaForm();
+ for(const id of ['vendaBusca','pedidosBusca','produtosBusca','gastosBusca','cloudShop','metaRate','shopifyNativeFile','backupFile']){const field=document.getElementById(id);if(field)field.value='';}
+ for(const [id,value] of [['filtroStatus','todos'],['pedidosEstado',''],['gastosFiltroTipo','']]){const field=document.getElementById(id);if(field)field.value=value;}
+ for(const id of ['summaryOrders','catalogRemoteRows','reconcileRows'])document.getElementById(id)?.replaceChildren();
+ document.getElementById('metaAccount')?.replaceChildren();
+ document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
+ switchMain('resumo');switchVendasView('pedidos');
+};
 window.applyCloudState=function(state){
  fluxoData=structuredClone(state.fluxo || []);vendasData=structuredClone(state.vendas || []);produtosData=structuredClone(state.produtos || []);adSpendData=structuredClone(state.ads || []);operacionaisData=structuredClone(state.operacional || []);
  migrarProdutosParaLocais();renderFluxoAll();renderVendasAll();renderProdutosAll();renderOpAll();renderAdAll();
