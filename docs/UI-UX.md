@@ -122,3 +122,11 @@ A importação CSV preenche horários em falta em todas as linhas de um pedido j
 ### Importação e contacto alternativo
 
 O menu Dados apresenta a importação numa caixa expansível destacada, com descrição e seta. O mapeamento CSV usa uma coluna em mobile e duas em ecrãs maiores, labels associados aos selects e resumo compacto. Inclui contacto alternativo opcional; a reimportação acrescenta esse número aos contactos existentes sem repetir o mesmo número com prefixo internacional. A sincronização automática também reconhece os atributos usuais de contacto alternativo. O mapeamento personalizado continua a aplicar-se ao CSV e é guardado por utilizador neste navegador.
+
+## Entrada das abas e contexto do dia — 09/11/2026
+
+Tocar numa aba principal repõe a rolagem no topo, em vez de conservar a posição de outra página. Pedidos abre Entregas, no mês e na semana atuais em Africa/Maputo, com o formulário recolhido e a pesquisa/seleção de PDF limpas. Entregas passa a ser a primeira subaba; Lista e Relatórios continuam acessíveis no topo. O botão Hoje volta ao mesmo contexto a partir de outro mês/semana.
+
+A mudança automática de contexto aplica-se aos botões da navegação principal. Editar, Ver pedido, reagendar e outros atalhos explícitos mantêm o mês/semana do registo e o foco no cartão/formulário. Os botões de subabas também voltam ao topo. A abertura de Novo pedido pelo formulário recolhido inicia um novo registo, sem recuperar uma edição escondida.
+
+Verificação: 65 testes unitários (incluindo viragem de dia e mês em Maputo), suíte de revisão Chromium e suíte comercial de navegador. A regressão simula estar no fundo, num mês diferente, e confirma o destino, a semana ativa e scrollY=0; confirma também que Ver pedido continua a abrir um pedido de outro mês.

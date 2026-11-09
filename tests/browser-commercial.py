@@ -50,7 +50,7 @@ with sync_playwright() as p:
     customer.click('#tabBtnProdutos');expect(customer.locator('#secProdutos')).to_be_visible()
     expect(customer.locator('#secProdutos')).to_contain_text('Produto de navegação')
     customer.get_by_role('button',name='Adicionar produto',exact=True).click();expect(customer.locator('#productDialog')).to_be_visible();customer.click('#productDialog .dialog-close')
-    customer.click('#tabBtnVendas');expect(customer.locator('#vendaTableBody')).to_contain_text('Cliente atual')
+    customer.click('#tabBtnVendas');customer.click('#subnavVendasPedidos');expect(customer.locator('#vendaTableBody')).to_contain_text('Cliente atual')
     customer.click('#drOverview .daterange-trigger');customer.click('#drOverview [data-key="mes_passado"]')
     expect(customer.locator('#vendaTableBody')).to_contain_text('Cliente antigo');expect(customer.locator('#vendaTableBody')).not_to_contain_text('Cliente atual')
     expect(customer.locator('#vendaTableBody')).to_contain_text('Sofala')

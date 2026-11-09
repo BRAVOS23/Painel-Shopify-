@@ -38,3 +38,8 @@ export function rescheduleOrders(rows,ids,options,now=new Date().toISOString()){
  const keys=new Set(selected.map(orderKey));
  return rows.map(row=>keys.has(orderKey(row)) && ['pendente','remarcado'].includes(row.status)?scheduleOrder(row,options,now):row);
 }
+
+export function todayDeliveryScope(now=new Date()){
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Maputo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now).map(part=>[part.type,part.value]));
+ return {month:parts.year+'-'+parts.month,week:'semana'+Math.min(4,Math.ceil(Number(parts.day)/7))};
+}

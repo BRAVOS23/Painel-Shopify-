@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {scheduleOrder,rescheduleOrders,uniqueOrders} from '../web/orders.mjs';
+import {scheduleOrder,rescheduleOrders,uniqueOrders,todayDeliveryScope} from '../web/orders.mjs';
 import {validateRecord} from '../server/model.mjs';
 const row={id:'legacy_order',data:'2026-09-29',mes:'2026-09',semana:'semana4',status:'remarcado',horario:'12:00',contacto:'Cliente',valor:100,quantidade:1};
 test('reagendamento entre meses mantém ID e data original e calcula nova semana',()=>{
@@ -32,4 +32,12 @@ test('reagendamento em lote rejeita concluídos e preserva originais em erro',()
  assert.equal(rows[0].data,'2026-09-29');
  const next=rescheduleOrders([row,{...row,id:'manual'}],['legacy_order'],{date:'2026-11-15'});
  assert.equal(next[1].data,row.data);
+});
+
+test('entrada em Entregas usa mês e semana do dia em Maputo, incluindo mudança de mês',()=>{
+ assert.deepEqual(todayDeliveryScope(new Date('2026-11-09T06:00:00Z')),{month:'2026-11',week:'semana2'});
+ assert.deepEqual(todayDeliveryScope(new Date('2026-11-07T22:30:00Z')),{month:'2026-11',week:'semana2'});
+ assert.deepEqual(todayDeliveryScope(new Date('2026-11-14T22:30:00Z')),{month:'2026-11',week:'semana3'});
+ assert.deepEqual(todayDeliveryScope(new Date('2026-11-30T22:30:00Z')),{month:'2026-12',week:'semana1'});
+ assert.deepEqual(todayDeliveryScope(new Date('2026-12-31T18:00:00Z')),{month:'2026-12',week:'semana4'});
 });

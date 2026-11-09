@@ -19,6 +19,10 @@ A navegação mantém quatro tarefas principais:
 
 Produtos mantém área própria. O registo de gastos permanece uma ação contextual, com categorias Anúncios, Outros e Loja. A taxa padrão mantém-se em Conta e tem atalho no custo de entregas em Resultados. A operação por mês/semana fica visível em Entregas; a Lista e os Relatórios usam o período escolhido no topo.
 
+### Entrada direta nas tarefas do dia
+
+Ao tocar na navegação principal, a página abre no topo. Pedidos entra em **Entregas**, na semana e no mês atuais de Moçambique, com o formulário recolhido. Entregas é a primeira subaba e tem o botão **Hoje** para regressar ao contexto atual. Lista e Relatórios continuam disponíveis; os seus botões também voltam ao topo. Atalhos explícitos para editar/ver/reagendar um pedido preservam a data do registo.
+
 ## Problemas corrigidos e reforços
 
 1. **Novo pedido depois de editar:** o botão podia reaproveitar a edição de um pedido existente. Agora inicia um novo registo, com os campos e o modo de entrega reiniciados.
@@ -68,7 +72,7 @@ Os atributos `onclick` da interface também são inspecionados no navegador para
 
 Todas as verificações abaixo terminaram com sucesso nesta revisão:
 
-- 64 testes unitários, incluindo o reagendamento por pedido com várias linhas e a preservação dos originais em caso de erro.
+- 65 testes unitários, incluindo o reagendamento por pedido com várias linhas e a preservação dos originais em caso de erro.
 - 25 verificações de integração de API, 9 verificações comerciais e 2 cenários de recuperação/restauro.
 - Cenário integrado da taxa de entrega: isolamento por conta, revisões, múltiplos produtos, custo zero e exportação.
 - Duas suítes Chromium: comercial/administração e revisão de UX, sem erros JavaScript nos percursos executados.

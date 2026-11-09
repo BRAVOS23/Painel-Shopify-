@@ -51,6 +51,20 @@ with sync_playwright() as p:
     page.click('#pedidosSelecaoBtn');page.locator('#pedido_sh_700_one .pedido-checkbox').click();expect(page.locator('#pedidosSelecaoCount')).to_have_text('1 pedido selecionado')
     with page.expect_download() as download:page.evaluate('exportarPDFSelecionados()')
     assert download.value.suggested_filename.endswith('.pdf')
+    # Navegação principal começa no topo e Pedidos abre Entregas na semana de hoje.
+    scope=page.evaluate("()=>{const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Maputo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(p=>[p.type,p.value]));return {month:parts.year+'-'+parts.month,week:'semana'+Math.min(4,Math.ceil(Number(parts.day)/7))};}")
+    page.evaluate('abrirVendaForm();window.scrollTo(0,document.body.scrollHeight)')
+    page.click('#tabBtnVendas')
+    expect(page.locator('#vendasViewEntregas')).to_be_visible();expect(page.locator('#mesVendasEditor')).to_have_value(scope['month'])
+    expect(page.locator('#semanaTabs button[aria-pressed="true"]')).to_contain_text('Semana '+scope['week'][-1])
+    assert page.evaluate('scrollY')==0
+    # Um atalho para um pedido antigo/futuro conserva o destino explícito.
+    page.evaluate("window.focusOrder('sh_700_one')");expect(page.locator('#mesVendasEditor')).to_have_value(next_month[:7])
+    page.click('#deliveryToday');expect(page.locator('#mesVendasEditor')).to_have_value(scope['month']);assert page.evaluate('scrollY')==0
+    for target in ['tabBtnProdutos','tabBtnMetricas','tabBtnResumo']:
+        page.evaluate('window.scrollTo(0,document.body.scrollHeight)');page.click('#'+target);assert page.evaluate('scrollY')==0,target
+    page.click('#tabBtnVendas');page.click('#subnavVendasRelatorios');assert page.evaluate('scrollY')==0
+    page.click('#subnavVendasPedidos');assert page.evaluate('scrollY')==0
     # Catálogo: pesquisa vazia não sugere apagar dados; duplicados não alteram stock/custo.
     page.click('#tabBtnProdutos');page.fill('#produtosBusca','sem-correspondencia');expect(page.locator('#produtosGridEmpty')).to_contain_text('pesquisa')
     page.fill('#produtosBusca','');page.get_by_role('button',name='Adicionar produto',exact=True).click()
