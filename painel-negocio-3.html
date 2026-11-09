@@ -853,22 +853,22 @@
       <div class="panel panel-slim" id="cloudIntegrationsShopify"><h2>Shopify</h2><p>Ligue a sua loja para importar pedidos automaticamente.</p></div>
 
       <div class="panel panel-slim">
-        <h2>Importar exportação nativa da Shopify <span class="tag">a forma mais simples — sem configuração</span></h2>
+        <h2>Importar exportação nativa da Shopify <span class="tag">CSV de pedidos</span></h2>
         <p style="font-size:13px; color:var(--sand-dim); margin-bottom:14px; line-height:1.5;">
-          No admin da Shopify: <strong>Pedidos → Exportar → Todos os pedidos → CSV para o Excel, Numbers, etc.</strong> Esse ficheiro já vem com o status real de cada pedido (pago, cancelado) — os pedidos entram direto como Concluído/Cancelado, sem precisar clicar um por um. Reimportar um ficheiro mais recente atualiza o status dos pedidos que já tinha importado, sem duplicar.
+          No admin da Shopify: <strong>Pedidos → Exportar → Todos os pedidos → CSV para o Excel, Numbers, etc.</strong> O painel lê o estado de pagamento e processamento. Um pedido pago e processado conta como concluído; cancelados mantêm esse estado. Reimportar atualiza os estados e preenche horários em falta, sem duplicar pedidos.
         </p>
         <div class="toolbar">
           <input type="file" id="shopifyNativeFile" style="flex:1; min-width:220px; color:var(--sand); font-size:13px;" onchange="onShopifyFileEscolhido(this)">
           <button class="btn-ghost" id="shopifyNativeImportBtn" onclick="importarCSVShopifyNativo()">Importar exportação da Shopify</button>
         </div>
         <div style="font-size:12px; color:var(--sand-dimmer); margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <span>🔧 Mapeamento de campos do formulário de checkout: <span id="shopifyMapResumo" class="mono"></span></span>
+          <span>Campos do checkout: <span id="shopifyMapResumo" class="mono"></span></span>
           <button type="button" class="btn-ghost" style="padding:4px 10px; font-size:11.5px;" onclick="abrirMapeamentoShopify()">Alterar mapeamento</button>
         </div>
         <div id="shopifyMapAviso" class="metricas-aviso" style="display:none; margin-top:12px;">
-          ⚠ O ficheiro escolhido tem campos diferentes do mapeamento guardado — confirme abaixo qual campo é qual antes de importar.
+          Escolhe o campo do checkout que corresponde a cada informação do painel. Nos campos opcionais, podes selecionar “não usar”.
         </div>
-        <div id="shopifyMapBox" style="display:none; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; margin-top:12px;"></div>
+        <div id="shopifyMapBox" style="display:none;"></div>
         <div id="shopifyMapBoxActions" style="display:none; gap:10px; margin-top:12px;">
           <button type="button" class="btn-primary" onclick="guardarMapeamentoShopify(true)">Guardar mapeamento e importar</button>
           <button type="button" class="btn-ghost" onclick="cancelarMapeamentoShopify()">Cancelar</button>
@@ -1681,7 +1681,8 @@ function parseNoteAttributes(raw){
 const SHOPIFY_MAP_KEY = 'lobo_shopify_field_map_v1';
 const SHOPIFY_MAP_CAMPOS = [
   {key:'nome', label:'Nome do cliente'},
-  {key:'contacto', label:'Contacto / telefone'},
+  {key:'contacto', label:'Contacto principal'},
+  {key:'alternativo', label:'Contacto alternativo (opcional)'},
   {key:'local', label:'Local de entrega'},
   {key:'provincia', label:'Província'},
   {key:'horario', label:'Horário de entrega'}
@@ -1689,6 +1690,7 @@ const SHOPIFY_MAP_CAMPOS = [
 const SHOPIFY_MAP_SUGESTOES = {
   nome: ['nome','nome completo','cliente','nome do cliente'],
   contacto: ['contacto','contato','telefone','whatsapp','celular','número','numero'],
+  alternativo: ['contacto alternativo','contato alternativo','telefone alternativo','numero alternativo','número alternativo','outro contacto'],
   local: ['local de entrega','endereço de entrega','endereço','endereco','morada','bairro','local'],
   provincia: ['província','provincia','cidade'],
   horario: ['hora da entrega','horário da entrega','horário','horario','hora preferida','hora']
@@ -1696,7 +1698,7 @@ const SHOPIFY_MAP_SUGESTOES = {
 // mapeamento que já reflete exatamente como o painel lia esses campos antes desta funcionalidade
 // existir — garante que quem já usa o painel hoje não perde nada nem precisa configurar nada
 function shopifyMapPadrao(){
-  return {nome:'nome', contacto:'contacto', local:'local de entrega', provincia:'província', horario:'hora da entrega'};
+  return {nome:'nome', contacto:'contacto', alternativo:'contacto alternativo', local:'local de entrega', provincia:'província', horario:'hora da entrega'};
 }
 function loadShopifyFieldMap(){
   try{ return {...shopifyMapPadrao(), ...(JSON.parse(localStorage.getItem(window.cloudBackend.preferenceKey(SHOPIFY_MAP_KEY)))||{})}; }
@@ -1721,12 +1723,12 @@ function descobrirChavesNotas(textoCSV){
   return [...chaves].sort();
 }
 function mapeamentoCompativel(mapa, chavesDisponiveis){
-  return SHOPIFY_MAP_CAMPOS.every(c => !mapa[c.key] || chavesDisponiveis.includes(mapa[c.key]));
+  return SHOPIFY_MAP_CAMPOS.filter(c=>c.key!=='alternativo').every(c => !mapa[c.key] || chavesDisponiveis.includes(mapa[c.key]));
 }
 function renderShopifyMapResumo(){
   const mapa = loadShopifyFieldMap();
-  const partes = SHOPIFY_MAP_CAMPOS.filter(c=>mapa[c.key]).map(c=>`${c.label}→"${mapa[c.key]}"`);
-  document.getElementById('shopifyMapResumo').textContent = partes.length ? partes.join(' · ') : 'nenhum campo mapeado ainda';
+  const total=SHOPIFY_MAP_CAMPOS.filter(c=>mapa[c.key]).length;
+  document.getElementById('shopifyMapResumo').textContent = total ? total+' campos configurados' : 'nenhum campo configurado';
 }
 
 let shopifyChavesDescobertas = [];
@@ -1753,12 +1755,12 @@ function abrirMapeamentoShopify(){
     const valorAtual = shopifyChavesDescobertas.includes(mapaAtual[c.key]) ? mapaAtual[c.key] : sugerirChaveShopify(c.key, shopifyChavesDescobertas);
     const opcoes = ['<option value="">(não usar)</option>']
       .concat(shopifyChavesDescobertas.map(k=>`<option value="${escapeHtml(k)}"${k===valorAtual?' selected':''}>${escapeHtml(k)}</option>`));
-    return `<div class="field"><label>${c.label}</label><select id="shopifyMap_${c.key}">${opcoes.join('')}</select></div>`;
+    return `<div class="field"><label for="shopifyMap_${c.key}">${c.label}</label><select id="shopifyMap_${c.key}">${opcoes.join('')}</select></div>`;
   }).join('');
   box.style.display = 'grid';
   document.getElementById('shopifyMapBoxActions').style.display = 'flex';
   document.getElementById('shopifyMapAviso').style.display = 'block';
-  window.scrollTo({top: box.offsetTop - 20, behavior:'smooth'});
+  box.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 function guardarMapeamentoShopify(eImportarDepois){
   const mapa = {};
@@ -1830,14 +1832,16 @@ function importarCSVShopifyNativo(){
         const status=window.csvOrderStatus(finStatus,iFulfillment>=0?cols[iFulfillment]:'',cancelledAt);
 
         const provinciaCSV=String(cols[col('Shipping Province Name')] || campoMapeado(parseNoteAttributes(cols[iNotas]),'provincia') || cols[col('Shipping Province')] || '').trim();
+        const alternativoCSV=campoMapeado(parseNoteAttributes(cols[iNotas]),'alternativo');
         const horarioCSV=normalizeHorario(campoMapeado(parseNoteAttributes(cols[iNotas]),'horario'));
         const existenteIdx = vendasData.findIndex(v=>v.shopifyOrderId===shopifyOrderId);
         if(existenteIdx>-1){
           for(const existenteIdx of vendasData.map((row,index)=>row.shopifyOrderId===shopifyOrderId?index:-1).filter(index=>index>=0)){
           const old=vendasData[existenteIdx],fulfillment=String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase();
+          const contactoCSV=window.appendAlternateContact(old.contacto,alternativoCSV);
           const nextStatus=status==='pendente' && old.panelConfirmed?'concluido':status;
-          if(old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
-            vendasData[existenteIdx]={...old,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
+          if(old.contacto!==contactoCSV || old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
+            vendasData[existenteIdx]={...old,contacto:contactoCSV,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
           }
           }
           continue;
@@ -1856,6 +1860,7 @@ function importarCSVShopifyNativo(){
         if(telContacto && telShip && so9digitos(telContacto)!==so9digitos(telShip)){
           telefone = telContacto + ' / ' + telShip;
         }
+        telefone=window.appendAlternateContact(telefone,campoMapeado(notas,'alternativo'));
         const provincia = provinciaCSV;
         const localBase = campoMapeado(notas,'local');
         const local = localBase;
@@ -1885,7 +1890,7 @@ function importarCSVShopifyNativo(){
 
       saveVendas();
       let msg = novos + (novos===1 ? ' pedido novo importado' : ' pedidos novos importados');
-      if(atualizados>0) msg += ', ' + atualizados + (atualizados===1 ? ' status atualizado' : ' status atualizados');
+      if(atualizados>0) msg += ', ' + atualizados + (atualizados===1 ? ' registo atualizado' : ' registos atualizados');
       msg += '.';
       if(naoReconhecidos.size){
         msg += ' Atenção: produto(s) sem cadastro em "Produtos" — ' + [...naoReconhecidos].join(', ') + '. O custo de aquisição desses não entra no ROI até você cadastrar.';

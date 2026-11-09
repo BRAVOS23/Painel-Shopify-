@@ -116,3 +116,7 @@ Conta passa a incluir “Taxa de entrega padrão”, com atalho no cartão de cu
 ## Horários do checkout — 09/11/2026
 
 A importação CSV preenche horários em falta em todas as linhas de um pedido já existente, respeitando o mapeamento escolhido. Horários existentes e reagendamentos são preservados. A sincronização automática reconhece os atributos usuais de hora da entrega (incluindo Hora da entrega); horas simples como 23 são normalizadas para 23:00 e valores inválidos ficam vazios. Reimportar o CSV é a forma de recuperar os horários válidos em falta nos pedidos existentes; não é necessário apagar pedidos.
+
+### Importação e contacto alternativo
+
+O menu Dados apresenta a importação numa caixa expansível destacada, com descrição e seta. O mapeamento CSV usa uma coluna em mobile e duas em ecrãs maiores, labels associados aos selects e resumo compacto. Inclui contacto alternativo opcional; a reimportação acrescenta esse número aos contactos existentes sem repetir o mesmo número com prefixo internacional. A sincronização automática também reconhece os atributos usuais de contacto alternativo. O mapeamento personalizado continua a aplicar-se ao CSV e é guardado por utilizador neste navegador.
