@@ -1,4 +1,4 @@
-import {normalizeDeliveryTime,appendAlternateContact} from '../web/orders.mjs';
+import {normalizeDeliveryTime,appendAlternateContact,validDay} from '../web/orders.mjs';
 import {deliveryAllocations} from '../web/delivery.mjs';
 import {csvOrderStatus,completedSale,countOrders,effectiveSales,saleCost,captureSaleCost} from '../web/sales.mjs';
 import {productResolver,metaProductResolver,effectiveExpenseProduct} from '../web/catalog.mjs';
@@ -33,14 +33,16 @@ export function shopifyRecords(order, products = [], currency = 'MZN') {
 }
 export function metaRecords(rows, products, accountId, sourceCurrency, currency = 'MZN', conversionRate = 1) {
   if (sourceCurrency !== currency && !(conversionRate > 0)) throw new Error('Configure uma taxa de câmbio para a conta de anúncios.');
+  if(sourceCurrency!==currency && !Number.isFinite(conversionRate))throw Object.assign(new Error('Configura uma taxa de câmbio válida para a conta Meta.'),{status:400,diagnosticCode:'META_RATE_REQUIRED'});
   const rate = sourceCurrency === currency ? 1 : conversionRate;
   const resolveCampaign=metaProductResolver(products);
   const unmatched = new Set();
   const records = rows.map(row => {
+    if(!row || !/^\d+$/.test(String(row.campaign_id || '')) || typeof row.campaign_name!=='string' || !validDay(row.date_start))throw Object.assign(new Error('A Meta devolveu um gasto sem campanha ou data válidas. Nenhum valor foi inventado.'),{status:502,diagnosticCode:'META_INVALID_RECORD'});
     const name=resolveCampaign(row.campaign_name);
     if (!name) unmatched.add(row.campaign_name);
     const amount = Number(row.spend);
-    if (!Number.isFinite(amount) || amount < 0) throw new Error('Gasto inválido devolvido pelo Meta Ads.');
+    if (!['string','number'].includes(typeof row.spend) || row.spend===null || String(row.spend).trim()==='' || !Number.isFinite(amount) || amount < 0 || !Number.isFinite(amount*rate)) throw Object.assign(new Error('A Meta devolveu um valor de gasto inválido. Tenta sincronizar novamente.'),{status:502,diagnosticCode:'META_INVALID_RECORD'});
     return { id:`meta_${accountId}_${row.campaign_id}_${row.date_start}`, data:row.date_start, tipo:'ads', produto:name,
       valor:Math.round(amount*rate*100)/100, source:'meta', campaignId:String(row.campaign_id),
       campaignName:row.campaign_name, accountId, sourceCurrency, sourceValue:amount, conversionRate:rate };

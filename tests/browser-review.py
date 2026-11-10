@@ -133,8 +133,9 @@ with sync_playwright() as p:
     missing=page.evaluate(r'''()=>[...document.querySelectorAll('[onclick]')].flatMap(node=>{const match=node.getAttribute('onclick').match(/^(?:window\.)?([A-Za-z_$][\w$]*)\(/);return match && typeof window[match[1]]!=='function'?[match[1]]:[];})''')
     assert not missing,missing
     # Uma consulta Meta indisponível não esconde o painel nem desfaz a autorização.
-    meta_page=page.context.new_page()
-    meta_page.route('**/api/connections',lambda route:route.fulfill(json={'shopify':{'connected':False,'configured':False},'meta':{'connected':True,'configured':True,'currency':'USD','conversionRate':65,'accountId':'act_123'}}))
+    meta_page=page.context.new_page();meta_page.on('pageerror',lambda error:errors.append(str(error)))
+    meta_connection={'connected':True,'configured':True,'currency':'USD','conversionRate':65,'accountId':'act_123'}
+    meta_page.route('**/api/connections',lambda route:route.fulfill(json={'shopify':{'connected':False,'configured':False},'meta':meta_connection}))
     attempts={'count':0}
     def meta_accounts(route):
         attempts['count']+=1
@@ -145,6 +146,14 @@ with sync_playwright() as p:
     meta_page.click('#accountMenuButton');meta_page.click('#accountTabIntegracoes')
     expect(meta_page.locator('#metaStatusTag')).to_contain_text('Ligada');expect(meta_page.locator('#metaConnectionMessage')).to_contain_text('META_UNAVAILABLE');expect(meta_page.locator('#chooseMetaAccount')).to_be_disabled()
     meta_page.click('#retryMetaAccounts');expect(meta_page.locator('#metaAccount')).to_have_value('act_123');expect(meta_page.locator('#chooseMetaAccount')).to_be_enabled();expect(meta_page.locator('#metaRate')).to_have_value('65')
+    meta_connection.pop('accountId');meta_page.reload(wait_until='networkidle');expect(meta_page.locator('.wrap')).to_be_visible(timeout=30000)
+    meta_page.click('#accountMenuButton');meta_page.click('#accountTabIntegracoes');expect(meta_page.locator('#syncMeta')).to_be_disabled();expect(meta_page.locator('#metaAccountHint')).to_contain_text('Falta confirmar')
+    def confirm_meta(route):
+        meta_connection['accountId']='act_123';meta_connection['conversionRate']=66;route.fulfill(json={'count':0})
+    meta_page.route('**/api/meta/account',confirm_meta)
+    meta_page.fill('#metaRate','66');meta_page.click('#chooseMetaAccount');expect(meta_page.locator('#syncMeta')).to_be_enabled();expect(meta_page.locator('#metaAccountHint')).to_contain_text('Conta confirmada')
+    meta_page.route('**/api/sync/meta',lambda route:route.fulfill(status=502,json={'error':'Não foi possível guardar os gastos.','code':'META_SYNC_WRITE'}))
+    meta_page.click('#syncMeta');expect(meta_page.locator('#metaConnectionMessage')).to_contain_text('META_SYNC_WRITE');expect(meta_page.locator('#metaStatusTag')).to_contain_text('Ligada')
     meta_page.close()
     # Trocar de conta limpa rascunhos e o domínio da loja anterior.
     page.click('#ordersNewOrder');page.fill('#vContacto','Rascunho privado de revisão')

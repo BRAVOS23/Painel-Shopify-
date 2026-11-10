@@ -136,3 +136,7 @@ Verificação: 65 testes unitários (incluindo viragem de dia e mês em Maputo),
 A consulta das contas de anúncios já não propaga uma falha para o carregamento da sessão inteira. A integração mantém o estado Ligada, mostra diagnóstico e disponibiliza Voltar a consultar contas. Uma lista vazia explica que é necessário confirmar o acesso do perfil; Usar esta conta fica indisponível enquanto não houver uma seleção válida. A reconsulta conserva o câmbio em edição e não altera dados importados.
 
 A API distingue autorização expirada, falta de permissão ads_read, limites Meta, indisponibilidade, resposta inválida e credenciais guardadas ilegíveis, sem devolver respostas integrais ou tokens. A seleção de uma conta sem timezone_name guarda null em vez de enviar undefined ao Firestore (erro HTTP 500). Regressões cobrem a consulta falhada após autenticação, a recuperação pelo botão e a conservação da ligação.
+
+## Sincronização Meta: confirmação da conta e gastos por lotes
+
+A autorização Ligada é distinguida da conta de anúncios confirmada. Guardar conta e câmbio é a ação principal da configuração; Sincronizar agora aguarda a confirmação e volta a ficar indisponível quando os campos são alterados sem guardar. A mensagem de sincronização apresenta também o código público de erro. Páginas com mais de cinco gastos são retomadas por posição, mantendo cinco escritas por lote. Detalhes e testes em [Meta Ads: sincronização](META-ADS-SINCRONIZACAO.md).
