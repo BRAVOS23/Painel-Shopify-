@@ -32,3 +32,21 @@ Testes: `npm test`, `npm run test:delivery` (API/emuladores), `npm run test:brow
 Desde 08/11/2026, ao clicar em **Concluir**, se o pedido ainda não tiver um custo de entrega registado e não existir uma taxa padrão ativa, aparece o diálogo **Custo da entrega**. É necessário indicar o valor pago ao entregador, incluindo 0 MT quando não houve custo. **Voltar**, fechar ou premir Escape deixa o pedido por concluir.
 
 O valor é guardado como custo específico do pedido antes de pedir a conclusão na Shopify; se a gravação falhar, a conclusão não é enviada. Se a Shopify não concluir, o custo fica guardado para a próxima tentativa. Pedidos com vários produtos usam uma única taxa por pedido. Uma taxa específica já guardada (incluindo zero), um custo antigo positivo ou uma taxa padrão ativa evitam a pergunta repetida.
+
+## Remover a taxa e corrigir um pedido
+
+Conta → Taxa de entrega padrão apresenta **Remover taxa padrão**. A ação guarda a política desligada e com valor zero, respeitando a revisão do servidor, e limpa o valor no formulário. Desmarcar a taxa e guardar tem o mesmo efeito. Os custos já capturados nos pedidos não são removidos em lote.
+
+Para um custo já aplicado por engano: editar o pedido → Mais detalhes → **Retirar custo deste pedido** → guardar. Fica registado um custo específico de 0 MT; o pedido não volta a receber a taxa padrão automaticamente. Isto permite corrigir apenas o registo escolhido, sem apagar custos legítimos de outros pedidos.
+
+## Gastos no cancelamento
+
+Ao cancelar pelo painel, incluindo pelo estado de um pedido manual, a janela pergunta se houve algum gasto. É necessário escolher Não houve gasto ou Sim, houve gasto e indicar um valor positivo. Voltar, fechar e Escape não cancelam o pedido. A taxa padrão nunca é aplicada ao cancelamento.
+
+O valor e a data ficam em `vendas.cancellationCost` e `vendas.cancellationCostDate`. A decisão é guardada antes de pedir o cancelamento à Shopify; o gasto só entra nos cálculos quando o pedido está cancelado. Uma recusa da Shopify mantém o estado anterior e permite retomar a tentativa com o valor preenchido. A confirmação de um cancelamento ainda depende da plataforma, como antes.
+
+O gasto entra em **Outros**, no total de custos e no lucro estimado, na data do cancelamento em Africa/Maputo, ou na data corrigida pelo utilizador. Não gera receita, aquisição de mercadoria ou entrega concluída. Conta uma vez por pedido, repartido proporcionalmente pelas linhas para permitir filtrar por produto. IDs de CSV substituídos por linhas canónicas não duplicam nem perdem o custo local.
+
+Resultados → Gastos mostra a despesa associada ao pedido, com Editar pedido. No editor, Gasto no cancelamento e Data do gasto permitem corrigir o valor; zero retira o gasto dos cálculos. A despesa não é também lançada como um gasto manual independente. Não registar o mesmo pagamento uma segunda vez.
+
+A sincronização e os backups preservam os dois campos. Cancelamentos automáticos recebidos da Shopify não inventam despesas nem abrem janelas em segundo plano. O gráfico diário, os indicadores e o histórico usam a mesma regra de alocação.

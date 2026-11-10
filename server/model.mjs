@@ -1,5 +1,5 @@
 import {normalizeDeliveryTime,appendAlternateContact,validDay} from '../web/orders.mjs';
-import {deliveryAllocations} from '../web/delivery.mjs';
+import {deliveryAllocations,cancellationAllocations,cancellationRows} from '../web/delivery.mjs';
 import {csvOrderStatus,completedSale,countOrders,effectiveSales,saleCost,captureSaleCost} from '../web/sales.mjs';
 import {productResolver,metaProductResolver,effectiveExpenseProduct} from '../web/catalog.mjs';
 export const collections = ['fluxo', 'vendas', 'produtos', 'ads', 'operacional'];
@@ -63,7 +63,9 @@ export function calculateMetrics(state, start, end, product = '') {
   const deliveryFees=deliveryAllocations(sourceSales);
   const delivery = sales.reduce((s,v) => s+(deliveryFees.get(v.id) || 0),0);
   const ads = expenses.filter(a => a.tipo === 'ads').reduce((s,a) => s+allocated(a),0);
-  const other = expenses.filter(a => a.tipo === 'outros').reduce((s,a) => s+allocated(a),0);
+  const cancellationFees=cancellationAllocations(state.vendas);
+  const cancellation=cancellationRows(state.vendas).filter(row=>row.cancellationCostDate>=start && row.cancellationCostDate<=end && match(row.produto)).reduce((sum,row)=>sum+(cancellationFees.get(row.id) || 0),0);
+  const other = cancellation+expenses.filter(a => a.tipo === 'outros').reduce((s,a) => s+allocated(a),0);
   let operational = 0;
   if (!product) for (const expense of state.operacional) {
     if (!expense.recorrente) { if (expense.data >= start && expense.data <= end) operational += expense.valor; continue; }
@@ -74,6 +76,6 @@ export function calculateMetrics(state, start, end, product = '') {
   const revenue = sales.reduce((s,v) => s+v.valor,0), total=acquisition+delivery+ads+other+operational;
   const orders = new Set(sales.map(v => v.shopifyOrderId || v.id)).size;
   const statusReviewOrders=countOrders(state.vendas.filter(v=>v.shopifyOrderId && v.status==='concluido' && !v.panelConfirmed && !v.shopifyFinancialStatus && v.data>=start && v.data<=end && match(v.produto)));
-  return {duplicateRowsIgnored:state.vendas.length-sourceSales.length,statusReviewOrders, acquisition, delivery, ads, other, operational, total, revenue, orders, profit:revenue-total, missingProductCount:sales.filter(sale=>saleCost(sale,state.produtos)===null).length,
+  return {cancellation,duplicateRowsIgnored:state.vendas.length-sourceSales.length,statusReviewOrders, acquisition, delivery, ads, other, operational, total, revenue, orders, profit:revenue-total, missingProductCount:sales.filter(sale=>saleCost(sale,state.produtos)===null).length,
     cpa:orders ? ads/orders : null, roas:ads ? revenue/ads : null, roi:total ? (revenue-total)/total*100 : null };
 }

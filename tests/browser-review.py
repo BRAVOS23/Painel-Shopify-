@@ -16,7 +16,7 @@ with sync_playwright() as p:
     def modal_close(selector):page.locator(selector+' .dialog-close').click()
     saved()
     # Resumo: um pedido com dois produtos tem uma única entrada; abrir mostra o cartão concreto.
-    expect(page.locator('#summaryOrders [data-order]')).to_have_count(2)
+    expect(page.locator('#summaryOrders [data-order]')).to_have_count(3)
     page.locator('#summaryOrders [data-order]').first.click()
     expect(page.locator('#vendasViewEntregas')).to_be_visible()
     assert page.locator('.pedido-card:focus').count()==1
@@ -42,6 +42,24 @@ with sync_playwright() as p:
     page.evaluate('(id)=>{void markStatus(id,"concluido");}',created['id'])
     page.fill('#completeDeliveryAmount','0');page.locator('#completionDeliveryDialog button[type=submit]').click();page.wait_for_function('(id)=>window.cloudBackend.read("vendas").some(row=>row.id===id && row.status==="concluido")',arg=created['id']);saved()
     done=next(row for row in state() if row['id']==created['id']);assert done['status']=='concluido' and done['deliveryFee']==0
+    # Remover a taxa padrão limpa a configuração e não altera custos anteriores.
+    page.click('#accountMenuButton');page.check('#deliveryPolicyEnabled');page.fill('#deliveryPolicyAmount','65');page.click('#deliveryPolicyForm button[type=submit]');expect(page.locator('#deliveryPolicyMessage')).to_contain_text('Taxa guardada')
+    page.click('#removeDeliveryPolicy');expect(page.locator('#deliveryPolicyMessage')).to_contain_text('Taxa padrão removida');expect(page.locator('#deliveryPolicyAmount')).to_have_value('');expect(page.locator('#deliveryPolicyEnabled')).not_to_be_checked();modal_close('#accountDialog')
+    assert next(row for row in state() if row['id']==created['id'])['deliveryFee']==0
+    page.evaluate('(id)=>editVenda(id)',created['id']);page.select_option('#vDeliveryFeeMode','manual');page.fill('#vComissao','25');page.click('#vendaSubmitBtn');saved()
+    page.evaluate('(id)=>editVenda(id)',created['id']);page.click('#clearOrderDeliveryFee');expect(page.locator('#vComissao')).to_have_value('0');page.click('#vendaSubmitBtn');saved()
+    assert next(row for row in state() if row['id']==created['id'])['deliveryFee']==0
+    # Cancelar pergunta sempre; voltar mantém o pedido e o gasto entra só após confirmação.
+    page.evaluate('()=>{void markStatus("nav_current","cancelado");}')
+    expect(page.locator('#cancellationCostDialog')).to_be_visible();page.locator('#cancellationCostDialog').screenshot(path='/tmp/painel-cancel-popup.png',animations='disabled');page.locator('#cancellationCostDialog .btn-ghost').click();page.wait_for_function('()=>!pedidosAAtualizar.has("nav_current")')
+    assert next(row for row in state() if row['id']=='nav_current')['status']=='pendente'
+    page.evaluate('()=>{void markStatus("nav_current","cancelado");}');page.select_option('#cancellationCostChoice','yes');page.fill('#cancellationCostAmount','40');page.locator('#cancellationCostDialog button[type=submit]').click()
+    page.wait_for_function('()=>window.cloudBackend.read("vendas").some(row=>row.id==="nav_current" && row.status==="cancelado")');saved()
+    page.click('#tabBtnMetricas');page.click('#subnavMetGastos');expect(page.locator('#gastosViewBody')).to_contain_text('Cancelamento')
+    page.evaluate('editVenda("nav_current")');expect(page.locator('#vCancellationCost')).to_have_value('40');page.fill('#vCancellationCost','0');page.click('#vendaSubmitBtn');saved()
+    assert next(row for row in state() if row['id']=='nav_current')['cancellationCost']==0
+    page.evaluate('()=>{void markStatus("cancel_without_cost","cancelado");}');page.select_option('#cancellationCostChoice','no');page.locator('#cancellationCostDialog button[type=submit]').click();page.wait_for_function('()=>window.cloudBackend.read("vendas").some(row=>row.id==="cancel_without_cost" && row.status==="cancelado")');saved()
+    assert next(row for row in state() if row['id']=='cancel_without_cost')['cancellationCost']==0
     # Reagendamento move todas as linhas do pedido para o mesmo mês/hora.
     next_month=page.evaluate("()=>{const d=new Date();return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,15)).toISOString().slice(0,10);}")
     page.evaluate("window.openReschedule('sh_700_one')")

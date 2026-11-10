@@ -118,3 +118,5 @@ button:disabled{cursor:not-allowed}.pedido-card:focus{outline:2px solid var(--br
 button.pedido-checkbox{min-width:44px;min-height:44px;cursor:pointer;flex-shrink:0;font:inherit}
 
 @media(max-width:1023px){.pedido-card:not(.expanded) .order-line-hint{display:none}}
+
+.delivery-cost-form select{width:100%;min-width:0;min-height:48px;padding:12px;border:1px solid var(--panel-line);border-radius:9px;background:var(--panel);color:var(--sand);font:inherit;font-size:16px}#cancellationAmountField{display:flex;flex-direction:column;gap:8px}#clearOrderDeliveryFee{white-space:normal;font-size:12px;margin-top:8px}

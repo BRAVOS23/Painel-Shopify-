@@ -27,3 +27,13 @@ export function needsDeliveryAmount(row,rows,policy){
  const group=rows.filter(item=>item.id===row.id || (row.shopifyOrderId && item.shopifyOrderId===row.shopifyOrderId));
  return !policy?.enabled && !group.some(item=>(item.deliveryFeeMode==='manual' && Number.isFinite(item.deliveryFee)) || (Number.isFinite(item.deliveryFee) && item.deliveryFeeCapturedAt) || Number(item.comissao)>0);
 }
+
+// Gasto real num cancelamento: não depende da taxa padrão e nunca conta como venda.
+export function cancellationRows(input){
+ const costs=new Map();for(const row of input){const key=row.shopifyOrderId || row.id;if(Number.isFinite(row.cancellationCost) && !costs.has(key))costs.set(key,{cancellationCost:row.cancellationCost,cancellationCostDate:row.cancellationCostDate});}
+ return effectiveSales(input).filter(row=>row.status==='cancelado').map(row=>row.cancellationCost!==undefined?row:{...row,...costs.get(row.shopifyOrderId || row.id)});
+}
+export function cancellationAllocations(input){
+ const rows=cancellationRows(input).filter(row=>Number.isFinite(row.cancellationCost));
+ return deliveryAllocations(rows.map(row=>({...row,status:'concluido',panelConfirmed:true,deliveryFeeMode:'manual',deliveryFee:row.cancellationCost,comissao:0})));
+}

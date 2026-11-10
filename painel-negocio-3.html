@@ -1914,7 +1914,7 @@ const SHOPIFY_IMPORTED_IDS_KEY = 'lobo_shopify_imported_ids_v1';
 
 async function syncShopifyAPI(){await window.cloudBackend.syncShopify();}
 
-document.getElementById('vendaForm').addEventListener('submit', function(e){
+document.getElementById('vendaForm').addEventListener('submit', async function(e){
   e.preventDefault();
   const data = dpVData.getValue();
   const horario = document.getElementById('vHorario').value;
@@ -1935,6 +1935,12 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
   const status = edited?.shopifyOrderId?edited.status:document.getElementById('vStatus').value;
 
   if(!data || !contacto){ showVendaMsg('Preencha pelo menos a data e o contacto.'); return; }
+  let cancellationDecision;
+  if(status==='cancelado' && edited?.status!=='cancelado'){
+    const button=document.getElementById('vendaSubmitBtn');button.disabled=true;
+    try{cancellationDecision=await window.askCancellationCost(edited || {id:'new_order'},vendasData);if(cancellationDecision===null)return;}finally{button.disabled=false;}
+  }
+
 
   if(vendaEditId){
     const idx = vendasData.findIndex(v=>v.id===vendaEditId);
@@ -1949,6 +1955,9 @@ document.getElementById('vendaForm').addEventListener('submit', function(e){
   }
   const target=edited?vendasData.find(row=>row.id===edited.id):vendasData.at(-1);
   if(target && feeMode!=='legacy')for(const row of vendasData.filter(row=>row.id===target.id || (target.shopifyOrderId && row.shopifyOrderId===target.shopifyOrderId))){const changedMode=row.deliveryFeeMode!==feeMode;row.comissao=0;if(changedMode || feeMode==='manual')delete row.deliveryFee;Object.assign(row,feeFields);}
+  if(target && cancellationDecision!==undefined)for(const row of vendasData.filter(row=>row.id===target.id || (target.shopifyOrderId && row.shopifyOrderId===target.shopifyOrderId))){row.cancellationCost=cancellationDecision;row.cancellationCostDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Maputo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
+  const cancellationInput=document.getElementById('vCancellationCost');
+  if(target && cancellationDecision===undefined && cancellationInput && !cancellationInput.closest('.field').hidden)for(const row of vendasData.filter(row=>row.id===target.id || (target.shopifyOrderId && row.shopifyOrderId===target.shopifyOrderId))){row.cancellationCost=Number(cancellationInput.value || 0);row.cancellationCostDate=document.getElementById('vCancellationCostDate').value;}
   mesAtivoVendas=data.slice(0,7);guardarMesPreferido();
   saveVendas();
   document.getElementById('vendaForm').reset();
@@ -2203,7 +2212,7 @@ function renderPedidos(){
           ${(lineCounts.get(v.shopifyOrderId) || 0)>1?`<small class="order-line-hint pedido-extra">Pedido com ${lineCounts.get(v.shopifyOrderId)} linhas de produto. Concluir, cancelar e reagendar aplicam-se ao pedido inteiro.</small>`:''}
           ${v.dataPedido && v.dataPedido!==v.data?`<div class="order-schedule-note">Pedido de ${fmtData(v.dataPedido)} · entrega reagendada para ${fmtData(v.data)}</div>`:''}
         </div>
-        ${pedidosMensagens.has(v.shopifyOrderId)?`<div role="status" style="font-size:13px;color:var(--gold);margin:8px 0">${escapeHtml(pedidosMensagens.get(v.shopifyOrderId))}</div>`:''}
+        ${pedidosMensagens.has(v.shopifyOrderId || v.id)?`<div role="status" style="font-size:13px;color:var(--gold);margin:8px 0">${escapeHtml(pedidosMensagens.get(v.shopifyOrderId || v.id))}</div>`:''}
         ${modoSelecaoPedidos ? '' : `
         <fieldset class="pedido-card-actions" style="border:0;padding:0;margin:0;min-width:0" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''} onclick="event.stopPropagation()">
           <button class="acao-concluir" onclick="markStatus('${v.id}','concluido')">✓ Concluir</button>
@@ -2247,30 +2256,31 @@ const pedidosAAtualizar=new Set(),pedidosMensagens=new Map();
 async function markStatus(id, status){
   const idx = vendasData.findIndex(v=>v.id===id);
   if(idx===-1) return;
-  if(status==='concluido'){
+  if(['concluido','cancelado'].includes(status)){
     const key=vendasData[idx].shopifyOrderId || id;
     if(pedidosAAtualizar.has(key))return;
     pedidosAAtualizar.add(key);
     try{
-      const fee=await window.askCompletionDelivery(vendasData[idx],vendasData);
+      const fee=status==='cancelado'?await window.askCancellationCost(vendasData[idx],vendasData):await window.askCompletionDelivery(vendasData[idx],vendasData);
       if(fee===null)return;
       if(fee!==undefined){
         const current=vendasData.find(row=>row.id===id);if(!current)return;
-        for(const row of vendasData.filter(row=>row.id===id || (current.shopifyOrderId && row.shopifyOrderId===current.shopifyOrderId))){row.deliveryFeeMode='manual';row.deliveryFee=fee;row.comissao=0;}
+        for(const row of vendasData.filter(row=>row.id===id || (current.shopifyOrderId && row.shopifyOrderId===current.shopifyOrderId))){if(status==='cancelado'){row.cancellationCost=fee;row.cancellationCostDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Maputo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}else{row.deliveryFeeMode='manual';row.deliveryFee=fee;row.comissao=0;}}
         await window.cloudBackend.saveCompletionDelivery(vendasData);
       }
-    }catch(error){showVendaMsg(error.message);return;}
-    finally{pedidosAAtualizar.delete(key);}
+    }catch(error){pedidosMensagens.set(key,error.message);showVendaMsg(error.message);return;}
+    finally{pedidosAAtualizar.delete(key);renderVendasAll();}
   }
-  if(vendasData[idx].shopifyOrderId && ['concluido','cancelado'].includes(status)){
-    const orderId=vendasData[idx].shopifyOrderId;
+  const selected=vendasData.find(row=>row.id===id);if(!selected)return;
+  if(selected.shopifyOrderId && ['concluido','cancelado'].includes(status)){
+    const orderId=selected.shopifyOrderId;
     if(pedidosAAtualizar.has(orderId))return;
     pedidosAAtualizar.add(orderId);
     pedidosMensagens.set(orderId,status==='concluido'?'A concluir o pedido na Shopify…':'A cancelar o pedido na Shopify…');
     renderVendasAll();
     try {
       if(await window.cloudBackend.shopifyConnected()){
-        const result=await window.cloudBackend.reflectStatus(vendasData[idx].shopifyOrderId,status);
+        const result=await window.cloudBackend.reflectStatus(orderId,status);
         pedidosMensagens.set(orderId,result.pending ? 'A Shopify ainda não confirmou a alteração. O pedido mantém o estado anterior até à confirmação.' : 'Pedido atualizado na Shopify.');
         showVendaMsg(result.pending ? result.message : 'Pedido atualizado na Shopify.');
         return;
@@ -2280,6 +2290,7 @@ async function markStatus(id, status){
     finally{pedidosAAtualizar.delete(orderId);renderVendasAll();}
   }
   const current=vendasData.find(v=>v.id===id);if(!current)return;
+  for(const row of vendasData.filter(row=>row.id===id || (current.shopifyOrderId && row.shopifyOrderId===current.shopifyOrderId))){row.status=status;row.panelConfirmed=status==='concluido';}
   current.status = status;current.panelConfirmed=status==='concluido';Object.assign(current,window.captureSaleCost(current,produtosData));
   saveVendas();
   renderVendasAll();
@@ -2356,6 +2367,7 @@ function editVenda(id){
   // com o formulário ainda escondido (display:none), então parecia que "não levava a lado nenhum"
   switchMain('vendas');
   switchVendasView('pedidos');
+  mesAtivoVendas=v.mes || v.data.slice(0,7);guardarMesPreferido();
   if(v.semana && v.semana!==semanaAtiva){ semanaAtiva = v.semana; }
   renderVendasAll();
   abrirVendaForm();if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=true;
@@ -3556,7 +3568,7 @@ function refreshChartMode(){
 
 function renderMetChart(inicio, fim, produtoFiltro){
   const matchProduto = (p) => !produtoFiltro || normalizarNomeProduto(window.resolveProductName(p,produtosData))===normalizarNomeProduto(window.resolveProductName(produtoFiltro,produtosData));
-  const source=window.effectiveSales(vendasData),fees=window.deliveryAllocations(vendasData);
+  const source=window.effectiveSales(vendasData),fees=window.deliveryAllocations(vendasData),cancellationFees=window.cancellationAllocations(vendasData);
   const dias = [];
   let cursor = new Date(inicio+'T00:00:00');
   const fimDate = new Date(fim+'T00:00:00');
@@ -3572,7 +3584,8 @@ function renderMetChart(inicio, fim, produtoFiltro){
     const aquisicao = vendasDoDia.reduce((s,v)=> s + (window.saleCost(v,produtosData)||0) * (v.quantidade||1), 0);
     const entrega = vendasDoDia.reduce((s,v)=> s + (fees.get(v.id)||0), 0);
     const operacional = produtoFiltro ? 0 : calcularGastoOperacional(d, d);
-    return adsOutros + aquisicao + entrega + operacional;
+    const cancellation=window.cancellationRows(vendasData).filter(row=>row.cancellationCostDate===d && matchProduto(row.produto)).reduce((sum,row)=>sum+(cancellationFees.get(row.id) || 0),0);
+    return adsOutros + aquisicao + entrega + operacional + cancellation;
   });
   const receitaPorDia = dias.map(d=>
     source.filter(v=> v.data===d && window.completedSale(v) && matchProduto(v.produto)).reduce((s,v)=>s+(v.valor||0),0)
@@ -3664,7 +3677,10 @@ function renderAdAll(){
 function renderGastosView(){
   const tipoFiltro = document.getElementById('gastosFiltroTipo').value;
   const busca = document.getElementById('gastosBusca').value.trim().toLowerCase();
+  const cancellationFees=window.cancellationAllocations(vendasData),cancelled=new Map();
+  for(const row of window.cancellationRows(vendasData).filter(row=>(cancellationFees.get(row.id) || 0)>0)){const key=row.shopifyOrderId || row.id;if(!cancelled.has(key))cancelled.set(key,{tipo:'outros',nome:'Cancelamento · '+(row.contacto || row.produto || 'Pedido'),periodo:fmtData(row.cancellationCostDate),valor:0,data:row.cancellationCostDate,id:row.id,source:'cancellation'});cancelled.get(key).valor+=cancellationFees.get(row.id) || 0;}
   let itens = [
+    ...cancelled.values(),
     ...adSpendData.map(a=>({tipo:a.tipo, nome:nomeGasto(a), periodo:fmtAdPeriodo(a), valor:a.valor, data:a.data, id:a.id, source:a.source})),
     ...operacionaisData.map(o=>({tipo:'operacional', nome:o.nome, periodo:fmtData(o.data)+(o.recorrente?' (mensal)':''), valor:o.valor, data:o.data, id:o.id}))
   ];
@@ -3687,12 +3703,12 @@ function renderGastosView(){
   const DEL_FN = {ads:'deleteAd', outros:'deleteOutro', operacional:'deleteOp'};
   tbody.innerHTML = itens.map(i=>`
     <tr>
-      <td data-label="Nome">${escapeHtml(i.nome)}<small class="muted" style="display:block">${i.source==='meta'?'Importado da Meta · atualizado pela sincronização':'Registo manual'}</small></td>
+      <td data-label="Nome">${escapeHtml(i.nome)}<small class="muted" style="display:block">${i.source==='meta'?'Importado da Meta · atualizado pela sincronização':i.source==='cancellation'?'Gasto do pedido cancelado':'Registo manual'}</small></td>
       <td data-label="Tipo"><span class="pill ${TIPO_BADGE[i.tipo]}">${TIPO_NOME[i.tipo]}</span></td>
       <td class="mono" data-label="Período">${i.periodo}</td>
       <td class="mono" data-label="Valor">${fmtMT(i.valor)}</td>
       <td data-label=""><div class="row-actions">
-        ${i.source==='meta'?'<span class="muted">Gerido pela Meta</span>':`<button class="icon-btn" onclick="${EDIT_FN[i.tipo]}('${i.id}')" title="Editar">✎</button>
+        ${i.source==='cancellation'?`<button class="btn-ghost" onclick="editVenda('${i.id}')">Editar pedido</button>`:i.source==='meta'?'<span class="muted">Gerido pela Meta</span>':`<button class="icon-btn" onclick="${EDIT_FN[i.tipo]}('${i.id}')" title="Editar">✎</button>
         <button class="icon-btn" onclick="${DEL_FN[i.tipo]}('${i.id}')" title="Apagar">✕</button>`}
       </div></td>
     </tr>`).join('');

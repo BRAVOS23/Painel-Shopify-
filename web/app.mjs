@@ -1,7 +1,7 @@
 import {normalizeDeliveryTime,appendAlternateContact} from './orders.mjs';
 window.normalizeDeliveryTime=normalizeDeliveryTime;
 window.appendAlternateContact=appendAlternateContact;
-import {deliveryAllocations} from './delivery.mjs';
+import {deliveryAllocations,cancellationAllocations,cancellationRows} from './delivery.mjs';
 import {initBusinessTools} from './business-tools.mjs';
 import {validateRecord} from './record-schema.mjs';
 import {sourceCounts} from './order-reports.mjs';
@@ -12,7 +12,7 @@ import {initializeApp} from 'firebase/app';
 import {getAuth,connectAuthEmulator,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,sendEmailVerification,sendPasswordResetEmail,reauthenticateWithCredential,EmailAuthProvider,deleteUser} from 'firebase/auth';
 import Chart from 'chart.js/auto';
 import {jsPDF} from 'jspdf';
-window.deliveryAllocations=deliveryAllocations;
+window.deliveryAllocations=deliveryAllocations;window.cancellationAllocations=cancellationAllocations;window.cancellationRows=cancellationRows;
 window.resolveExpenseProduct=effectiveExpenseProduct;
 window.resolveProductName=(value,products)=>productResolver(products)(value);
 window.sourceCounts=sourceCounts;window.effectiveSales=effectiveSales;window.saleCost=saleCost;window.captureSaleCost=captureSaleCost;window.completedSale=completedSale;window.countOrders=countOrders;window.csvOrderStatus=csvOrderStatus;
@@ -93,10 +93,10 @@ window.cloudBackend={
  read:name=>clone(desired[name] || []),
  save(name,records){if(platformUi && !platformUi.canWrite()){status('Acesso apenas para consulta. Pede a renovação no menu de conta.');return false;}desired[name]=clone(records);mutation++;status('A guardar…');if(!failure)void flush();},
  async saveCompletionDelivery(records){
-  if(this.save('vendas',records)===false)throw new Error('Não foi possível guardar o custo da entrega.');
+  if(this.save('vendas',records)===false)throw new Error('Não foi possível guardar os custos do pedido.');
   const deadline=Date.now()+30000;
   while(busy && Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,50));
-  if(failure || dirty() || busy)throw new Error(failure?.message || 'Aguarda a gravação do custo e tenta concluir novamente.');
+  if(failure || dirty() || busy)throw new Error(failure?.message || 'Aguarda a gravação dos custos e tenta alterar o estado novamente.');
  },
  async reflectStatus(id,status){
   if(dirty() || busy)throw new Error('Aguarde a gravação dos dados antes de alterar a Shopify.');

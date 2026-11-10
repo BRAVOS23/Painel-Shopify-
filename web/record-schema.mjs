@@ -7,26 +7,27 @@ export function validateRecord(collection, record) {
   if (Object.keys(record).some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) throw new Error('Campo inválido.');
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
-    vendas: ['deliveryFeeCapturedAt','id','data','horario','fonte','deliveryFee','deliveryFeeMode','contacto','local','provincia','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
+    vendas: ['cancellationCost','cancellationCostDate','deliveryFeeCapturedAt','id','data','horario','fonte','deliveryFee','deliveryFeeMode','contacto','local','provincia','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
     produtos: ['id','nome','custo','foto','locais','aliases','shopifyProductId','shopifyShop','costConfigured'],
     ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate','unitCost','shopifyLineCount'],
     operacional: ['id','nome','valor','data','recorrente']
   }[collection];
   if (!known || Object.keys(record).some(key => !known.includes(key))) throw new Error('Campo de registo não permitido.');
-  for (const field of ['deliveryFee','valor','custo','comissao','quantidade','sourceValue','conversionRate','unitCost','shopifyLineCount']) {
+  for (const field of ['cancellationCost','deliveryFee','valor','custo','comissao','quantidade','sourceValue','conversionRate','unitCost','shopifyLineCount']) {
     if (field in record && (typeof record[field] !== 'number' || !Number.isFinite(record[field]) || record[field] < 0)) throw new Error('Valor numérico inválido.');
   }
+  if(record.cancellationCost!==undefined && (record.cancellationCost>1000000 || Math.abs(record.cancellationCost*100-Math.round(record.cancellationCost*100))>0.000001 || !validDay(record.cancellationCostDate)))throw new Error('Indica o gasto de cancelamento e uma data válidos.');
   if(record.deliveryFee!==undefined && (record.deliveryFee>1000000 || Math.abs(record.deliveryFee*100-Math.round(record.deliveryFee*100))>0.000001))throw new Error('Custo de entrega inválido.');
   if(record.deliveryFeeMode!==undefined && !['auto','manual'].includes(record.deliveryFeeMode))throw new Error('Modo de entrega inválido.');
   if(record.deliveryFeeMode==='manual' && !Number.isFinite(record.deliveryFee))throw new Error('Indica o valor de entrega deste pedido.');
-  for (const field of ['data','dataFim','dataPedido','mes']) if (record[field] && !validDay(field==='mes'?record[field]+'-01':record[field])) throw new Error('Data inválida.');
+  for (const field of ['data','dataFim','dataPedido','cancellationCostDate','mes']) if (record[field] && !validDay(field==='mes'?record[field]+'-01':record[field])) throw new Error('Data inválida.');
   if(record.dataFim && record.dataFim<record.data)throw new Error('O fim do período não pode ser anterior ao início.');
   if (collection === 'vendas' && !['pendente','concluido','cancelado','remarcado'].includes(record.status)) throw new Error('Estado inválido.');
   if (collection === 'fluxo' && !['entrada','saida'].includes(record.tipo)) throw new Error('Movimento inválido.');
   if (collection === 'ads' && !['ads','outros'].includes(record.tipo)) throw new Error('Tipo de gasto inválido.');
   if (record.foto && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(record.foto)) throw new Error('Fotografia inválida.');
   for (const [key,value] of Object.entries(record)) {
-    if (['deliveryFee','valor','custo','comissao','quantidade','sourceValue','conversionRate','unitCost','shopifyLineCount'].includes(key)) continue;
+    if (['cancellationCost','deliveryFee','valor','custo','comissao','quantidade','sourceValue','conversionRate','unitCost','shopifyLineCount'].includes(key)) continue;
     if(key==='reagendamentos'){
       if(collection!=='vendas' || !Array.isArray(value) || value.length>20)throw new Error('Histórico de reagendamentos inválido.');
       for(const item of value){

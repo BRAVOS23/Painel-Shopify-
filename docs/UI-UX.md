@@ -140,3 +140,7 @@ A API distingue autorização expirada, falta de permissão ads_read, limites Me
 ## Sincronização Meta: confirmação da conta e gastos por lotes
 
 A autorização Ligada é distinguida da conta de anúncios confirmada. Guardar conta e câmbio é a ação principal da configuração; Sincronizar agora aguarda a confirmação e volta a ficar indisponível quando os campos são alterados sem guardar. A mensagem de sincronização apresenta também o código público de erro. Páginas com mais de cinco gastos são retomadas por posição, mantendo cinco escritas por lote. Detalhes e testes em [Meta Ads: sincronização](META-ADS-SINCRONIZACAO.md).
+
+## Remoção da taxa e custos de cancelamento
+
+A configuração de entrega tem uma ação explícita Remover taxa padrão. No pedido, Retirar custo deste pedido permite corrigir um valor já aplicado sem alterar outros registos. Cancelar abre um diálogo com escolha obrigatória sobre a existência de gasto, valor condicional e Voltar. Custos de cancelamentos ficam em Outros e no histórico, com edição pelo pedido original; zero remove a despesa. As regras estão em [Taxa de entrega](TAXA-DE-ENTREGA.md).
