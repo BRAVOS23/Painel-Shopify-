@@ -7,7 +7,7 @@ export function validateRecord(collection, record) {
   if (Object.keys(record).some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) throw new Error('Campo inválido.');
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
-    vendas: ['cancellationCost','cancellationCostDate','deliveryFeeCapturedAt','id','data','horario','fonte','deliveryFee','deliveryFeeMode','contacto','local','provincia','descricao','noteEdited','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyOrderName','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
+    vendas: ['cancellationCost','cancellationCostDate','deliveryFeeCapturedAt','id','data','horario','horarioPreferencia','fonte','deliveryFee','deliveryFeeMode','contacto','local','provincia','descricao','noteEdited','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyOrderName','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
     produtos: ['id','nome','custo','foto','locais','aliases','shopifyProductId','shopifyShop','costConfigured'],
     ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate','unitCost','shopifyLineCount'],
     operacional: ['id','nome','valor','data','recorrente']
@@ -33,7 +33,7 @@ export function validateRecord(collection, record) {
       for(const item of value){
         if(!item || Object.keys(item).some(field=>!['de','para','semanaAnterior','semanaNova','horario','alteradoEm'].includes(field)))throw new Error('Reagendamento inválido.');
         for(const field of ['de','para'])if(!/^\d{4}-\d{2}-\d{2}$/.test(item[field] || '') || !Number.isFinite(Date.parse(item[field]+'T12:00:00Z')) || new Date(item[field]+'T12:00:00Z').toISOString().slice(0,10)!==item[field])throw new Error('Data de reagendamento inválida.');
-        for(const field of ['semanaAnterior','semanaNova'])if(!['semana1','semana2','semana3','semana4','remarketing','provincias'].includes(item[field]))throw new Error('Grupo de reagendamento inválido.');
+        for(const field of ['semanaAnterior','semanaNova'])if(!['semana1','semana2','semana3','semana4','remarketing','provincias','aguarda_sinal'].includes(item[field]))throw new Error('Grupo de reagendamento inválido.');
         if(typeof item.horario!=='string' || (item.horario && !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.horario)) || typeof item.alteradoEm!=='string' || !/^\d{4}-\d{2}-\d{2}T/.test(item.alteradoEm) || !Number.isFinite(Date.parse(item.alteradoEm)))throw new Error('Horário de reagendamento inválido.');
       }
       continue;

@@ -6,7 +6,7 @@ export function scheduleOrder(record,{date,time=record.horario || '',group},now=
  if(!validDay(date))throw new Error('Escolhe uma data válida para a entrega.');
  if(time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))throw new Error('Escolhe um horário válido.');
  const week=group || 'semana'+Math.min(4,Math.ceil(Number(date.slice(8))/7));
- if(!['semana1','semana2','semana3','semana4','remarketing','provincias'].includes(week))throw new Error('Escolhe um grupo válido.');
+ if(!['semana1','semana2','semana3','semana4','remarketing','provincias','aguarda_sinal'].includes(week))throw new Error('Escolhe um grupo válido.');
  const history=[...(record.reagendamentos || []),{de:record.data,para:date,semanaAnterior:record.semana || 'semana1',semanaNova:week,horario:time,alteradoEm:now}].slice(-20);
  return {...record,dataPedido:record.dataPedido || record.data,data:date,mes:date.slice(0,7),semana:week,horario:time,status:'remarcado',reagendamentos:history};
 }
@@ -21,16 +21,25 @@ export function normalizeDeliveryTime(raw){
  return String(period?hours%12+(period.toLowerCase()==='pm'?12:0):hours).padStart(2,'0')+':'+minute;
 }
 
+export function deliveryTimeFields(raw){
+ const value=String(raw ?? '').trim();
+ const horario=normalizeDeliveryTime(value);
+ return {horario,horarioPreferencia:horario?'':value.slice(0,4000)};
+}
+
 export function shopifyDeliveryTime(attributes=[]){
+ let preference='';
+
  const labels=new Set(['hora da entrega','horario da entrega','horario de entrega','hora de entrega','horario','hora preferida','hora','delivery time','preferred delivery time']);
  for(const attribute of attributes){
   const label=String(attribute.name || attribute.key || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ');
   if(labels.has(label)){
-   const time=normalizeDeliveryTime(attribute.value);
-   if(time)return time;
+   const fields=deliveryTimeFields(attribute.value);
+   if(fields.horario)return fields;
+   preference ||= fields.horarioPreferencia;
   }
  }
- return '';
+ return deliveryTimeFields(preference);
 }
 
 export function appendAlternateContact(contact,alternative){

@@ -400,7 +400,7 @@
   }
   .pedido-card:hover{ border-color:var(--overlay-4); }
   .pedido-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; gap:8px; }
-  .pedido-hora{ font-family:var(--font-mono); font-size:12.5px; color:var(--gold); font-weight:600; }
+  .pedido-hora{ overflow-wrap:anywhere; min-width:0; font-family:var(--font-mono); font-size:12.5px; color:var(--gold); font-weight:600; }
   .pedido-card-main{ margin-bottom:13px; }
   .pedido-contacto{ font-size:15px; font-weight:600; color:var(--sand); margin-bottom:3px; }
   .pedido-detalhes{ font-size:12.5px; color:var(--sand-dim); line-height:1.5; }
@@ -684,8 +684,8 @@
             <div id="dpVData"></div>
           </div>
           <div class="field">
-            <label for="vHorario">Horário da entrega</label>
-            <input type="time" id="vHorario">
+            <label for="vHorario">Horário ou preferência de entrega</label>
+            <input type="text" id="vHorario" maxlength="4000" placeholder="Ex.: 13h ou antes das 10">
           </div>
           <div class="field span2">
             <label for="vFonte">Origem do pedido</label>
@@ -1212,7 +1212,8 @@ const SEMANAS = [
   {key:'semana3', label:'Semana 3'},
   {key:'semana4', label:'Semana 4'},
   {key:'remarketing', label:'Remarketing'},
-  {key:'provincias', label:'Províncias'}
+  {key:'provincias', label:'Províncias'},
+  {key:'aguarda_sinal', label:'A aguardar sinal'}
 ];
 const STATUS_LABEL = {pendente:'Pendente', concluido:'Concluído', cancelado:'Cancelado', remarcado:'Remarcado'};
 
@@ -1667,10 +1668,6 @@ function showShopifyMsg(t, isError){
   el.style.color = isError ? 'var(--red)' : 'var(--gold)';
 }
 
-function normalizeHorario(raw){
-  return window.normalizeDeliveryTime(raw);
-}
-
 /* ---- Importar a exportação NATIVA de pedidos da Shopify (Pedidos → Exportar → CSV) ----
    Este ficheiro já vem com o status real de cada pedido — Financial Status ("paid"/"voided"/...) e
    Cancelled at — então os pedidos entram já como Concluído/Cancelado. Também dá pra reimportar
@@ -1859,19 +1856,21 @@ function importarCSVShopifyNativo(){
         const cancelledAt = String(cols[iCancel]||'').trim();
         const status=window.csvOrderStatus(finStatus,iFulfillment>=0?cols[iFulfillment]:'',cancelledAt);
 
-        const provinciaCSV=String(cols[col('Shipping Province Name')] || campoMapeado(parseNoteAttributes(cols[iNotas]),'provincia') || cols[col('Shipping Province')] || '').trim();
-        const alternativoCSV=campoMapeado(parseNoteAttributes(cols[iNotas]),'alternativo');
         const notas = parseNoteAttributes(cols[iNotas]);
-        const horarioCSV=normalizeHorario(campoMapeado(notas,'horario')) || window.shopifyDeliveryTime(Object.entries(notas).map(([key,value])=>({key,value})));
+        const provinciaCSV=String(cols[col('Shipping Province Name')] || campoMapeado(notas,'provincia') || cols[col('Shipping Province')] || '').trim();
+        const alternativoCSV=campoMapeado(notas,'alternativo');
+        const mappedTime=campoMapeado(notas,'horario');
+        const horarioCSV=mappedTime?window.deliveryTimeFields(mappedTime):window.shopifyDeliveryTime(Object.entries(notas).map(([key,value])=>({key,value})));
         const existenteIdx = vendasData.findIndex(v=>v.shopifyOrderId===shopifyOrderId);
         if(existenteIdx>-1){
           for(const existenteIdx of vendasData.map((row,index)=>row.shopifyOrderId===shopifyOrderId?index:-1).filter(index=>index>=0)){
           const old=vendasData[existenteIdx],fulfillment=String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase();
           const contactoCSV=window.appendAlternateContact(old.contacto,alternativoCSV);
           const nextStatus=status==='pendente'?(old.panelConfirmed?'concluido':old.status==='remarcado'?'remarcado':'pendente'):status;
-          const details={...(shopifyOrderName?{shopifyOrderName}:{}),...(!old.noteEdited && !old.descricao?.trim() && descricao?{descricao}:{})};
-          if(Object.entries(details).some(([key,value])=>old[key]!==value) || old.contacto!==contactoCSV || old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
-            vendasData[existenteIdx]={...old,...details,contacto:contactoCSV,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
+          const fillTime=!old.horario && !old.horarioPreferencia && !old.reagendamentos?.length && (horarioCSV.horario || horarioCSV.horarioPreferencia);
+          const details={...(fillTime?horarioCSV:{}),...(shopifyOrderName?{shopifyOrderName}:{}),...(!old.noteEdited && !old.descricao?.trim() && descricao?{descricao}:{})};
+          if(Object.entries(details).some(([key,value])=>old[key]!==value) || old.contacto!==contactoCSV || old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV)){
+            vendasData[existenteIdx]={...old,...details,contacto:contactoCSV,...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
           }
           }
           continue;
@@ -1893,7 +1892,6 @@ function importarCSVShopifyNativo(){
         const provincia = provinciaCSV;
         const localBase = campoMapeado(notas,'local');
         const local = localBase;
-        const horario = horarioCSV;
 
         const createdRaw = String(cols[iCreated]||'').trim();
         const data = createdRaw ? createdRaw.slice(0,10) : drISO(new Date());
@@ -1909,7 +1907,7 @@ function importarCSVShopifyNativo(){
 
         vendasData.push({
           id: uid(), semana: semanaPorDia(data), mes,
-          data, horario, fonte: '04.SHOPIFY',
+          data, ...horarioCSV, fonte: '04.SHOPIFY',
           contacto: (nome + ' ' + telefone).trim(),
           local, provincia, descricao, produto, quantidade, valor,
           ...(shopifyOrderName?{shopifyOrderName}:{}),
@@ -1945,7 +1943,7 @@ async function syncShopifyAPI(){await window.cloudBackend.syncShopify();}
 document.getElementById('vendaForm').addEventListener('submit', async function(e){
   e.preventDefault();
   const data = dpVData.getValue();
-  const horario = document.getElementById('vHorario').value;
+  const deliveryTime = window.deliveryTimeFields(document.getElementById('vHorario').value);
   const fonte = document.getElementById('vFonte').value;
   const contacto = document.getElementById('vContacto').value.trim();
   const local = document.getElementById('vLocal').value.trim();
@@ -1972,13 +1970,13 @@ document.getElementById('vendaForm').addEventListener('submit', async function(e
 
   if(vendaEditId){
     const idx = vendasData.findIndex(v=>v.id===vendaEditId);
-    if(idx>-1) vendasData[idx] = window.captureSaleCost({...vendasData[idx], data, horario, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: data.slice(0,7)},produtosData,{force:vendasData[idx].produto!==produto});
+    if(idx>-1) vendasData[idx] = window.captureSaleCost({...vendasData[idx], data, ...deliveryTime, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: data.slice(0,7)},produtosData,{force:vendasData[idx].produto!==produto});
     showVendaMsg('Registo atualizado.');
     vendaEditId = null;
     document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
     document.getElementById('vendaCancelEdit').style.display = 'none';
   } else {
-    vendasData.push(window.captureSaleCost({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, horario, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status},produtosData));
+    vendasData.push(window.captureSaleCost({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, ...deliveryTime, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status},produtosData));
     showVendaMsg('Pedido adicionado.');
   }
   const target=edited?vendasData.find(row=>row.id===edited.id):vendasData.at(-1);
@@ -2065,7 +2063,7 @@ function renderHistoricoMesTable(){
     <tr>
       <td class="mono" data-label="Data">${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</td>
       <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v)}</td>
+      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${v.horarioPreferencia && !v.horario?`<small class="order-schedule-note">${escapeHtml(v.horarioPreferencia)}</small>`:''}${orderNoteMarkup(v)}</td>
       <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
       <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2131,7 +2129,7 @@ function exportHistoricoMesCSV(){
   if(list.length===0){ alert('Não há dados para exportar.'); return; }
   const header = ['Data','Horário','Fonte de Aquisição','Contacto','Local da Entrega','Província','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
   const deliveryFees=window.deliveryAllocations(vendasData);
-  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, deliveryFees.get(v.id)||0, STATUS_LABEL[v.status]]);
+  const rows = list.map(v=>[v.data, v.horario || v.horarioPreferencia || '', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, deliveryFees.get(v.id)||0, STATUS_LABEL[v.status]]);
   downloadCSV(header, rows, 'pedidos-'+mesHistoricoSelecionado+(semanaHistoricoSelecionada?'-'+semanaHistoricoSelecionada:'')+'.csv');
 }
 
@@ -2272,7 +2270,7 @@ function renderPedidos(){
       return `
       <div id="pedido_${v.id}" class="pedido-card${classeExtra}" onclick="${onclickCard}">
         <div class="pedido-card-top">
-          <span class="pedido-hora">${v.horario ? '🕒 '+v.horario : 'Sem horário'}</span>
+          <span class="pedido-hora">${v.horario ? '🕒 '+escapeHtml(v.horario) : v.horarioPreferencia ? escapeHtml(v.horarioPreferencia) : 'Sem horário'}</span>
           <span style="display:flex; align-items:center; gap:8px;">
             <span class="pill st-${v.status==='concluido'&&!window.completedSale(v)?'verificar':v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':v.status==='concluido'&&!window.completedSale(v)?'A verificar':STATUS_LABEL[v.status]}</span>
             ${modoSelecaoPedidos
@@ -2284,7 +2282,7 @@ function renderPedidos(){
           <div class="pedido-contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}</div>
           <div class="pedido-detalhes">${escapeHtml(v.local||'Local não indicado')}</div>${v.provincia?`<div class="order-province">Província: ${escapeHtml(v.provincia)}</div>`:''}
           ${orderNoteMarkup(v)}
-          ${v.data<drISO(new Date())?'<div class="order-overdue">Entrega em atraso · escolhe uma nova data</div>':''}
+          ${v.semana!=='aguarda_sinal' && v.data<drISO(new Date())?'<div class="order-overdue">Entrega em atraso · escolhe uma nova data</div>':''}
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
           ${(lineCounts.get(v.shopifyOrderId) || 0)>1?`<small class="order-line-hint pedido-extra">Pedido com ${lineCounts.get(v.shopifyOrderId)} linhas de produto. Concluir, cancelar e reagendar aplicam-se ao pedido inteiro.</small>`:''}
           ${v.dataPedido && v.dataPedido!==v.data?`<div class="order-schedule-note">Pedido de ${fmtData(v.dataPedido)} · entrega reagendada para ${fmtData(v.data)}</div>`:''}
@@ -2387,7 +2385,7 @@ function renderVendaTable(){
         <td class="order-list-toggle"><button type="button" class="compact-order-toggle" aria-label="${pedidosListaExpandidos.has(v.id)?'Recolher pedido':'Expandir pedido'}" aria-expanded="${pedidosListaExpandidos.has(v.id)}" onclick="toggleHistoryDetails(this)">⌄</button></td>
         <td class="mono" data-label="Data">${fmtData(v.data)}</td>
         <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v)}</td>
+        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${v.horarioPreferencia && !v.horario?`<small class="order-schedule-note">${escapeHtml(v.horarioPreferencia)}</small>`:''}${orderNoteMarkup(v)}</td>
         <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
         <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
         <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2449,7 +2447,7 @@ function editVenda(id){
   renderVendasAll();
   abrirVendaForm();if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=true;
   dpVData.setValue(v.data);
-  document.getElementById('vHorario').value = v.horario||'';
+  document.getElementById('vHorario').value = v.horario || v.horarioPreferencia || '';
   document.getElementById('vFonte').value = v.fonte;
   document.getElementById('vContacto').value = v.contacto;
   document.getElementById('vLocal').value = v.local || '';
@@ -2489,7 +2487,7 @@ function exportVendasCSV(){
   if(list.length===0){ alert('Não há dados para exportar nesta semana.'); return; }
   const header = ['Data','Horário','Fonte de Aquisição','Contacto','Local da Entrega','Província','Descrição','Produto','Quantidade','Valor do Pedido','Nome do Delivery','Pago ao entregador','Status'];
   const deliveryFees=window.deliveryAllocations(vendasData);
-  const rows = list.map(v=>[v.data, v.horario||'', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, deliveryFees.get(v.id)||0, STATUS_LABEL[v.status]]);
+  const rows = list.map(v=>[v.data, v.horario || v.horarioPreferencia || '', v.fonte, v.contacto, v.local, v.provincia||'', v.descricao, v.produto, v.quantidade, v.valor||0, v.delivery, deliveryFees.get(v.id)||0, STATUS_LABEL[v.status]]);
   downloadCSV(header, rows, 'pedidos-'+(drOverview?.getRange()?.join('_') || 'todos')+'.csv');
 }
 
@@ -3260,7 +3258,7 @@ function desenharPedidoPDF(doc, v, yStart){
     ['Valor', fmtMT(v.valor||0)],
     ['Local', v.local || '—'],
     ...(v.provincia?[['Província',v.provincia]]:[]),
-    ['Horário', v.horario || '—']
+    ['Horário', v.horario || v.horarioPreferencia || '—']
   ];
   if(v.delivery) linhas.push(['Entregador', v.delivery]);
   if(v.descricao) linhas.push(['Nota', v.descricao]);

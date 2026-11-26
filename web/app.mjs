@@ -1,5 +1,5 @@
-import {normalizeDeliveryTime,shopifyDeliveryTime,appendAlternateContact} from './orders.mjs';
-window.normalizeDeliveryTime=normalizeDeliveryTime;
+import {deliveryTimeFields,shopifyDeliveryTime,appendAlternateContact} from './orders.mjs';
+window.deliveryTimeFields=deliveryTimeFields;
 window.shopifyDeliveryTime=shopifyDeliveryTime;
 window.appendAlternateContact=appendAlternateContact;
 import {deliveryAllocations,cancellationAllocations,cancellationRows} from './delivery.mjs';

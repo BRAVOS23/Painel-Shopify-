@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {normalizeDeliveryTime,appendAlternateContact} from '../web/orders.mjs';
+import {deliveryTimeFields,normalizeDeliveryTime,appendAlternateContact,scheduleOrder} from '../web/orders.mjs';
 import {shopifyRecords} from '../server/model.mjs';
 import {reconciledStatus} from '../server/status-audit.mjs';
 test('API Shopify lê hora do checkout em atributos REST e GraphQL',()=>{
@@ -23,6 +23,18 @@ test('verificação preenche número e hora Shopify sem substituir horários loc
  assert.equal(normalizeDeliveryTime('08:30:00'),'08:30');
  assert.equal(normalizeDeliveryTime('08:70'),'');
 });
+test('preferência de entrega em texto é preservada no pedido e na verificação Shopify',()=>{
+ const note_attributes=[{key:'Horário de entrega',value:'antes das 10'}];
+ const source={id:1,currency:'MZN',created_at:'2026-11-09',line_items:[{id:2,title:'Produto',quantity:1,price:'100'}],note_attributes};
+ const [row]=shopifyRecords(source);
+ assert.equal(row.horario,'');
+ assert.equal(row.horarioPreferencia,'antes das 10');
+ assert.equal(reconciledStatus({...row,horarioPreferencia:''},{note_attributes}).horarioPreferencia,'antes das 10');
+ assert.equal(reconciledStatus(row,{note_attributes:[{key:'Hora',value:'13h'}]}).horarioPreferencia,'antes das 10');
+ const moved=scheduleOrder(row,{date:'2026-11-12',group:'aguarda_sinal'});
+ assert.equal(moved.semana,'aguarda_sinal');
+ assert.equal(moved.horarioPreferencia,'antes das 10');
+});
 test('reimportar CSV preenche todas as linhas sem hora e preserva horários e reagendamentos',()=>{
  const html=readFileSync(new URL('../painel-negocio-3.html',import.meta.url),'utf8');
  const code=html.slice(html.indexOf('function importarCSVShopifyNativo(){'),html.indexOf('/* ---- Sincronização direta'));
@@ -30,7 +42,7 @@ test('reimportar CSV preenche todas as linhas sem hora e preserva horários e re
  const rows=[header,['123','pending','unfulfilled','','2026-11-08','Hora da entrega: 15:00']];
  const vendas=[{id:'a',horario:''},{id:'b',horario:''},{id:'c',horario:'12:00'},{id:'d',horario:'',reagendamentos:[{data:'2026-11-10'}]}].map(row=>({...row,shopifyOrderId:'123',status:'pendente'}));
  let saved=false,error=false;
- const context={document:{getElementById:()=>({files:[{}]})},FileReader:class{readAsText(){this.onload({target:{result:''}});}},parseCSV:()=>rows,produtosData:[],vendasData:vendas,loadShopifyFieldMap:()=>({horario:'hora da entrega',alternativo:'contacto alternativo'}),parseNoteAttributes:()=>({'hora da entrega':'15:00','contacto alternativo':'840000002'}),normalizeHorario:normalizeDeliveryTime,window:{csvOrderStatus:()=> 'pendente',appendAlternateContact},showShopifyNativeMsg:(_message,isError)=>{error ||= !!isError;},saveVendas:()=>{saved=true;},renderVendasAll:()=>{}};
+ const context={document:{getElementById:()=>({files:[{}]})},FileReader:class{readAsText(){this.onload({target:{result:''}});}},parseCSV:()=>rows,produtosData:[],vendasData:vendas,loadShopifyFieldMap:()=>({horario:'hora da entrega',alternativo:'contacto alternativo'}),parseNoteAttributes:()=>({'hora da entrega':'15:00','contacto alternativo':'840000002'}),normalizeHorario:normalizeDeliveryTime,window:{csvOrderStatus:()=> 'pendente',appendAlternateContact,deliveryTimeFields},showShopifyNativeMsg:(_message,isError)=>{error ||= !!isError;},saveVendas:()=>{saved=true;},renderVendasAll:()=>{}};
  vm.runInNewContext(code+'\nimportarCSVShopifyNativo();',context);
  assert.equal(error,false);assert.equal(saved,true);assert.deepEqual(Array.from(context.vendasData,row=>row.horario),['15:00','15:00','12:00','']);assert.equal(context.vendasData.length,4);assert.equal(context.vendasData[0].contacto,'840000002');
 });

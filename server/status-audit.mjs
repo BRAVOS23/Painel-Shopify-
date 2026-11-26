@@ -4,12 +4,13 @@ import {captureSaleCost} from '../web/sales.mjs';
 import {decrypt} from './security.mjs';
 import {csvOrderStatus} from '../web/sales.mjs';
 import {shopifyDeliveryTime} from '../web/orders.mjs';
-export const SHOPIFY_STATUS_AUDIT_VERSION=2;
+export const SHOPIFY_STATUS_AUDIT_VERSION=3;
 export function reconciledStatus(row,remote){
  const incoming=csvOrderStatus(remote.financial_status,remote.fulfillment_status,remote.cancelled_at);
- const time=shopifyDeliveryTime(remote.note_attributes);
+ const deliveryTime=shopifyDeliveryTime(remote.note_attributes);
+ const fillTime=!row.horario && !row.horarioPreferencia && !row.reagendamentos?.length && (deliveryTime.horario || deliveryTime.horarioPreferencia);
  const confirmed=incoming!=='cancelado' && row.panelConfirmed===true;
- return {...row,...(!row.horario && !row.reagendamentos?.length && time?{horario:time}:{}),...(remote.name?{shopifyOrderName:remote.name}:{}),status:incoming==='pendente'?(confirmed?'concluido':row.status==='remarcado'?'remarcado':'pendente'):incoming,panelConfirmed:confirmed,shopifyFinancialStatus:remote.financial_status,shopifyFulfillmentStatus:remote.fulfillment_status};
+ return {...row,...(fillTime?deliveryTime:{}),...(remote.name?{shopifyOrderName:remote.name}:{}),status:incoming==='pendente'?(confirmed?'concluido':row.status==='remarcado'?'remarcado':'pendente'):incoming,panelConfirmed:confirmed,shopifyFinancialStatus:remote.financial_status,shopifyFulfillmentStatus:remote.fulfillment_status};
 }
 export function createStatusAudit(store,providers,config){
  async function run(uid,{restart=false}={}){
@@ -20,10 +21,10 @@ export function createStatusAudit(store,providers,config){
    const connection=(await ref.get()).data();if(!connection)throw Object.assign(new Error('Ligue a Shopify antes de verificar os pedidos.'),{status:400});
    let audit=connection.statusAudit;
    if(audit?.version!==SHOPIFY_STATUS_AUDIT_VERSION || restart){
-    const saved=await readAll(store.records(uid,'vendas'),{select:['record.shopifyOrderId','record.shopifyOrderName','record.horario','record.data','record.status','record.reagendamentos']});
+    const saved=await readAll(store.records(uid,'vendas'),{select:['record.shopifyOrderId','record.shopifyOrderName','record.horario','record.horarioPreferencia','record.data','record.status','record.reagendamentos']});
     const {token}=decrypt(connection.credentials,config.encryptionKey),hasAllOrders=providers.shopifyScopes?(await providers.shopifyScopes(connection.shop,token)).includes('read_all_orders'):null;
     const rows=saved.docs.map(doc=>doc.data().record).filter(row=>/^\d+$/.test(row?.shopifyOrderId || ''));
-    const pendingDetails=rows.filter(row=>['pendente','remarcado'].includes(row.status) && (!row.shopifyOrderName || (!row.horario && !row.reagendamentos?.length)));
+    const pendingDetails=rows.filter(row=>['pendente','remarcado'].includes(row.status) && (!row.shopifyOrderName || (!row.horario && !row.horarioPreferencia && !row.reagendamentos?.length)));
     pendingDetails.sort((a,b)=>(b.data || '').localeCompare(a.data || ''));
     const ids=[...new Set([...pendingDetails,...rows].map(row=>row.shopifyOrderId))];
     audit={version:SHOPIFY_STATUS_AUDIT_VERSION,ids,hasAllOrders,cursor:0,rowOffset:0,checked:0,unavailable:0,startedAt:new Date().toISOString(),completedAt:null};
