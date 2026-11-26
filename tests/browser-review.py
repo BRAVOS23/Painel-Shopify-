@@ -21,14 +21,15 @@ with sync_playwright() as p:
     expect(page.locator('#vendasViewEntregas')).to_be_visible()
     assert page.locator('.pedido-card:focus').count()==1
     page.click('#tabBtnVendas');page.click('#subnavVendasPedidos')
-    # Editar e depois Novo pedido nunca reaproveita o ID ou os dados da edição.
+    # Cancelar uma edição limpa o formulário antes de criar outro pedido.
     page.evaluate("editVenda('nav_current')")
     expect(page.locator('#vendaSubmitBtn')).to_have_text('Atualizar')
-    page.click('#ordersNewOrder')
+    expect(page.locator('#vendasViewNovo')).to_be_visible()
+    page.click('#vendaCancelEdit')
     expect(page.locator('#vContacto')).to_have_value('')
-    expect(page.locator('#vendaSubmitBtn')).to_have_text('Adicionar')
+    expect(page.locator('#vendaSubmitBtn')).to_have_text('Criar pedido')
     page.fill('#vContacto','Novo cliente de revisão 840000007');page.fill('#vProduto','Produto de navegação');page.fill('#vValor','200')
-    page.click('#vendaSubmitBtn');saved();expect(page.locator('#vendaFormBody')).to_be_hidden()
+    page.click('#vendaSubmitBtn');saved();expect(page.locator('#vendasViewNovo')).to_be_visible();expect(page.locator('#vContacto')).to_have_value('')
     created=next(row for row in state() if row['contacto'].startswith('Novo cliente'))
     assert next(row for row in state() if row['id']=='nav_current')['contacto'].startswith('Cliente atual')
     # Sem taxa padrão, voltar do custo de entrega não conclui; zero é uma decisão explícita.
@@ -72,7 +73,7 @@ with sync_playwright() as p:
     assert download.value.suggested_filename.endswith('.pdf')
     # Navegação principal começa no topo e Pedidos abre Entregas na semana de hoje.
     scope=page.evaluate("()=>{const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Maputo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(p=>[p.type,p.value]));return {month:parts.year+'-'+parts.month,week:'semana'+Math.min(4,Math.ceil(Number(parts.day)/7))};}")
-    page.evaluate('abrirVendaForm();window.scrollTo(0,document.body.scrollHeight)')
+    page.click('#ordersNewOrder');page.evaluate('window.scrollTo(0,document.body.scrollHeight)')
     page.click('#tabBtnVendas')
     expect(page.locator('#vendasViewEntregas')).to_be_visible();expect(page.locator('#mesVendasEditor')).to_have_value(scope['month'])
     expect(page.locator('#semanaTabs button[aria-pressed="true"]')).to_contain_text('Semana '+scope['week'][-1])
@@ -141,11 +142,11 @@ with sync_playwright() as p:
         for key in ['Resumo','Vendas','Produtos','Metricas']:
           page.click('#tabBtn'+key)
           assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(theme,width,key)
-        page.click('#tabBtnVendas');page.click('#subnavVendasEntregas');page.evaluate('abrirVendaForm();document.getElementById("orderExtraFields").open=true')
+        page.click('#tabBtnVendas');page.click('#ordersNewOrder');page.evaluate('document.getElementById("orderExtraFields").open=true')
         if not page.evaluate('document.documentElement.scrollWidth<=innerWidth'):
           page.screenshot(path='/tmp/painel-review-overflow.png',full_page=True)
           print(page.evaluate('''()=>[...document.querySelectorAll('body *')].filter(e=>e.getClientRects().length && e.getBoundingClientRect().right>innerWidth+1).map(e=>({tag:e.tagName,id:e.id,cls:e.className,right:e.getBoundingClientRect().right})).slice(-25)'''),flush=True)
-        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(theme,width,'entregas')
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(theme,width,'novo pedido')
         if width==390:
           page.screenshot(path='/tmp/painel-review-orders-'+theme+'.png',full_page=True,animations='disabled')
     missing=page.evaluate(r'''()=>[...document.querySelectorAll('[onclick]')].flatMap(node=>{const match=node.getAttribute('onclick').match(/^(?:window\.)?([A-Za-z_$][\w$]*)\(/);return match && typeof window[match[1]]!=='function'?[match[1]]:[];})''')

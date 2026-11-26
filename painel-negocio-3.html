@@ -657,28 +657,14 @@
     <div class="subnav">
       <button id="subnavVendasPedidos" class="active" onclick="switchVendasView('pedidos')">Pedidos</button>
       <button id="subnavVendasRelatorios" onclick="switchVendasView('relatorios')">Relatórios</button>
+      <button type="button" id="ordersNewOrder" onclick="switchVendasView('novo')">Novo pedido</button>
       <button id="subnavVendasMeses" onclick="switchVendasView('meses')">Meses anteriores</button>
       <button id="subnavVendasConfig" hidden onclick="switchVendasView('config')">Configurações</button>
     </div>
 
-    <div id="vendasViewPedidos" class="subview active">
-      <div class="panel panel-slim">
-        <h2>Mês <span class="tag" id="mesVendasAtivoTag"></span></h2>
-        <div class="toolbar">
-          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            <input type="month" id="mesVendasEditor" aria-label="Mês dos pedidos" onchange="definirMesVendas()" style="background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:8px 10px; border-radius:8px; font-size:13px;">
-            <button class="btn-ghost" onclick="iniciarNovoMesVendas()">Próximo mês →</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Registar Pedido <span class="tag" id="semanaAtivaTag"></span></h2>
-        <div class="subtabs" id="semanaTabs"></div>
-        <div class="historico-toggle" id="vendaFormToggle" onclick="toggleVendaForm()">
-          <span class="chev">▶</span> + Novo pedido
-        </div>
-        <div id="vendaFormBody" style="display:none; margin-top:16px;">
+    <div id="vendasViewNovo" class="subview">
+      <div class="panel order-editor">
+        <h2 id="orderEditorTitle">Novo pedido</h2>
         <form id="vendaForm">
           <div class="field">
             <label for="vData">Data</label>
@@ -741,17 +727,33 @@
               <option value="remarcado">REMARCADO</option>
             </select>
           </div>
-          <div class="field span2" style="flex-direction:row; align-items:center; gap:10px;">
-            <button type="submit" class="btn-primary" id="vendaSubmitBtn">Adicionar</button>
+          <div class="field span2" id="newOrderGroup">
+            <label for="vGrupo">Grupo de entrega</label>
+            <select id="vGrupo"><option value="">Semana da data escolhida</option></select>
+          </div>
+          <div class="field span2 order-form-actions" style="flex-direction:row; align-items:center; gap:10px;">
+            <button type="submit" class="btn-primary" id="vendaSubmitBtn">Criar pedido</button>
             <button type="button" class="btn-ghost" id="vendaCancelEdit" style="display:none;" onclick="cancelVendaEdit()">Cancelar edição</button>
           </div>
           <div id="vendaMsg"></div>
         </form>
+      </div>
+    </div>
+
+    <div id="vendasViewPedidos" class="subview active">
+      <div class="panel panel-slim">
+        <h2>Mês <span class="tag" id="mesVendasAtivoTag"></span></h2>
+        <div class="toolbar">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <input type="month" id="mesVendasEditor" aria-label="Mês dos pedidos" onchange="definirMesVendas()" style="background:var(--ink-2); border:1px solid var(--panel-line); color:var(--sand); padding:8px 10px; border-radius:8px; font-size:13px;">
+            <button class="btn-ghost" onclick="iniciarNovoMesVendas()">Próximo mês →</button>
+          </div>
         </div>
+        <div class="subtabs" id="semanaTabs" role="group" aria-label="Grupos de entrega"></div>
       </div>
 
       <div class="panel panel-highlight">
-        <h2>Pedidos da Semana <span class="tag" id="pedidosTag"></span></h2>
+        <h2>Pedidos em aberto <span class="tag" id="pedidosTag"></span></h2>
         <div class="toolbar" style="margin-bottom:14px;">
           <div class="filters">
             <button type="button" class="btn-ghost" id="pedidosSelecaoBtn" onclick="toggleModoSelecaoPedidos()">☑ Selecionar para PDF</button>
@@ -1178,31 +1180,6 @@ let mesAtivo = '';
 let semanaAtiva = 'semana1';
 let mesAtivoVendas = '';
 let historicoAberto = false;
-let vendaFormAberto = false;
-function abrirVendaForm(){
-  if(!vendaEditId)window.configureDeliveryEditor?.();
-  window.openDeliveryWorkspace?.();
-  if(vendaFormAberto) return;
-  vendaFormAberto = true;
-  const t = document.getElementById('vendaFormToggle');
-  t.classList.add('open');
-  t.innerHTML = '<span class="chev">▶</span> Ocultar formulário';
-  document.getElementById('vendaFormBody').style.display = 'block';
-}
-// recolhido por padrão pra "Pedidos da Semana" não ficar escondido lá embaixo atrás de um
-// formulário inteiro sempre aberto — as abas de semana continuam visíveis fora disto, porque essas
-// sim são informação essencial pra saber em qual semana você está antes mesmo de abrir o formulário
-function toggleVendaForm(){
-  if(vendaFormAberto){
-    vendaFormAberto = false;
-    const t = document.getElementById('vendaFormToggle');
-    t.classList.remove('open');
-    t.innerHTML = '<span class="chev">▶</span> + Novo pedido';
-    document.getElementById('vendaFormBody').style.display = 'none';
-  } else {
-    abrirVendaForm();
-  }
-}
 let gastosViewAberta = false;
 let produtosViewAberta = false;
 
@@ -1215,6 +1192,7 @@ const SEMANAS = [
   {key:'remarketing', label:'Remarketing'},
   {key:'aguarda_sinal', label:'Indefinido'}
 ];
+document.getElementById('vGrupo').insertAdjacentHTML('beforeend',SEMANAS.map(group=>`<option value="${group.key}">${group.label}</option>`).join(''));
 const STATUS_LABEL = {pendente:'Pendente', concluido:'Concluído', cancelado:'Cancelado', remarcado:'Remarcado'};
 
 // contador que só cresce, junto do timestamp+aleatório — sem ele, importar/gerar muitos registos
@@ -1368,6 +1346,8 @@ function switchMain(which){
 
 function switchVendasView(which){
   document.getElementById('secVendas').dataset.view=which;
+  document.getElementById('vendasViewNovo').classList.toggle('active',which==='novo');
+  document.getElementById('ordersNewOrder').classList.toggle('active',which==='novo');
   document.getElementById('vendasViewEntregas')?.classList.toggle('active',which==='entregas');
   document.getElementById('subnavVendasEntregas')?.classList.toggle('active',which==='entregas');
   document.getElementById('vendasViewPedidos').classList.toggle('active', which==='pedidos');
@@ -1378,7 +1358,7 @@ function switchVendasView(which){
   document.getElementById('subnavVendasRelatorios').classList.toggle('active', which==='relatorios');
   document.getElementById('subnavVendasMeses').classList.toggle('active', which==='meses');
   document.getElementById('subnavVendasConfig').classList.toggle('active', which==='config');
-  for(const [key,id] of [['pedidos','subnavVendasPedidos'],['entregas','subnavVendasEntregas'],['relatorios','subnavVendasRelatorios']])document.getElementById(id)?.setAttribute('aria-pressed',String(which===key));
+  for(const [key,id] of [['pedidos','subnavVendasPedidos'],['entregas','subnavVendasEntregas'],['relatorios','subnavVendasRelatorios'],['novo','ordersNewOrder']])document.getElementById(id)?.setAttribute('aria-pressed',String(which===key));
   historicoMesesAberto = which==='meses';
   if(which==='relatorios') renderOverview();
   if(which==='meses') renderHistoricoMeses();
@@ -1971,13 +1951,8 @@ document.getElementById('vendaForm').addEventListener('submit', async function(e
   if(vendaEditId){
     const idx = vendasData.findIndex(v=>v.id===vendaEditId);
     if(idx>-1) vendasData[idx] = window.captureSaleCost({...vendasData[idx], data, ...deliveryTime, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status, semana: vendasData[idx].semana, mes: data.slice(0,7)},produtosData,{force:vendasData[idx].produto!==produto});
-    showVendaMsg('Registo atualizado.');
-    vendaEditId = null;
-    document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
-    document.getElementById('vendaCancelEdit').style.display = 'none';
   } else {
-    vendasData.push(window.captureSaleCost({id:uid(), semana:semanaAtiva, mes:data.slice(0,7), data, ...deliveryTime, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status},produtosData));
-    showVendaMsg('Pedido adicionado.');
+    vendasData.push(window.captureSaleCost({id:uid(), semana:document.getElementById('vGrupo').value || semanaPorDia(data), mes:data.slice(0,7), data, ...deliveryTime, fonte, contacto, local, provincia, descricao, produto, quantidade, valor, delivery, comissao, status},produtosData));
   }
   const target=edited?vendasData.find(row=>row.id===edited.id):vendasData.at(-1);
   if(target && feeMode!=='legacy')for(const row of vendasData.filter(row=>row.id===target.id || (target.shopifyOrderId && row.shopifyOrderId===target.shopifyOrderId))){const changedMode=row.deliveryFeeMode!==feeMode;row.comissao=0;if(changedMode || feeMode==='manual')delete row.deliveryFee;Object.assign(row,feeFields);}
@@ -1986,13 +1961,9 @@ document.getElementById('vendaForm').addEventListener('submit', async function(e
   if(target && cancellationDecision===undefined && cancellationInput && !cancellationInput.closest('.field').hidden)for(const row of vendasData.filter(row=>row.id===target.id || (target.shopifyOrderId && row.shopifyOrderId===target.shopifyOrderId))){row.cancellationCost=Number(cancellationInput.value || 0);row.cancellationCostDate=document.getElementById('vCancellationCostDate').value;}
   mesAtivoVendas=data.slice(0,7);guardarMesPreferido();
   saveVendas();
-  document.getElementById('vendaForm').reset();
-  document.getElementById('vStatus').disabled=false;
-  document.getElementById('shopifyEditStatusHelp').hidden=true;
-  dpVData.setValue(mesAtivoVendas===drISO(new Date()).slice(0,7)?drISO(new Date()):mesAtivoVendas+'-01');
-  document.getElementById('vQuantidade').value = 1;
-  if(vendaFormAberto)toggleVendaForm();
-  if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=false;
+  cancelVendaEdit();
+  dpVData.setValue(data);
+  showVendaMsg(edited?'Pedido atualizado.':'Pedido adicionado.');
   renderVendasAll();
 });
 
@@ -2140,7 +2111,14 @@ function iniciarNovoMesVendas(){
 }
 function guardarMesPreferido(){try{localStorage.setItem(window.cloudBackend.preferenceKey('painel_mes_vendas'),mesAtivoVendas);}catch{}}
 window.navigateOrders=function(month,week){if(month)mesAtivoVendas=month;if(week)semanaAtiva=week;guardarMesPreferido();switchMain('vendas');switchVendasView('pedidos');renderVendasAll();};
-window.openNewOrder=function(month){cancelVendaEdit();window.configureDeliveryEditor?.();window.navigateOrders(month);const today=drISO(new Date());const date=mesAtivoVendas===today.slice(0,7)?today:mesAtivoVendas+'-01';dpVData.setValue(date);semanaAtiva=semanaPorDia(date);renderVendasAll();abrirVendaForm();document.getElementById('vContacto').focus();};
+window.openNewOrder=function(month){
+  cancelVendaEdit();
+  const today=drISO(new Date());
+  dpVData.setValue(month && month!==today.slice(0,7)?month+'-01':today);
+  switchMain('vendas');
+  switchVendasView('novo');
+  window.scrollTo({top:0});
+};
 
 function renderSemanaTabs(){
   document.getElementById('semanaTabs').innerHTML = SEMANAS.map(s=>{
@@ -2148,8 +2126,7 @@ function renderSemanaTabs(){
     const badge = pendentes>0 ? `<span class="tab-badge">${pendentes}</span>` : '';
     return `<button aria-pressed="${s.key===semanaAtiva}" class="${s.key===semanaAtiva?'active':''}" onclick="selecionarSemana('${s.key}')">${s.label}${badge}</button>`;
   }).join('');
-  const lbl = SEMANAS.find(s=>s.key===semanaAtiva).label;
-  document.getElementById('semanaAtivaTag').textContent = lbl;
+
 }
 function selecionarSemana(key){
   semanaAtiva = key;
@@ -2240,7 +2217,7 @@ function renderPedidos(){
   if(list.length===0){
     cont.innerHTML = '';
     empty.style.display = 'block';
-    empty.textContent=(document.getElementById('pedidosBusca')?.value || document.getElementById('pedidosEstado')?.value)?'Nenhum pedido corresponde à pesquisa ou ao estado escolhido.':'Não há pedidos em aberto nesta semana.';
+    empty.textContent=(document.getElementById('pedidosBusca')?.value || document.getElementById('pedidosEstado')?.value)?'Nenhum pedido corresponde à pesquisa ou ao estado escolhido.':'Não há pedidos em aberto neste grupo.';
     tag.textContent = '';
     return;
   }
@@ -2437,15 +2414,12 @@ function renderEntregas(dados){
 function editVenda(id){
   const v = vendasData.find(x=>x.id===id);
   if(!v) return;
-  // editar a partir da tabela de Relatórios (ou de qualquer outro sítio) precisa primeiro trazer
-  // à vista a subview/aba onde o formulário de edição realmente vive — sem isto o scroll acontecia
-  // com o formulário ainda escondido (display:none), então parecia que "não levava a lado nenhum"
   switchMain('vendas');
-  switchVendasView('pedidos');
-  mesAtivoVendas=v.mes || v.data.slice(0,7);guardarMesPreferido();
-  if(v.semana) semanaAtiva = window.deliveryGroup(v.semana,v.data);
-  renderVendasAll();
-  abrirVendaForm();if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=true;
+  switchVendasView('novo');
+  if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=true;
+  document.getElementById('orderEditorTitle').textContent='Editar pedido'+(v.shopifyOrderName?' '+v.shopifyOrderName:'');
+  document.getElementById('newOrderGroup').hidden=true;
+  showVendaMsg('');
   dpVData.setValue(v.data);
   document.getElementById('vHorario').value = v.horario || v.horarioPreferencia || '';
   document.getElementById('vFonte').value = v.fonte;
@@ -2464,7 +2438,7 @@ function editVenda(id){
   vendaEditId = id;
   document.getElementById('vendaSubmitBtn').textContent = 'Atualizar';
   document.getElementById('vendaCancelEdit').style.display = 'inline-block';
-  window.scrollTo({top: document.getElementById('vendaForm').offsetTop - 20, behavior:'smooth'});
+  window.scrollTo({top:0});
 }
 function cancelVendaEdit(){
   vendaEditId = null;
@@ -2473,7 +2447,11 @@ function cancelVendaEdit(){
   document.getElementById('shopifyEditStatusHelp').hidden=true;
   dpVData.setValue(drISO(new Date()));
   document.getElementById('vQuantidade').value = 1;
-  document.getElementById('vendaSubmitBtn').textContent = 'Adicionar';
+  document.getElementById('vendaSubmitBtn').textContent = 'Criar pedido';
+  document.getElementById('orderEditorTitle').textContent = 'Novo pedido';
+  document.getElementById('newOrderGroup').hidden=false;
+  if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=false;
+  showVendaMsg('');
   document.getElementById('vendaCancelEdit').style.display = 'none';
 }
 function deleteVenda(id){
@@ -3887,7 +3865,6 @@ populateProdutosMetricas();
 window.resetBusinessWorkspace=function(){
  cancelVendaEdit();cancelProdutoEdit();cancelAdEdit();cancelOutroEdit();cancelOpEdit();
  pedidosExpandidos.clear();pedidosListaExpandidos.clear();produtosExpandidos.clear();pedidosSelecionadosPDF.clear();pedidosMensagens.clear();modoSelecaoPedidos=false;shopifyChavesDescobertas=[];
- if(vendaFormAberto)toggleVendaForm();
  for(const id of ['vendaBusca','pedidosBusca','produtosBusca','gastosBusca','cloudShop','metaRate','shopifyNativeFile','backupFile']){const field=document.getElementById(id);if(field)field.value='';}
  for(const [id,value] of [['filtroStatus','todos'],['pedidosEstado',''],['gastosFiltroTipo','']]){const field=document.getElementById(id);if(field)field.value=value;}
  for(const id of ['summaryOrders','catalogRemoteRows','reconcileRows'])document.getElementById(id)?.replaceChildren();
