@@ -98,10 +98,10 @@ test('GraphQL informa bloqueio de dados protegidos sem expor resposta de cliente
 test('importação usa contacto de entrega sem exigir acesso ao perfil Customer',async()=>{
  const providers=createProviders({shopifyVersion:'2026-07'},async(_url,options)=>{
   const {query}=JSON.parse(options.body);assert(!/customer\s*\{/.test(query));assert(query.includes('province'));assert(query.includes('customAttributes'));
-  return Response.json({data:{orders:{nodes:[{legacyResourceId:'123',createdAt:'2026-10-12T08:00:00Z',updatedAt:'2026-10-12T09:00:00Z',displayFulfillmentStatus:'UNFULFILLED',currencyCode:'MZN',shippingAddress:{name:'Cliente Entrega',phone:'865123456',address1:'Matola',city:'Maputo',province:'Maputo'},customAttributes:[{key:'Província',value:'Gaza'}],lineItems:{nodes:[{id:'gid://shopify/LineItem/1',title:'Produto',quantity:1,originalUnitPriceSet:{shopMoney:{amount:'100'}},discountAllocations:[]}],pageInfo:{hasNextPage:false}}}],pageInfo:{hasNextPage:false}}}});
+  return Response.json({data:{orders:{nodes:[{legacyResourceId:'123',name:'#1007',note:'Ligar antes da entrega',createdAt:'2026-10-12T08:00:00Z',updatedAt:'2026-10-12T09:00:00Z',displayFulfillmentStatus:'UNFULFILLED',currencyCode:'MZN',shippingAddress:{name:'Cliente Entrega',phone:'865123456',address1:'Matola',city:'Maputo',province:'Maputo'},customAttributes:[{key:'Província',value:'Gaza'}],lineItems:{nodes:[{id:'gid://shopify/LineItem/1',title:'Produto',quantity:1,originalUnitPriceSet:{shopMoney:{amount:'100'}},discountAllocations:[]}],pageInfo:{hasNextPage:false}}}],pageInfo:{hasNextPage:false}}}});
  });
  const page=await providers.shopifyOrdersPage('fixture.myshopify.com','fixture','2026-10-01','2026-10-12');
- const rows=shopifyRecords(page.orders[0]);assert.equal(rows[0].provincia,'Maputo');assert.equal(page.orders[0].note_attributes[0].value,'Gaza');assert.equal(rows[0].contacto,'Cliente Entrega 865123456');assert.equal(rows[0].local,'Matola, Maputo');assert.equal(rows[0].valor,100);
+ const rows=shopifyRecords(page.orders[0]);assert.equal(rows[0].shopifyOrderName,'#1007');assert.equal(rows[0].descricao,'Ligar antes da entrega');assert.equal(rows[0].provincia,'Maputo');assert.equal(page.orders[0].note_attributes[0].value,'Gaza');assert.equal(rows[0].contacto,'Cliente Entrega 865123456');assert.equal(rows[0].local,'Matola, Maputo');assert.equal(rows[0].valor,100);
 });
 
 test('Meta reconhece datas finais sem confundir números ou campanhas de vários produtos',()=>{

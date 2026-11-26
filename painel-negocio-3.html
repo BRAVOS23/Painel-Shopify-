@@ -404,7 +404,12 @@
   .pedido-card-main{ margin-bottom:13px; }
   .pedido-contacto{ font-size:15px; font-weight:600; color:var(--sand); margin-bottom:3px; }
   .pedido-detalhes{ font-size:12.5px; color:var(--sand-dim); line-height:1.5; }
-  .pedido-expand-chev{ display:none; font-size:11px; color:var(--sand-dimmer); transition:transform .2s; }
+  .pedido-expand-chev{ display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:var(--sand-dimmer); transition:transform .2s; }
+  .pedido-card.expanded .pedido-expand-chev{ transform:rotate(180deg); }
+  .order-note,.order-number{ display:block; color:var(--sand-dim); font-size:12px; overflow-wrap:anywhere; }
+  .order-note-text{ white-space:pre-wrap; }
+  .order-note-text,.pedido-card.expanded .order-note-indicator,tr.history-row-expanded .order-note-indicator{ display:none; }
+  .pedido-card.expanded .order-note-text,tr.history-row-expanded .order-note-text{ display:block; }
   /* modo de seleção pra exportar só alguns pedidos em PDF (em vez de todos os do dia) */
   .pedido-card.selecionavel{ cursor:pointer; }
   .pedido-card.selecionado{ border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-soft); }
@@ -523,7 +528,6 @@
     .pedido-extra, .pedido-card-actions{ display:none; margin-top:10px; }
     .pedido-card.expanded .pedido-extra{ display:block; }
     .pedido-card.expanded .pedido-card-actions{ display:flex; }
-    .pedido-card.expanded .pedido-expand-chev{ transform:rotate(180deg); }
     .cards4{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
     .cards6{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
     .chart-canvas-wrap{ height:210px; }
@@ -1806,7 +1810,7 @@ function importarCSVShopifyNativo(){
       const header = linhas[0];
       const col = (nome) => header.indexOf(nome);
       const iId=col('Id'), iFin=col('Financial Status'), iFulfillment=col('Fulfillment Status'), iCancel=col('Cancelled at'), iCreated=col('Created at'),
-            iNotas=col('Note Attributes'), iShipName=col('Shipping Name'), iShipPhone=col('Shipping Phone'),
+            iNotas=col('Note Attributes'), iNote=col('Notes'), iName=col('Name'), iShipName=col('Shipping Name'), iShipPhone=col('Shipping Phone'),
             iSubtotal=col('Subtotal'), iQtd=col('Lineitem quantity'), iProduto=col('Lineitem name');
       if(iId===-1 || iFin===-1 || iCreated===-1){
         showShopifyNativeMsg('Este ficheiro não parece ser uma exportação de pedidos da Shopify (faltam colunas esperadas).', true);
@@ -1828,6 +1832,8 @@ function importarCSVShopifyNativo(){
         const cols = linhas[i];
         const shopifyOrderId = String(cols[iId]||'').trim();
         if(!shopifyOrderId) continue;
+        const shopifyOrderName = String(cols[iName] || '').trim();
+        const descricao = String(cols[iNote] || '').trim();
 
         const finStatus = String(cols[iFin]||'').trim().toLowerCase();
         const cancelledAt = String(cols[iCancel]||'').trim();
@@ -1842,8 +1848,9 @@ function importarCSVShopifyNativo(){
           const old=vendasData[existenteIdx],fulfillment=String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase();
           const contactoCSV=window.appendAlternateContact(old.contacto,alternativoCSV);
           const nextStatus=status==='pendente'?(old.panelConfirmed?'concluido':old.status==='remarcado'?'remarcado':'pendente'):status;
-          if(old.contacto!==contactoCSV || old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
-            vendasData[existenteIdx]={...old,contacto:contactoCSV,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
+          const details={...(shopifyOrderName?{shopifyOrderName}:{}),...(!old.descricao?.trim() && descricao?{descricao}:{})};
+          if(Object.entries(details).some(([key,value])=>old[key]!==value) || old.contacto!==contactoCSV || old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
+            vendasData[existenteIdx]={...old,...details,contacto:contactoCSV,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
           }
           }
           continue;
@@ -1884,7 +1891,8 @@ function importarCSVShopifyNativo(){
           id: uid(), semana: semanaPorDia(data), mes,
           data, horario, fonte: '04.SHOPIFY',
           contacto: (nome + ' ' + telefone).trim(),
-          local, provincia, descricao: '', produto, quantidade, valor,
+          local, provincia, descricao, produto, quantidade, valor,
+          ...(shopifyOrderName?{shopifyOrderName}:{}),
           delivery: '', comissao: 0, status, shopifyOrderId,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase()
         });
         novos++;
@@ -2022,7 +2030,7 @@ function getHistoricoFiltrado(){
   const state=document.getElementById('historyStatus').value;
   return window.effectiveSales(vendasData).filter(v=>(v.mes===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || v.semana===semanaHistoricoSelecionada)) || (v.reagendamentos || []).some(item=>item.de.slice(0,7)===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || item.semanaAnterior===semanaHistoricoSelecionada)))
     .filter(v=>!state || (state==='concluido'?window.completedSale(v):state==='verificar'?v.status==='concluido' && !window.completedSale(v):v.status===state))
-    .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.provincia||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca))
+    .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.provincia||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca) || (v.shopifyOrderName||'').toLowerCase().includes(busca))
     .sort((a,b)=> b.data.localeCompare(a.data));
 }
 
@@ -2037,7 +2045,7 @@ function renderHistoricoMesTable(){
     <tr>
       <td class="mono" data-label="Data">${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</td>
       <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}</td>
+      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v.descricao)}</td>
       <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
       <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2048,6 +2056,13 @@ function renderHistoricoMesTable(){
     </tr>`).join('');
 }
 
+function orderNoteMarkup(note){
+  if(!note?.trim()) return '';
+  return `<span class="order-note"><span class="order-note-indicator">Tem nota</span><span class="order-note-text"><strong>Nota</strong> ${escapeHtml(note)}</span></span>`;
+}
+function orderNumberMarkup(name){
+  return name?`<small class="order-number">${escapeHtml(name)}</small>`:'';
+}
 function toggleHistoryDetails(button){const row=button.closest('tr'),expanded=row.classList.toggle('history-row-expanded');if(row.dataset.orderId){if(expanded)pedidosListaExpandidos.add(row.dataset.orderId);else pedidosListaExpandidos.delete(row.dataset.orderId);for(const toggle of row.querySelectorAll('button[aria-expanded]'))toggle.setAttribute('aria-expanded',String(expanded));}button.setAttribute('aria-expanded',String(expanded));if(button.classList.contains('compact-order-toggle'))button.setAttribute('aria-label',expanded?'Recolher pedido':'Expandir pedido');else button.textContent=expanded?'Ocultar detalhes':'Ver detalhes';}
 
 function exportHistoricoMesCSV(){
@@ -2091,7 +2106,7 @@ function getVendasFiltradas(){
   const range=drOverview?.getRange();
   return window.effectiveSales(vendasData).filter(v=>!range || (v.data>=range[0] && v.data<=range[1]))
     .filter(v=> status==='todos' || (status==='concluido'?window.completedSale(v):status==='verificar'?v.status==='concluido' && !window.completedSale(v):v.status===status))
-    .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.provincia||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca))
+    .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.provincia||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca) || (v.shopifyOrderName||'').toLowerCase().includes(busca))
     .sort((a,b)=> b.data.localeCompare(a.data));
 }
 
@@ -2099,7 +2114,7 @@ function getPedidosAtivos(){
   const query=(document.getElementById('pedidosBusca')?.value || '').trim().toLowerCase();
   const state=document.getElementById('pedidosEstado')?.value || '';
   return window.effectiveSales(vendasData).filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'))
-    .filter(v=>!state || v.status===state).filter(v=>!query || [v.contacto,v.local,v.provincia,v.produto].some(value=>String(value || '').toLowerCase().includes(query)));
+    .filter(v=>!state || v.status===state).filter(v=>!query || [v.contacto,v.local,v.provincia,v.produto,v.shopifyOrderName].some(value=>String(value || '').toLowerCase().includes(query)));
 }
 
 // no mobile o cartão do pedido começa recolhido (só o essencial); guarda quais estão abertos aqui
@@ -2201,12 +2216,13 @@ function renderPedidos(){
             <span class="pill st-${v.status==='concluido'&&!window.completedSale(v)?'verificar':v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':v.status==='concluido'&&!window.completedSale(v)?'A verificar':STATUS_LABEL[v.status]}</span>
             ${modoSelecaoPedidos
               ? `<button type="button" class="pedido-checkbox${selecionado?' checked':''}" aria-label="${selecionado?'Retirar seleção do pedido':'Selecionar pedido'}" aria-pressed="${selecionado}" onclick="event.stopPropagation();toggleSelecaoPedido('${v.id}')">${selecionado?'✓':''}</button>`
-              : `<button type="button" class="pedido-expand-chev" aria-expanded="${expandido}" aria-label="Mostrar ações do pedido" onclick="event.stopPropagation();togglePedidoCard('${v.id}')">⌄</button>`}
+              : `<button type="button" class="pedido-expand-chev" aria-expanded="${expandido}" aria-label="${expandido?'Recolher pedido':'Expandir pedido'}" onclick="event.stopPropagation();togglePedidoCard('${v.id}')">⌄</button>`}
           </span>
         </div>
         <div class="pedido-card-main">
-          <div class="pedido-contacto">${contactoComAcoes(v.contacto, v.id)}</div>
+          <div class="pedido-contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}</div>
           <div class="pedido-detalhes">${escapeHtml(v.local||'Local não indicado')}</div>${v.provincia?`<div class="order-province">Província: ${escapeHtml(v.provincia)}</div>`:''}
+          ${orderNoteMarkup(v.descricao)}
           ${v.data<drISO(new Date())?'<div class="order-overdue">Entrega em atraso · escolhe uma nova data</div>':''}
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
           ${(lineCounts.get(v.shopifyOrderId) || 0)>1?`<small class="order-line-hint pedido-extra">Pedido com ${lineCounts.get(v.shopifyOrderId)} linhas de produto. Concluir, cancelar e reagendar aplicam-se ao pedido inteiro.</small>`:''}
@@ -2310,14 +2326,14 @@ function renderVendaTable(){
         <td class="order-list-toggle"><button type="button" class="compact-order-toggle" aria-label="${pedidosListaExpandidos.has(v.id)?'Recolher pedido':'Expandir pedido'}" aria-expanded="${pedidosListaExpandidos.has(v.id)}" onclick="toggleHistoryDetails(this)">⌄</button></td>
         <td class="mono" data-label="Data">${fmtData(v.data)}</td>
         <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}</td>
+        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v.descricao)}</td>
         <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
         <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
         <td class="mono" data-label="Qtd">${v.quantidade}</td>
         <td class="mono" data-label="Valor">${fmtMT(v.valor||0)}${v.provincia?`<small class="compact-province">${escapeHtml(v.provincia)}</small>`:''}</td>
         <td data-label="Entregador">${escapeHtml(v.delivery||'—')}</td>
         <td data-label="Estado"><span class="pill st-${v.status==='concluido'&&!window.completedSale(v)?'verificar':v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':v.status==='concluido'&&!window.completedSale(v)?'A verificar':STATUS_LABEL[v.status]}</span></td>
-        <td data-label="Ações"><div class="row-actions">${['pendente','remarcado'].includes(v.status)?`<button class="btn-ghost" onclick="markStatus('${v.id}','concluido')" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''}>Concluir</button><button class="btn-ghost" onclick="markStatus('${v.id}','cancelado')" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''}>Cancelar</button><button class="btn-ghost" onclick="window.openReschedule('${v.id}')">Reagendar</button>`:''}<button class="btn-ghost history-row-toggle" aria-expanded="false" onclick="toggleHistoryDetails(this)">Ver detalhes</button>
+        <td data-label="Ações"><div class="row-actions">${['pendente','remarcado'].includes(v.status)?`<button class="btn-ghost" onclick="markStatus('${v.id}','concluido')" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''}>Concluir</button><button class="btn-ghost" onclick="markStatus('${v.id}','cancelado')" ${pedidosAAtualizar.has(v.shopifyOrderId)?'disabled':''}>Cancelar</button><button class="btn-ghost" onclick="window.openReschedule('${v.id}')">Reagendar</button>`:''}<button class="btn-ghost history-row-toggle" aria-expanded="${pedidosListaExpandidos.has(v.id)}" onclick="toggleHistoryDetails(this)">${pedidosListaExpandidos.has(v.id)?'Ocultar detalhes':'Ver detalhes'}</button>
           <button class="icon-btn" onclick="editVenda('${v.id}')" title="Editar">✎</button>
           <button class="icon-btn" onclick="deleteVenda('${v.id}')" title="Apagar">✕</button>
         </div></td>

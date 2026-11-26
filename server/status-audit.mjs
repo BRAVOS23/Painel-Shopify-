@@ -6,7 +6,7 @@ import {csvOrderStatus} from '../web/sales.mjs';
 export function reconciledStatus(row,remote){
  const incoming=csvOrderStatus(remote.financial_status,remote.fulfillment_status,remote.cancelled_at);
  const confirmed=incoming!=='cancelado' && row.panelConfirmed===true;
- return {...row,status:incoming==='pendente'?(confirmed?'concluido':row.status==='remarcado'?'remarcado':'pendente'):incoming,panelConfirmed:confirmed,shopifyFinancialStatus:remote.financial_status,shopifyFulfillmentStatus:remote.fulfillment_status};
+ return {...row,...(remote.name?{shopifyOrderName:remote.name}:{}),status:incoming==='pendente'?(confirmed?'concluido':row.status==='remarcado'?'remarcado':'pendente'):incoming,panelConfirmed:confirmed,shopifyFinancialStatus:remote.financial_status,shopifyFulfillmentStatus:remote.fulfillment_status};
 }
 export function createStatusAudit(store,providers,config){
  async function run(uid,{restart=false}={}){
