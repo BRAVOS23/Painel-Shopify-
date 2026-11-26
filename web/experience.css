@@ -28,7 +28,6 @@ body{font-size:14px;line-height:1.5}.mono,.card .v,.roi-hero-value,.summary-stat
 @media(max-width:600px){.history-period{grid-template-columns:repeat(2,minmax(0,1fr))}.history-period label:first-child{grid-column:1/-1}.history-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.history-summary .ov-card:last-child{grid-column:1/-1}.history-summary .v{font-size:23px}#vendasViewRelatorios .overview{grid-template-columns:repeat(2,minmax(0,1fr))}#vendasViewRelatorios .ov-card .k{font-size:12px;line-height:1.5}.report-heading{gap:4px}.report-revenue{width:100%}.history-period select{padding:10px 6px}#vendasViewMeses .toolbar input{width:100%;min-width:0}#vendasViewRelatorios .side-grid{grid-template-columns:1fr}}
 .history-row-toggle{display:none}.st-verificar{background:var(--overlay-2);color:var(--sand-dim)}.history-summary .ov-card .k{text-transform:none;letter-spacing:0;font-size:13px;line-height:1.5}.history-actions .btn-ghost{white-space:nowrap}
 @media(max-width:600px){.history-row-toggle{display:inline-flex;align-items:center;justify-content:center}#histTableBody tr:not(.history-row-expanded) td:is([data-label="Fonte"],[data-label="Local"],[data-label="Qtd"],[data-label="Entregador"]){display:none}.history-actions{gap:8px;flex-wrap:wrap}.history-actions .btn-ghost{flex:1}#histTableBody td[data-label="Estado"]{align-items:flex-start}.history-summary .ov-card .k{font-size:12px}}
-@media(max-width:600px){#vendaTableBody tr:not(.history-row-expanded) td:is([data-label="Fonte"],[data-label="Local"],[data-label="Qtd"],[data-label="Entregador"]){display:none}#vendaTableBody .row-actions{flex-wrap:wrap;gap:6px}#vendaTableBody .row-actions .history-row-toggle{flex:1}}
 .order-audit-control{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.order-audit-control p{margin:0}.order-audit-control button{white-space:normal}
 .business-card{padding:20px 0;border-bottom:1px solid var(--panel-line)}.business-card h3{margin-bottom:10px}.business-card p,.access-notice{font-size:13px;line-height:1.65}.business-card p{margin-bottom:8px}.access-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--gold);padding:14px;border-radius:12px;margin-bottom:16px;background:var(--panel)}.platform-admin{max-width:780px}.platform-admin form:not([hidden]){display:block!important}.platform-admin label{display:flex;flex-direction:column;gap:7px;margin:12px 0;font-size:13px}.platform-admin input,.platform-admin select{width:100%;min-width:0;min-height:44px;font-size:16px;padding:10px;background:var(--panel);color:var(--sand);border:1px solid var(--panel-line);border-radius:8px}.platform-admin .muted{font-size:13px;line-height:1.6}.admin-business{padding:16px 0;border-bottom:1px solid var(--panel-line);overflow-wrap:anywhere}.admin-business small{display:block;margin:8px 0;color:var(--sand-dim)}#platformAdminMessage{font-size:13px;line-height:1.6;margin:14px 0}#platformAudit{font-size:12px;overflow-wrap:anywhere}.platform-admin summary{min-height:44px;cursor:pointer;margin-top:16px}@media(max-width:600px){.access-notice{flex-direction:column;align-items:stretch}}
 #closeAccountDialog .dialog-body p,#privacyMessage,#qualityReport,#legalAcceptanceMessage{font-size:13px;line-height:1.7;margin:12px 0}#closeAccountForm{display:block}#closeAccountForm>label{display:flex;flex-direction:column;gap:8px;margin:16px 0;font-size:14px}#closeAccountForm>label.chart-mode{flex-direction:row;align-items:flex-start}#closeAccountForm input:not([type="checkbox"]),#finishClosureForm input{width:100%;min-width:0;min-height:44px;background:var(--panel);color:var(--sand);border:1px solid var(--panel-line);border-radius:8px;padding:10px;font-size:16px}#finishClosureForm{display:flex;flex-direction:column;gap:12px;margin-top:16px}.business-card a{color:var(--brand);text-decoration:underline}.business-card details summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
@@ -41,6 +40,8 @@ body{font-size:14px;line-height:1.5}.mono,.card .v,.roi-hero-value,.summary-stat
 @media(max-width:600px){
  #produtosGrid{grid-template-columns:minmax(0,1fr)}.product-toolbar .filters{width:100%;min-width:0}.product-toolbar input{width:100%;box-sizing:border-box}
  #secProdutos .cards3{grid-template-columns:repeat(2,minmax(0,1fr))}#secProdutos .cards3 .card:last-child{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px}#secProdutos .cards3 .card:last-child .k{max-width:45%;margin:0}#secProdutos .cards3 .card:last-child .v{font-size:21px;text-align:right}
+}
+@media(max-width:1279px){
  #vendaTableBody tr{min-width:0;box-sizing:border-box;padding:14px}
  #vendaTableBody td{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:start;gap:10px;text-align:left;min-width:0;overflow-wrap:break-word}
  #vendaTableBody td::before{white-space:nowrap;word-break:normal;overflow-wrap:normal;line-height:1.6;font-size:12px}
@@ -59,10 +60,19 @@ body{font-size:14px;line-height:1.5}.mono,.card .v,.roi-hero-value,.summary-stat
 }
 /* Pedidos compactos: informação essencial primeiro, detalhes e ações ao expandir. */
 #vendaTableBody .order-list-toggle{display:none}
-@media(max-width:600px){
- #vendaTableBody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;position:relative;padding:14px}
- #vendaTableBody td{display:block;padding:0;font-size:14px;min-width:0}
- #vendaTableBody td::before{display:none!important}
+#vendaTableBody td:is([data-label="Data"],[data-label="Fonte"],[data-label="Valor"]){white-space:nowrap}
+#vendaTableBody .row-actions{flex-wrap:wrap}
+@media(min-width:1280px){
+ #vendaTableBody td[data-label="Ações"]{width:200px}
+ #vendaTableBody .row-actions .btn-ghost{white-space:nowrap;padding-inline:8px}
+}
+@media(max-width:1279px){
+ .orders-list-panel table.responsive-table thead{display:none}
+ .orders-list-panel table.responsive-table,.orders-list-panel table.responsive-table tbody{display:block;width:100%}
+ #vendaTableBody tr:not(.history-row-expanded) td:is([data-label="Fonte"],[data-label="Local"],[data-label="Qtd"],[data-label="Entregador"]){display:none}
+ #vendaTableBody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;position:relative;padding:14px;margin-bottom:10px;border:1px solid var(--panel-line);border-radius:12px;background:var(--ink-2)}
+ #vendaTableBody td{display:block;padding:0;border:0;font-size:14px;min-width:0}
+ #vendaTableBody td::before{content:attr(data-label);color:var(--sand-dim);display:none!important}
  #vendaTableBody td[data-label="Data"]{grid-column:1;grid-row:1;font-size:12px;color:var(--sand-dim);align-self:center}
  #vendaTableBody td[data-label="Estado"]{grid-column:2;grid-row:1;padding-right:37px;align-self:center}
  #vendaTableBody td[data-label="Estado"] .pill{font-size:11px;white-space:nowrap}
@@ -83,7 +93,7 @@ body{font-size:14px;line-height:1.5}.mono,.card .v,.roi-hero-value,.summary-stat
 /* Uma tarefa por vista: consultar pedidos, organizar entregas ou analisar relatórios. */
 #secVendas:is([data-view="entregas"],[data-view="novo"])>.orders-period{display:none}#vendasViewEntregas .delivery-planning{margin:0;padding:0;border:0;background:transparent}#vendasViewEntregas .delivery-planning>.panel{background:var(--panel);border:1px solid var(--panel-line);border-radius:14px;padding:18px;margin-bottom:16px}.orders-list-panel .toolbar{margin-top:0}.export-orders-link{border:0;background:transparent;box-shadow:none;color:var(--sand-dim);padding:8px 0;justify-self:end}.orders-heading{margin-bottom:16px}.orders-period{margin-bottom:12px}#secVendas>.subnav{margin-bottom:16px}
 @media(max-width:600px){#secVendas>.subnav{position:static;padding:4px;background:var(--overlay-2);border:1px solid var(--panel-line);border-radius:11px}#secVendas>.subnav button.active{border-radius:8px}#vendasViewEntregas .delivery-planning>.panel{padding:16px}.orders-list-panel .toolbar{gap:8px;margin-bottom:12px}.orders-list-panel .export-orders-link{margin-left:auto;min-height:36px;font-size:12px}#secVendas>.orders-period>span{display:none}}
-.order-province{display:block;font-size:12px;line-height:1.6;color:var(--sand-dim);margin-top:3px}.compact-province{display:none}@media(max-width:600px){#vendaTableBody .compact-province{display:block;font-size:11px;font-weight:400;color:var(--sand-dim);margin-top:4px;white-space:normal;max-width:120px}}
+.order-province{display:block;font-size:12px;line-height:1.6;color:var(--sand-dim);margin-top:3px}.compact-province{display:none}@media(max-width:1279px){#vendaTableBody .compact-province{display:block;font-size:11px;font-weight:400;color:var(--sand-dim);margin-top:4px;white-space:normal;max-width:120px}}
 #deliveryPolicyForm{display:flex;flex-direction:column;align-items:stretch;gap:12px;font-size:14px}#deliveryPolicyForm input[type="number"]{width:100%;min-height:44px;font-size:16px;padding:10px;border:1px solid var(--panel-line);border-radius:8px;background:var(--panel);color:var(--sand)}#deliveryPolicyForm label.chart-mode{justify-content:flex-start;gap:10px}#deliveryPolicyForm button{align-self:flex-start}.delivery-settings-shortcut{font-size:12px;margin-top:10px;padding:6px 8px;white-space:normal}#vDeliveryFeeMode{max-width:100%;min-width:0;margin-bottom:6px}#vComissao[readonly]{opacity:.7}
 
 /* Importação e mapeamento legíveis no diálogo, incluindo ecrãs estreitos. */
@@ -121,7 +131,13 @@ button.pedido-checkbox{min-width:44px;min-height:44px;cursor:pointer;flex-shrink
 
 .delivery-cost-form select{width:100%;min-width:0;min-height:48px;padding:12px;border:1px solid var(--panel-line);border-radius:9px;background:var(--panel);color:var(--sand);font:inherit;font-size:16px}#cancellationAmountField{display:flex;flex-direction:column;gap:8px}#clearOrderDeliveryFee{white-space:normal;font-size:12px;margin-top:8px}
 
-@media(min-width:601px){tr:has(.order-note-text) .history-row-toggle{display:inline-flex}}
+@media(min-width:601px){#histTableBody tr:has(.order-note-text) .history-row-toggle{display:inline-flex}}
+@media(min-width:1280px){#vendaTableBody tr:has(.order-note-text) .history-row-toggle{display:inline-flex}}
 
 .order-editor{max-width:860px;margin-inline:auto}.order-form-actions{flex-wrap:wrap}#newOrderGroup[hidden]{display:none}
 @media(max-width:600px){#secVendas>.subnav button{white-space:normal;line-height:1.2;padding-inline:6px}}
+
+@media(min-width:760px) and (max-width:1279px){
+ #vendaTableBody .row-actions{display:flex}
+ #vendaTableBody .row-actions button{width:auto;padding-inline:14px}
+}
