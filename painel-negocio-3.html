@@ -3229,27 +3229,42 @@ function desenharPedidoPDF(doc, v, yStart){
   }
 
   let ty = y + 2;
+  let photoBottom = y + (temFoto?46:2);
   doc.setFontSize(10);
   const linhas = [
+    ...(v.shopifyOrderName?[['Pedido Shopify',v.shopifyOrderName]]:[]),
+    ['Data', fmtData(v.data) || '—'],
     ['Produto', v.produto || '—'],
     ['Quantidade', String(v.quantidade||1)],
     ['Valor', fmtMT(v.valor||0)],
     ['Local', v.local || '—'],
     ...(v.provincia?[['Província',v.provincia]]:[]),
-    ['Horário', v.horario || v.horarioPreferencia || '—']
+    [v.horario || !v.horarioPreferencia?'Horário':'Preferência', v.horario || v.horarioPreferencia || '—']
   ];
   if(v.delivery) linhas.push(['Entregador', v.delivery]);
   if(v.descricao) linhas.push(['Nota', v.descricao]);
 
-  linhas.forEach(([label, valor])=>{
-    doc.setFont(undefined,'bold');
-    doc.text(label+':', infoX, ty);
-    doc.setFont(undefined,'normal');
-    doc.text(String(valor), infoX+26, ty, {maxWidth: 190-(infoX+26)});
-    ty += 6;
-  });
+  const valueX = infoX + 31;
+  const pageBottom = doc.internal.pageSize.getHeight() - 20;
+  for(const [label, valor] of linhas){
+    const lines = doc.splitTextToSize(String(valor),190-valueX);
+    lines.forEach((line,index)=>{
+      if(ty>pageBottom){
+        doc.addPage();
+        ty=20;
+        photoBottom=0;
+      }
+      if(index===0){
+        doc.setFont(undefined,'bold');
+        doc.text(label+':',infoX,ty);
+        doc.setFont(undefined,'normal');
+      }
+      doc.text(line,valueX,ty);
+      ty += index===lines.length-1?6:5;
+    });
+  }
 
-  y = Math.max(y + (temFoto?46:2), ty) + 4;
+  y = Math.max(photoBottom,ty) + 4;
   doc.setDrawColor(210);
   doc.line(20, y, 190, y);
   return y + 4;
