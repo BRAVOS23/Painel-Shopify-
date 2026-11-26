@@ -413,7 +413,10 @@
   .order-note-dot{ width:8px; height:8px; border-radius:50%; background:var(--gold); flex:none; }
   .order-note-text{ display:none; color:var(--sand); white-space:pre-wrap; }
   .pedido-card.expanded .order-note-text,tr.history-row-expanded .order-note-text{ display:block; }
-  #orderNoteValue{ width:100%; min-height:125px; resize:vertical; padding:12px; margin:8px 0 16px; border:1px solid var(--panel-line); border-radius:9px; background:var(--panel); color:var(--sand); font:inherit; font-size:16px; }
+  #orderNoteDialog{ max-height:calc(var(--order-note-viewport, 100dvh) - 24px); }
+  #orderNoteForm{ display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+  #orderNoteForm .schedule-actions{ flex-wrap:wrap; margin-top:8px; }
+  #orderNoteValue{ width:100%; min-height:96px; resize:vertical; padding:12px; border:1px solid var(--panel-line); border-radius:9px; background:var(--panel); color:var(--sand); font:inherit; font-size:16px; }
   #orderNoteDialog textarea[readonly]{ resize:none; }
   /* modo de seleção pra exportar só alguns pedidos em PDF (em vez de todos os do dia) */
   .pedido-card.selecionavel{ cursor:pointer; }
@@ -1149,10 +1152,10 @@
 </div>
 
 <dialog id="orderNoteDialog" class="app-dialog" aria-labelledby="orderNoteTitle">
-  <div class="dialog-head"><h2 id="orderNoteTitle">Nota do pedido</h2><button class="dialog-close" type="button" aria-label="Fechar" onclick="this.closest('dialog').close()">×</button></div>
+  <div class="dialog-head"><h2 id="orderNoteTitle">Nota do pedido</h2><button class="dialog-close" type="button" aria-label="Fechar" autofocus onclick="this.closest('dialog').close()">×</button></div>
   <form class="dialog-body" id="orderNoteForm" onsubmit="saveOrderNote(event)">
     <label for="orderNoteValue">Nota</label>
-    <textarea id="orderNoteValue" maxlength="4000" rows="5" autofocus></textarea>
+    <textarea id="orderNoteValue" maxlength="4000" rows="4"></textarea>
     <div class="schedule-actions">
       <button class="btn-ghost" type="button" onclick="this.closest('dialog').close()">Fechar</button>
       <button class="btn-primary" id="orderNoteSave" type="submit">Guardar nota</button>
@@ -2092,7 +2095,15 @@ function openOrderNote(id){
   field.value=row.descricao || '';
   field.readOnly=!window.cloudBackend.canWrite();
   document.getElementById('orderNoteSave').hidden=field.readOnly;
+  const viewport=window.visualViewport;
+  if(viewport){
+    const resize=()=>dialog.style.setProperty('--order-note-viewport',viewport.height+'px');
+    resize();
+    viewport.addEventListener('resize',resize);
+    dialog.addEventListener('close',()=>viewport.removeEventListener('resize',resize),{once:true});
+  }
   dialog.showModal();
+  if(!row.descricao?.trim() && !field.readOnly)field.focus();
 }
 function saveOrderNote(event){
   event.preventDefault();
