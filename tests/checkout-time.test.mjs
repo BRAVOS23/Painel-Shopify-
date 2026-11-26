@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {deliveryTimeFields,normalizeDeliveryTime,appendAlternateContact,scheduleOrder} from '../web/orders.mjs';
+import {deliveryTimeFields,normalizeDeliveryTime,appendAlternateContact,deliveryGroup,scheduleOrder} from '../web/orders.mjs';
 import {shopifyRecords} from '../server/model.mjs';
 import {reconciledStatus} from '../server/status-audit.mjs';
 test('API Shopify lê hora do checkout em atributos REST e GraphQL',()=>{
@@ -29,6 +29,12 @@ test('preferência de entrega em texto é preservada no pedido e na verificaçã
  const [row]=shopifyRecords(source);
  assert.equal(row.horario,'');
  assert.equal(row.horarioPreferencia,'antes das 10');
+ for(const text of ['28/11/2026','Depois da oração,\nse estiver em casa','  combinar com a minha irmã  ']){
+  assert.deepEqual(deliveryTimeFields(text),{horario:'',horarioPreferencia:text});
+  assert.equal(shopifyRecords({...source,note_attributes:[{key:'Data e hora da entrega',value:text}]})[0].horarioPreferencia,text);
+ }
+ assert.equal(deliveryGroup('provincias','2026-11-16'),'semana3');
+ assert.equal(deliveryGroup('aguarda_sinal','2026-11-16'),'aguarda_sinal');
  assert.equal(reconciledStatus({...row,horarioPreferencia:''},{note_attributes}).horarioPreferencia,'antes das 10');
  assert.equal(reconciledStatus(row,{note_attributes:[{key:'Hora',value:'13h'}]}).horarioPreferencia,'antes das 10');
  const moved=scheduleOrder(row,{date:'2026-11-12',group:'aguarda_sinal'});

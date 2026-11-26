@@ -19,7 +19,7 @@ export function initNavigation(){
  const delivery=$('entregasBody').closest('.panel');delivery.querySelector('.report-help').textContent='Unidades e entregas concluídas no período escolhido.';
  $('entregasBody').closest('table').classList.add('operational-deliveries');
  const originalNavigate=window.navigateOrders;window.navigateOrders=(month,week)=>{originalNavigate(month,week);if(month){const [year,number]=month.split('-').map(Number);drOverview.setRange([month+'-01',new Date(Date.UTC(year,number,0)).toISOString().slice(0,10)],null);window.renderOverview();}if(week)window.switchVendasView('entregas');};
- window.focusOrder=id=>{const row=window.cloudBackend.read('vendas').find(row=>row.id===id);if(!row)return;window.navigateOrders(row.mes,row.semana);$('pedidosBusca').value='';$('pedidosEstado').value='';pedidosExpandidos.add(id);window.renderPedidos();const card=document.getElementById('pedido_'+id);if(card){card.tabIndex=-1;card.focus({preventScroll:true});card.scrollIntoView({block:'center',behavior:'smooth'});}};
+ window.focusOrder=id=>{const row=window.cloudBackend.read('vendas').find(row=>row.id===id);if(!row)return;window.navigateOrders(row.mes,window.deliveryGroup(row.semana,row.data));$('pedidosBusca').value='';$('pedidosEstado').value='';pedidosExpandidos.add(id);window.renderPedidos();const card=document.getElementById('pedido_'+id);if(card){card.tabIndex=-1;card.focus({preventScroll:true});card.scrollIntoView({block:'center',behavior:'smooth'});}};
  // Só os botões de navegação mudam o destino padrão. Atalhos de edição e
  // de pedidos concretos conservam o mês/semana do registo que abriram.
  const top=()=>window.scrollTo({top:0,left:0,behavior:'instant'});

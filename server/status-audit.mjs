@@ -4,7 +4,7 @@ import {captureSaleCost} from '../web/sales.mjs';
 import {decrypt} from './security.mjs';
 import {csvOrderStatus} from '../web/sales.mjs';
 import {shopifyDeliveryTime} from '../web/orders.mjs';
-export const SHOPIFY_STATUS_AUDIT_VERSION=3;
+export const SHOPIFY_STATUS_AUDIT_VERSION=4;
 export function reconciledStatus(row,remote){
  const incoming=csvOrderStatus(remote.financial_status,remote.fulfillment_status,remote.cancelled_at);
  const deliveryTime=shopifyDeliveryTime(remote.note_attributes);

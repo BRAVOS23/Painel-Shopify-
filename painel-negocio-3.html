@@ -400,6 +400,7 @@
   }
   .pedido-card:hover{ border-color:var(--overlay-4); }
   .pedido-card-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; gap:8px; }
+  .order-delivery-time{ white-space:pre-wrap; overflow-wrap:anywhere; }
   .pedido-hora{ overflow-wrap:anywhere; min-width:0; font-family:var(--font-mono); font-size:12.5px; color:var(--gold); font-weight:600; }
   .pedido-card-main{ margin-bottom:13px; }
   .pedido-contacto{ font-size:15px; font-weight:600; color:var(--sand); margin-bottom:3px; }
@@ -1212,8 +1213,7 @@ const SEMANAS = [
   {key:'semana3', label:'Semana 3'},
   {key:'semana4', label:'Semana 4'},
   {key:'remarketing', label:'Remarketing'},
-  {key:'provincias', label:'Províncias'},
-  {key:'aguarda_sinal', label:'A aguardar sinal'}
+  {key:'aguarda_sinal', label:'Sinal'}
 ];
 const STATUS_LABEL = {pendente:'Pendente', concluido:'Concluído', cancelado:'Cancelado', remarcado:'Remarcado'};
 
@@ -2046,7 +2046,7 @@ function getHistoricoFiltrado(){
   if(!mesHistoricoSelecionado) return [];
   const busca = document.getElementById('histBusca').value.trim().toLowerCase();
   const state=document.getElementById('historyStatus').value;
-  return window.effectiveSales(vendasData).filter(v=>(v.mes===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || v.semana===semanaHistoricoSelecionada)) || (v.reagendamentos || []).some(item=>item.de.slice(0,7)===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || item.semanaAnterior===semanaHistoricoSelecionada)))
+  return window.effectiveSales(vendasData).filter(v=>(v.mes===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || window.deliveryGroup(v.semana,v.data)===semanaHistoricoSelecionada)) || (v.reagendamentos || []).some(item=>item.de.slice(0,7)===mesHistoricoSelecionado && (!semanaHistoricoSelecionada || window.deliveryGroup(item.semanaAnterior,item.de)===semanaHistoricoSelecionada)))
     .filter(v=>!state || (state==='concluido'?window.completedSale(v):state==='verificar'?v.status==='concluido' && !window.completedSale(v):v.status===state))
     .filter(v=> !busca || (v.contacto||'').toLowerCase().includes(busca) || (v.local||'').toLowerCase().includes(busca) || (v.provincia||'').toLowerCase().includes(busca) || (v.produto||'').toLowerCase().includes(busca) || (v.shopifyOrderName||'').toLowerCase().includes(busca))
     .sort((a,b)=> b.data.localeCompare(a.data));
@@ -2063,7 +2063,7 @@ function renderHistoricoMesTable(){
     <tr>
       <td class="mono" data-label="Data">${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</td>
       <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${v.horarioPreferencia && !v.horario?`<small class="order-schedule-note">${escapeHtml(v.horarioPreferencia)}</small>`:''}${orderNoteMarkup(v)}</td>
+      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${v.horarioPreferencia && !v.horario?`<small class="order-schedule-note order-delivery-time">${escapeHtml(v.horarioPreferencia)}</small>`:''}${orderNoteMarkup(v)}</td>
       <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
       <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2144,7 +2144,7 @@ window.openNewOrder=function(month){cancelVendaEdit();window.configureDeliveryEd
 
 function renderSemanaTabs(){
   document.getElementById('semanaTabs').innerHTML = SEMANAS.map(s=>{
-    const pendentes = window.countOrders(window.effectiveSales(vendasData).filter(v=> v.semana===s.key && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado')));
+    const pendentes = window.countOrders(window.effectiveSales(vendasData).filter(v=> window.deliveryGroup(v.semana,v.data)===s.key && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado')));
     const badge = pendentes>0 ? `<span class="tab-badge">${pendentes}</span>` : '';
     return `<button aria-pressed="${s.key===semanaAtiva}" class="${s.key===semanaAtiva?'active':''}" onclick="selecionarSemana('${s.key}')">${s.label}${badge}</button>`;
   }).join('');
@@ -2172,7 +2172,7 @@ function getVendasFiltradas(){
 function getPedidosAtivos(){
   const query=(document.getElementById('pedidosBusca')?.value || '').trim().toLowerCase();
   const state=document.getElementById('pedidosEstado')?.value || '';
-  return window.effectiveSales(vendasData).filter(v=>v.semana===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'))
+  return window.effectiveSales(vendasData).filter(v=>window.deliveryGroup(v.semana,v.data)===semanaAtiva && v.mes===mesAtivoVendas && (v.status==='pendente' || v.status==='remarcado'))
     .filter(v=>!state || v.status===state).filter(v=>!query || [v.contacto,v.local,v.provincia,v.produto,v.shopifyOrderName].some(value=>String(value || '').toLowerCase().includes(query)));
 }
 
@@ -2270,7 +2270,7 @@ function renderPedidos(){
       return `
       <div id="pedido_${v.id}" class="pedido-card${classeExtra}" onclick="${onclickCard}">
         <div class="pedido-card-top">
-          <span class="pedido-hora">${v.horario ? '🕒 '+escapeHtml(v.horario) : v.horarioPreferencia ? escapeHtml(v.horarioPreferencia) : 'Sem horário'}</span>
+          <span class="pedido-hora order-delivery-time">${v.horario ? '🕒 '+escapeHtml(v.horario) : v.horarioPreferencia ? escapeHtml(v.horarioPreferencia) : 'Sem horário'}</span>
           <span style="display:flex; align-items:center; gap:8px;">
             <span class="pill st-${v.status==='concluido'&&!window.completedSale(v)?'verificar':v.status}">${pedidosAAtualizar.has(v.shopifyOrderId)?'A atualizar…':v.status==='concluido'&&!window.completedSale(v)?'A verificar':STATUS_LABEL[v.status]}</span>
             ${modoSelecaoPedidos
@@ -2299,7 +2299,7 @@ function renderPedidos(){
           <button onclick="gerarPDFPedido('${v.id}')">📄 PDF</button>
           <select class="mover-semana-select" onchange="moverPedidoSemana('${v.id}', this.value); this.value='';">
             <option value="">Mover para…</option>
-            ${SEMANAS.filter(s=>s.key!==v.semana).map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}
+            ${SEMANAS.filter(s=>s.key!==window.deliveryGroup(v.semana,v.data)).map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}
           </select>
           </div></details>
         </fieldset>`}
@@ -2385,7 +2385,7 @@ function renderVendaTable(){
         <td class="order-list-toggle"><button type="button" class="compact-order-toggle" aria-label="${pedidosListaExpandidos.has(v.id)?'Recolher pedido':'Expandir pedido'}" aria-expanded="${pedidosListaExpandidos.has(v.id)}" onclick="toggleHistoryDetails(this)">⌄</button></td>
         <td class="mono" data-label="Data">${fmtData(v.data)}</td>
         <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${v.horarioPreferencia && !v.horario?`<small class="order-schedule-note">${escapeHtml(v.horarioPreferencia)}</small>`:''}${orderNoteMarkup(v)}</td>
+        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${v.horarioPreferencia && !v.horario?`<small class="order-schedule-note order-delivery-time">${escapeHtml(v.horarioPreferencia)}</small>`:''}${orderNoteMarkup(v)}</td>
         <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
         <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
         <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2443,7 +2443,7 @@ function editVenda(id){
   switchMain('vendas');
   switchVendasView('pedidos');
   mesAtivoVendas=v.mes || v.data.slice(0,7);guardarMesPreferido();
-  if(v.semana && v.semana!==semanaAtiva){ semanaAtiva = v.semana; }
+  if(v.semana) semanaAtiva = window.deliveryGroup(v.semana,v.data);
   renderVendasAll();
   abrirVendaForm();if(document.getElementById('orderExtraFields'))document.getElementById('orderExtraFields').open=true;
   dpVData.setValue(v.data);

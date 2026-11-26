@@ -1,6 +1,10 @@
 export function validDay(value){
  return /^\d{4}-\d{2}-\d{2}$/.test(value || '') && Number.isFinite(Date.parse(value+'T12:00:00Z')) && new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value;
 }
+export function deliveryGroup(group,date){
+ if(group!=='provincias')return group;
+ return 'semana'+Math.min(4,Math.ceil((Number(date?.slice(8,10)) || 1)/7));
+}
 export function scheduleOrder(record,{date,time=record.horario || '',group},now=new Date().toISOString()){
  if(!['pendente','remarcado'].includes(record.status))throw new Error('Só podes reagendar pedidos pendentes ou remarcados.');
  if(!validDay(date))throw new Error('Escolhe uma data válida para a entrega.');
@@ -22,15 +26,15 @@ export function normalizeDeliveryTime(raw){
 }
 
 export function deliveryTimeFields(raw){
- const value=String(raw ?? '').trim();
+ const value=String(raw ?? '');
  const horario=normalizeDeliveryTime(value);
- return {horario,horarioPreferencia:horario?'':value.slice(0,4000)};
+ return {horario,horarioPreferencia:horario || !value.trim()?'':value.slice(0,4000)};
 }
 
 export function shopifyDeliveryTime(attributes=[]){
  let preference='';
 
- const labels=new Set(['hora da entrega','horario da entrega','horario de entrega','hora de entrega','horario','hora preferida','hora','delivery time','preferred delivery time']);
+ const labels=new Set(['hora da entrega','horario da entrega','horario de entrega','hora de entrega','horario','hora preferida','horario preferido','preferencia de entrega','data e hora da entrega','data e horario de entrega','data e hora de entrega','data e horario da entrega','dia e hora de entrega','hora','delivery time','preferred delivery time','delivery date and time']);
  for(const attribute of attributes){
   const label=String(attribute.name || attribute.key || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ');
   if(labels.has(label)){

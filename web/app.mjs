@@ -1,4 +1,5 @@
-import {deliveryTimeFields,shopifyDeliveryTime,appendAlternateContact} from './orders.mjs';
+import {deliveryGroup,deliveryTimeFields,shopifyDeliveryTime,appendAlternateContact} from './orders.mjs';
+window.deliveryGroup=deliveryGroup;
 window.deliveryTimeFields=deliveryTimeFields;
 window.shopifyDeliveryTime=shopifyDeliveryTime;
 window.appendAlternateContact=appendAlternateContact;
