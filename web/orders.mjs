@@ -13,9 +13,24 @@ export function scheduleOrder(record,{date,time=record.horario || '',group},now=
 
 export function normalizeDeliveryTime(raw){
  const value=String(raw ?? '').trim();
- const match=/^(\d{1,2})(?::(\d{2}))?$/.exec(value);
- if(!match || Number(match[1])>23 || Number(match[2] || 0)>59)return '';
- return match[1].padStart(2,'0')+':'+(match[2] || '00');
+ const match=/^(\d{1,2})(?:\s*[:.h]\s*(\d{2})(?::[0-5]\d)?|\s*h)?\s*(am|pm)?$/i.exec(value);
+ if(!match)return '';
+ const [,hour,minute='00',period]=match;
+ const hours=Number(hour);
+ if(Number(minute)>59 || (period?(hours<1 || hours>12):hours>23))return '';
+ return String(period?hours%12+(period.toLowerCase()==='pm'?12:0):hours).padStart(2,'0')+':'+minute;
+}
+
+export function shopifyDeliveryTime(attributes=[]){
+ const labels=new Set(['hora da entrega','horario da entrega','horario de entrega','hora de entrega','horario','hora preferida','hora','delivery time','preferred delivery time']);
+ for(const attribute of attributes){
+  const label=String(attribute.name || attribute.key || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ');
+  if(labels.has(label)){
+   const time=normalizeDeliveryTime(attribute.value);
+   if(time)return time;
+  }
+ }
+ return '';
 }
 
 export function appendAlternateContact(contact,alternative){

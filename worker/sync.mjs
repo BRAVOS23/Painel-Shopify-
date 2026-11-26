@@ -3,7 +3,7 @@ import {readAll} from '../server/paging.mjs';
 import {createHistoryImport} from '../server/history.mjs';
 import {createPrivacy} from '../server/privacy.mjs';
 import {accountAccess,assertWritable} from '../server/access.mjs';
-import {createStatusAudit} from '../server/status-audit.mjs';
+import {createStatusAudit,SHOPIFY_STATUS_AUDIT_VERSION} from '../server/status-audit.mjs';
 import {createCatalog} from '../server/catalog.mjs';
 import {decrypt} from '../server/security.mjs';
 import {shopifyRecords,metaRecords} from '../server/model.mjs';
@@ -80,7 +80,7 @@ export function createFreeSync(store,providers,config){
   const connection=(await store.connection(owner,provider).get()).data();
   if(!connection || (provider==='meta' && !connection.accountId))return {idle:true};
   if(provider==='shopify' && connection.historyImport && !connection.historyImport.completedAt)return createHistoryImport(store,providers,config).run(owner);
-  if(provider==='shopify' && ((!connection.statusAudit && connection.lastSync) || (connection.statusAudit && !connection.statusAudit.completedAt)))return createStatusAudit(store,providers,config).run(owner);
+  if(provider==='shopify' && ((connection.statusAudit?.version!==SHOPIFY_STATUS_AUDIT_VERSION && connection.lastSync && !connection.progress) || (connection.statusAudit && !connection.statusAudit.completedAt)))return createStatusAudit(store,providers,config).run(owner);
   if(provider==='shopify' && connection.catalogEnabled && (connection.catalogAfter || !connection.catalogLastSync || Date.now()-Date.parse(connection.catalogLastSync)>86400000)){try{await createCatalog(store,providers,config).refresh(owner,connection);}catch(error){await store.connection(owner,'shopify').update({catalogAfter:null,catalogLastSync:new Date().toISOString(),catalogLastError:error.message});}return {catalog:true};}
   if(!connection.progress && connection.lastSync && Date.now()-Date.parse(connection.lastSync)<15*60000)return {idle:true};
   return run(owner,provider);

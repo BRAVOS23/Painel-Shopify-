@@ -75,9 +75,9 @@ export function createProviders(config, fetcher = fetch) {
     return data.currentAppInstallation.accessScopes.map(scope=>scope.handle);
   }
   async function shopifyOrderStatuses(shop,token,ids){
-    const data=await shopifyGraphql(shop,token,`query($ids:[ID!]!){nodes(ids:$ids){... on Order{legacyResourceId name updatedAt cancelledAt displayFinancialStatus displayFulfillmentStatus}}}`,{ids:ids.map(id=>`gid://shopify/Order/${id}`)});
+    const data=await shopifyGraphql(shop,token,`query($ids:[ID!]!){nodes(ids:$ids){... on Order{legacyResourceId name updatedAt cancelledAt displayFinancialStatus displayFulfillmentStatus customAttributes{key value}}}}`,{ids:ids.map(id=>`gid://shopify/Order/${id}`)});
     if(!Array.isArray(data.nodes) || data.nodes.filter(Boolean).some(order=>!order.legacyResourceId || !order.updatedAt || !order.displayFinancialStatus || !order.displayFulfillmentStatus))throw new Error('A Shopify devolveu estados incompletos; os dados guardados foram preservados.');
-    return data.nodes.filter(Boolean).map(order=>({id:String(order.legacyResourceId),name:order.name,updated_at:order.updatedAt,cancelled_at:order.cancelledAt,financial_status:String(order.displayFinancialStatus || '').toLowerCase(),fulfillment_status:order.displayFulfillmentStatus==='FULFILLED'?'fulfilled':'unfulfilled'}));
+    return data.nodes.filter(Boolean).map(order=>({id:String(order.legacyResourceId),name:order.name,note_attributes:order.customAttributes || [],updated_at:order.updatedAt,cancelled_at:order.cancelledAt,financial_status:String(order.displayFinancialStatus || '').toLowerCase(),fulfillment_status:order.displayFulfillmentStatus==='FULFILLED'?'fulfilled':'unfulfilled'}));
   }
   async function shopifyStatus(shop,token,id,status) {
     const orderId=`gid://shopify/Order/${id}`;

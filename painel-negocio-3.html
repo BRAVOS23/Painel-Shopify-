@@ -406,10 +406,15 @@
   .pedido-detalhes{ font-size:12.5px; color:var(--sand-dim); line-height:1.5; }
   .pedido-expand-chev{ display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:var(--sand-dimmer); transition:transform .2s; }
   .pedido-card.expanded .pedido-expand-chev{ transform:rotate(180deg); }
-  .order-note,.order-number{ display:block; color:var(--sand-dim); font-size:12px; overflow-wrap:anywhere; }
-  .order-note-text{ white-space:pre-wrap; }
-  .order-note-text,.pedido-card.expanded .order-note-indicator,tr.history-row-expanded .order-note-indicator{ display:none; }
+  .order-note,.order-number{ display:block; font-size:13px; overflow-wrap:anywhere; }
+  .order-number{ color:var(--brand); font-weight:700; }
+  .order-note-button{ display:inline-flex; align-items:center; gap:7px; min-height:44px; padding:6px 12px; margin:5px 0; border:1px solid var(--panel-line); border-radius:9px; background:var(--panel); color:var(--sand); font:600 13px var(--font-body); cursor:pointer; }
+  .order-note-button.has-note{ border-color:var(--gold); }
+  .order-note-dot{ width:8px; height:8px; border-radius:50%; background:var(--gold); flex:none; }
+  .order-note-text{ display:none; color:var(--sand); white-space:pre-wrap; }
   .pedido-card.expanded .order-note-text,tr.history-row-expanded .order-note-text{ display:block; }
+  #orderNoteValue{ width:100%; min-height:125px; resize:vertical; padding:12px; margin:8px 0 16px; border:1px solid var(--panel-line); border-radius:9px; background:var(--panel); color:var(--sand); font:inherit; font-size:16px; }
+  #orderNoteDialog textarea[readonly]{ resize:none; }
   /* modo de seleção pra exportar só alguns pedidos em PDF (em vez de todos os do dia) */
   .pedido-card.selecionavel{ cursor:pointer; }
   .pedido-card.selecionado{ border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-soft); }
@@ -1143,6 +1148,18 @@
   <footer>Painel do Negócio</footer>
 </div>
 
+<dialog id="orderNoteDialog" class="app-dialog" aria-labelledby="orderNoteTitle">
+  <div class="dialog-head"><h2 id="orderNoteTitle">Nota do pedido</h2><button class="dialog-close" type="button" aria-label="Fechar" onclick="this.closest('dialog').close()">×</button></div>
+  <form class="dialog-body" id="orderNoteForm" onsubmit="saveOrderNote(event)">
+    <label for="orderNoteValue">Nota</label>
+    <textarea id="orderNoteValue" maxlength="4000" rows="5" autofocus></textarea>
+    <div class="schedule-actions">
+      <button class="btn-ghost" type="button" onclick="this.closest('dialog').close()">Fechar</button>
+      <button class="btn-primary" id="orderNoteSave" type="submit">Guardar nota</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 /* ============ ESTADO GERAL ============ */
 const FLUXO_KEY = 'lobo_fluxo_caixa_v2';
@@ -1841,14 +1858,15 @@ function importarCSVShopifyNativo(){
 
         const provinciaCSV=String(cols[col('Shipping Province Name')] || campoMapeado(parseNoteAttributes(cols[iNotas]),'provincia') || cols[col('Shipping Province')] || '').trim();
         const alternativoCSV=campoMapeado(parseNoteAttributes(cols[iNotas]),'alternativo');
-        const horarioCSV=normalizeHorario(campoMapeado(parseNoteAttributes(cols[iNotas]),'horario'));
+        const notas = parseNoteAttributes(cols[iNotas]);
+        const horarioCSV=normalizeHorario(campoMapeado(notas,'horario')) || window.shopifyDeliveryTime(Object.entries(notas).map(([key,value])=>({key,value})));
         const existenteIdx = vendasData.findIndex(v=>v.shopifyOrderId===shopifyOrderId);
         if(existenteIdx>-1){
           for(const existenteIdx of vendasData.map((row,index)=>row.shopifyOrderId===shopifyOrderId?index:-1).filter(index=>index>=0)){
           const old=vendasData[existenteIdx],fulfillment=String(iFulfillment>=0?cols[iFulfillment]:'').trim().toLowerCase();
           const contactoCSV=window.appendAlternateContact(old.contacto,alternativoCSV);
           const nextStatus=status==='pendente'?(old.panelConfirmed?'concluido':old.status==='remarcado'?'remarcado':'pendente'):status;
-          const details={...(shopifyOrderName?{shopifyOrderName}:{}),...(!old.descricao?.trim() && descricao?{descricao}:{})};
+          const details={...(shopifyOrderName?{shopifyOrderName}:{}),...(!old.noteEdited && !old.descricao?.trim() && descricao?{descricao}:{})};
           if(Object.entries(details).some(([key,value])=>old[key]!==value) || old.contacto!==contactoCSV || old.status!==nextStatus || old.shopifyFinancialStatus!==finStatus || old.shopifyFulfillmentStatus!==fulfillment || (provinciaCSV && old.provincia!==provinciaCSV) || (!old.horario && horarioCSV && !old.reagendamentos?.length)){
             vendasData[existenteIdx]={...old,...details,contacto:contactoCSV,...(!old.horario && horarioCSV && !old.reagendamentos?.length?{horario:horarioCSV}:{}),...(provinciaCSV?{provincia:provinciaCSV}:{}),status:nextStatus,panelConfirmed:status==='cancelado'?false:old.panelConfirmed===true,shopifyFinancialStatus:finStatus,shopifyFulfillmentStatus:fulfillment};atualizados++;
           }
@@ -1856,7 +1874,6 @@ function importarCSVShopifyNativo(){
           continue;
         }
 
-        const notas = parseNoteAttributes(cols[iNotas]);
         const nome = campoMapeado(notas,'nome') || String(cols[iShipName]||'').replace(/\s*-\s*$/,'').trim();
         // muitos pedidos têm DOIS números diferentes: o que o cliente escreveu no formulário do
         // checkout (campo mapeado como "contacto") e o número da própria conta/entrega da Shopify —
@@ -1873,7 +1890,7 @@ function importarCSVShopifyNativo(){
         const provincia = provinciaCSV;
         const localBase = campoMapeado(notas,'local');
         const local = localBase;
-        const horario = normalizeHorario(campoMapeado(notas,'horario'));
+        const horario = horarioCSV;
 
         const createdRaw = String(cols[iCreated]||'').trim();
         const data = createdRaw ? createdRaw.slice(0,10) : drISO(new Date());
@@ -2045,7 +2062,7 @@ function renderHistoricoMesTable(){
     <tr>
       <td class="mono" data-label="Data">${fmtData(v.mes===mesHistoricoSelecionado?v.data:(v.reagendamentos || []).find(item=>item.de.slice(0,7)===mesHistoricoSelecionado)?.de || v.data)}</td>
       <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v.descricao)}</td>
+      <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v)}</td>
       <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
       <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
       <td class="mono" data-label="Qtd">${v.quantidade}</td>
@@ -2056,9 +2073,42 @@ function renderHistoricoMesTable(){
     </tr>`).join('');
 }
 
-function orderNoteMarkup(note){
-  if(!note?.trim()) return '';
-  return `<span class="order-note"><span class="order-note-indicator">Tem nota</span><span class="order-note-text"><strong>Nota</strong> ${escapeHtml(note)}</span></span>`;
+function orderNoteMarkup(row){
+  const note=row.descricao?.trim();
+  const label=note?'Tem nota':window.cloudBackend.canWrite()?'Adicionar nota':'';
+  if(!label)return '';
+  return `<span class="order-note">
+    <button type="button" class="order-note-button${note?' has-note':''}" data-note-id="${escapeHtml(row.id)}" aria-haspopup="dialog" onclick="event.stopPropagation();openOrderNote(this.dataset.noteId)">${note?'<span class="order-note-dot" aria-hidden="true"></span>':''}${label}</button>
+    ${note?`<span class="order-note-text"><strong>Nota</strong> ${escapeHtml(note)}</span>`:''}
+  </span>`;
+}
+function openOrderNote(id){
+  const row=vendasData.find(item=>item.id===id);
+  const dialog=document.getElementById('orderNoteDialog');
+  if(!row || dialog.open)return;
+  const field=document.getElementById('orderNoteValue');
+  dialog.dataset.orderId=id;
+  document.getElementById('orderNoteTitle').textContent='Nota do pedido'+(row.shopifyOrderName?' '+row.shopifyOrderName:'');
+  field.value=row.descricao || '';
+  field.readOnly=!window.cloudBackend.canWrite();
+  document.getElementById('orderNoteSave').hidden=field.readOnly;
+  dialog.showModal();
+}
+function saveOrderNote(event){
+  event.preventDefault();
+  const dialog=document.getElementById('orderNoteDialog');
+  const id=dialog.dataset.orderId;
+  const row=vendasData.find(item=>item.id===id);
+  const descricao=document.getElementById('orderNoteValue').value.trim();
+  if(!row || !window.cloudBackend.canWrite())return;
+  if(descricao!==(row.descricao || '')){
+    const next=vendasData.map(item=>item.id===id?{...item,descricao,noteEdited:true}:item);
+    if(window.cloudBackend.save('vendas',next)===false)return;
+    vendasData=next;
+    dialog.close();
+    renderVendasAll();
+    document.querySelector(`[data-note-id="${CSS.escape(id)}"]`)?.focus();
+  }else dialog.close();
 }
 function orderNumberMarkup(name){
   return name?`<small class="order-number">${escapeHtml(name)}</small>`:'';
@@ -2222,7 +2272,7 @@ function renderPedidos(){
         <div class="pedido-card-main">
           <div class="pedido-contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}</div>
           <div class="pedido-detalhes">${escapeHtml(v.local||'Local não indicado')}</div>${v.provincia?`<div class="order-province">Província: ${escapeHtml(v.provincia)}</div>`:''}
-          ${orderNoteMarkup(v.descricao)}
+          ${orderNoteMarkup(v)}
           ${v.data<drISO(new Date())?'<div class="order-overdue">Entrega em atraso · escolhe uma nova data</div>':''}
           <div class="pedido-detalhes pedido-extra">${escapeHtml(produtoValor||'—')}</div>
           ${(lineCounts.get(v.shopifyOrderId) || 0)>1?`<small class="order-line-hint pedido-extra">Pedido com ${lineCounts.get(v.shopifyOrderId)} linhas de produto. Concluir, cancelar e reagendar aplicam-se ao pedido inteiro.</small>`:''}
@@ -2326,7 +2376,7 @@ function renderVendaTable(){
         <td class="order-list-toggle"><button type="button" class="compact-order-toggle" aria-label="${pedidosListaExpandidos.has(v.id)?'Recolher pedido':'Expandir pedido'}" aria-expanded="${pedidosListaExpandidos.has(v.id)}" onclick="toggleHistoryDetails(this)">⌄</button></td>
         <td class="mono" data-label="Data">${fmtData(v.data)}</td>
         <td data-label="Fonte">${escapeHtml(v.fonte||'—')}</td>
-        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v.descricao)}</td>
+        <td data-label="Contacto">${contactoComAcoes(v.contacto, v.id)}${orderNumberMarkup(v.shopifyOrderName)}${orderNoteMarkup(v)}</td>
         <td data-label="Local">${escapeHtml(v.local||'—')}${v.provincia?`<small class="order-province">Província: ${escapeHtml(v.provincia)}</small>`:''}</td>
         <td data-label="Produto">${escapeHtml(v.produto||'—')}</td>
         <td class="mono" data-label="Qtd">${v.quantidade}</td>

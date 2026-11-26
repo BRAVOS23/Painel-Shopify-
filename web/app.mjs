@@ -1,5 +1,6 @@
-import {normalizeDeliveryTime,appendAlternateContact} from './orders.mjs';
+import {normalizeDeliveryTime,shopifyDeliveryTime,appendAlternateContact} from './orders.mjs';
 window.normalizeDeliveryTime=normalizeDeliveryTime;
+window.shopifyDeliveryTime=shopifyDeliveryTime;
 window.appendAlternateContact=appendAlternateContact;
 import {deliveryAllocations,cancellationAllocations,cancellationRows} from './delivery.mjs';
 import {initBusinessTools} from './business-tools.mjs';
@@ -85,6 +86,7 @@ async function flush(){
  finally{busy=false;if(!failure && dirty())void flush();else if(!failure)window.refreshCloudMetrics?.();}
 }
 window.cloudBackend={
+ canWrite:()=>platformUi?.canWrite()!==false,
  preferenceKey:key=>`${key}:${auth.currentUser?.uid || "anonymous"}`,
  async shopifyConnected(){if(shopifyConnectionKnown!==null)return shopifyConnectionKnown;await connections();return shopifyConnectionKnown;},
  ready:()=>!dirty() && !busy && !failure,

@@ -3,10 +3,13 @@ import {readAll} from './paging.mjs';
 import {captureSaleCost} from '../web/sales.mjs';
 import {decrypt} from './security.mjs';
 import {csvOrderStatus} from '../web/sales.mjs';
+import {shopifyDeliveryTime} from '../web/orders.mjs';
+export const SHOPIFY_STATUS_AUDIT_VERSION=2;
 export function reconciledStatus(row,remote){
  const incoming=csvOrderStatus(remote.financial_status,remote.fulfillment_status,remote.cancelled_at);
+ const time=shopifyDeliveryTime(remote.note_attributes);
  const confirmed=incoming!=='cancelado' && row.panelConfirmed===true;
- return {...row,...(remote.name?{shopifyOrderName:remote.name}:{}),status:incoming==='pendente'?(confirmed?'concluido':row.status==='remarcado'?'remarcado':'pendente'):incoming,panelConfirmed:confirmed,shopifyFinancialStatus:remote.financial_status,shopifyFulfillmentStatus:remote.fulfillment_status};
+ return {...row,...(!row.horario && !row.reagendamentos?.length && time?{horario:time}:{}),...(remote.name?{shopifyOrderName:remote.name}:{}),status:incoming==='pendente'?(confirmed?'concluido':row.status==='remarcado'?'remarcado':'pendente'):incoming,panelConfirmed:confirmed,shopifyFinancialStatus:remote.financial_status,shopifyFulfillmentStatus:remote.fulfillment_status};
 }
 export function createStatusAudit(store,providers,config){
  async function run(uid,{restart=false}={}){
@@ -16,11 +19,14 @@ export function createStatusAudit(store,providers,config){
    assertWritable((await store.business(uid).get()).data(),config);
    const connection=(await ref.get()).data();if(!connection)throw Object.assign(new Error('Ligue a Shopify antes de verificar os pedidos.'),{status:400});
    let audit=connection.statusAudit;
-   if(!audit || restart){
-    const saved=await readAll(store.records(uid,'vendas'),{select:['record.shopifyOrderId']});
+   if(audit?.version!==SHOPIFY_STATUS_AUDIT_VERSION || restart){
+    const saved=await readAll(store.records(uid,'vendas'),{select:['record.shopifyOrderId','record.shopifyOrderName','record.horario','record.data','record.status','record.reagendamentos']});
     const {token}=decrypt(connection.credentials,config.encryptionKey),hasAllOrders=providers.shopifyScopes?(await providers.shopifyScopes(connection.shop,token)).includes('read_all_orders'):null;
-    const ids=[...new Set(saved.docs.map(doc=>doc.data().record?.shopifyOrderId).filter(id=>/^\d+$/.test(id || '')))];
-    audit={version:1,ids,hasAllOrders,cursor:0,rowOffset:0,checked:0,unavailable:0,startedAt:new Date().toISOString(),completedAt:null};
+    const rows=saved.docs.map(doc=>doc.data().record).filter(row=>/^\d+$/.test(row?.shopifyOrderId || ''));
+    const pendingDetails=rows.filter(row=>['pendente','remarcado'].includes(row.status) && (!row.shopifyOrderName || (!row.horario && !row.reagendamentos?.length)));
+    pendingDetails.sort((a,b)=>(b.data || '').localeCompare(a.data || ''));
+    const ids=[...new Set([...pendingDetails,...rows].map(row=>row.shopifyOrderId))];
+    audit={version:SHOPIFY_STATUS_AUDIT_VERSION,ids,hasAllOrders,cursor:0,rowOffset:0,checked:0,unavailable:0,startedAt:new Date().toISOString(),completedAt:null};
     if(ids.length>500){await ref.update({statusAudit:audit,lastError:null});return {partial:true,checked:0,total:ids.length,unavailable:0,message:'Lista preparada. Os estados serão verificados nos próximos lotes.'};}
    }
    if(audit.completedAt && !restart)return {partial:false,checked:audit.checked,total:audit.ids.length,unavailable:audit.unavailable,requiresAllOrders:audit.unavailable>0 && audit.hasAllOrders===false};
@@ -28,7 +34,7 @@ export function createStatusAudit(store,providers,config){
    if(ids.length){
     const states=await providers.shopifyOrderStatuses(connection.shop,token,ids),byId=new Map(states.map(order=>[String(order.id),order]));
     const owned=await store.records(uid,'vendas').where('record.shopifyOrderId','in',ids).get();
-    const stamp=JSON.stringify(states.map(order=>[order.id,order.updated_at,order.financial_status,order.fulfillment_status,order.cancelled_at]).sort());
+    const stamp=JSON.stringify(states.map(order=>[order.id,order.updated_at,order.financial_status,order.fulfillment_status,order.cancelled_at,order.name,shopifyDeliveryTime(order.note_attributes)]).sort());
     const offset=audit.rowStamp===stamp?(audit.rowOffset || 0):0;
     const products=(await readAll(store.records(uid,'produtos'),{select:['record.id','record.nome','record.aliases','record.custo','record.costConfigured'],budget:{pages:0,maxPages:5}})).docs.map(doc=>doc.data().record);
     const items=owned.docs.filter(doc=>byId.has(doc.data().record.shopifyOrderId)).sort((a,b)=>a.id.localeCompare(b.id)).map(doc=>{const row=doc.data().record,remote=byId.get(row.shopifyOrderId);return {record:captureSaleCost(reconciledStatus(row,remote),products),sourceUpdatedAt:remote.updated_at,statusOnly:true};});

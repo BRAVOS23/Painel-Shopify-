@@ -4,10 +4,24 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {normalizeDeliveryTime,appendAlternateContact} from '../web/orders.mjs';
 import {shopifyRecords} from '../server/model.mjs';
+import {reconciledStatus} from '../server/status-audit.mjs';
 test('API Shopify lê hora do checkout em atributos REST e GraphQL',()=>{
  const order={id:1,currency:'MZN',created_at:'2026-11-09',line_items:[{id:2,title:'Produto',quantity:1,price:'100'}]};
  for(const attribute of [{name:'Hora da entrega',value:'15:00'},{key:'Horário da entrega',value:'23'}])assert.equal(shopifyRecords({...order,note_attributes:[attribute]})[0].horario,normalizeDeliveryTime(attribute.value));
  assert.equal(shopifyRecords({...order,note_attributes:[{name:'Hora da entrega',value:'88'}]})[0].horario,'');
+});
+test('verificação preenche número e hora Shopify sem substituir horários locais',()=>{
+ const remote={name:'#1007',financial_status:'pending',fulfillment_status:'unfulfilled',note_attributes:[{key:'Hora',value:'de tarde'},{key:'Horário de entrega',value:'9h30'}]};
+ const row={id:'saved',shopifyOrderId:'123',status:'pendente',horario:''};
+ const recovered=reconciledStatus(row,remote);
+ assert.equal(recovered.shopifyOrderName,'#1007');
+ assert.equal(recovered.shopifyOrderId,'123');
+ assert.equal(recovered.horario,'09:30');
+ assert.equal(reconciledStatus({...row,horario:'14:30'},remote).horario,'14:30');
+ assert.equal(reconciledStatus({...row,reagendamentos:[{}]},remote).horario,'');
+ assert.equal(normalizeDeliveryTime('3:15 PM'),'15:15');
+ assert.equal(normalizeDeliveryTime('08:30:00'),'08:30');
+ assert.equal(normalizeDeliveryTime('08:70'),'');
 });
 test('reimportar CSV preenche todas as linhas sem hora e preserva horários e reagendamentos',()=>{
  const html=readFileSync(new URL('../painel-negocio-3.html',import.meta.url),'utf8');

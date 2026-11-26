@@ -7,7 +7,7 @@ export function validateRecord(collection, record) {
   if (Object.keys(record).some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) throw new Error('Campo inválido.');
   const known = {
     fluxo: ['id','data','tipo','valor','descricao','observacao'],
-    vendas: ['cancellationCost','cancellationCostDate','deliveryFeeCapturedAt','id','data','horario','fonte','deliveryFee','deliveryFeeMode','contacto','local','provincia','descricao','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyOrderName','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
+    vendas: ['cancellationCost','cancellationCostDate','deliveryFeeCapturedAt','id','data','horario','fonte','deliveryFee','deliveryFeeMode','contacto','local','provincia','descricao','noteEdited','produto','quantidade','valor','delivery','comissao','status','semana','mes','shopifyOrderId','shopifyOrderName','shopifyLineItemId','sourceCurrency','dataPedido','reagendamentos','panelConfirmed','shopifyFinancialStatus','shopifyFulfillmentStatus','shopifyLineCount','unitCost','costCapturedAt'],
     produtos: ['id','nome','custo','foto','locais','aliases','shopifyProductId','shopifyShop','costConfigured'],
     ads: ['id','data','dataFim','nome','tipo','produto','valor','source','campaignId','campaignName','accountId','sourceCurrency','sourceValue','conversionRate','unitCost','shopifyLineCount'],
     operacional: ['id','nome','valor','data','recorrente']
@@ -45,6 +45,7 @@ export function validateRecord(collection, record) {
       for(const location of value){if(!location || Object.keys(location).some(field=>!['id','local','quantidade'].includes(field)))throw new Error('Local de stock inválido.');safeId(location.id);if(ids.has(location.id))throw new Error('Local de stock repetido.');ids.add(location.id);if(typeof location.local!=='string' || location.local.length>4000 || !Number.isInteger(location.quantidade) || location.quantidade<0)throw new Error('Quantidade/local de stock inválido.');}
       continue;
     }
+    if(key==='noteEdited'){if(collection!=='vendas' || typeof value!=='boolean')throw new Error('Estado da nota inválido.');continue;}
     if(key==='panelConfirmed'){if(collection!=='vendas' || typeof value!=='boolean')throw new Error('Confirmação de venda inválida.');continue;}
     if(key==='costConfigured'){if(collection!=='produtos' || typeof value!=='boolean')throw new Error('Estado de custo inválido.');continue;}
     if (key === 'recorrente') { if (typeof value !== 'boolean') throw new Error('Recorrência inválida.'); continue; }
